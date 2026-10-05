@@ -48,7 +48,7 @@ import { registerProductionTelemetryIpc } from "./telemetry/production-telemetry
 import type { SandAuthStatus } from "./account/cursor-auth.js";
 import type { SecureStorageCodec } from "./secrets/secret-store.js";
 import { recordLocalToolApproval as persistLocalToolApproval, clearLocalToolApprovals as clearPersistedLocalToolApprovals } from "../host/local-exec/local-tool-approvals.js";
-import { fetchSandAvailableModels } from "./models/cursor-model-catalog.js";
+import { SAND_CURSOR_MODEL_CATALOG_DISABLED_MESSAGE } from "./models/cursor-model-catalog.js";
 import type { SandSettingsStore } from "../shared/node/settings/sand-settings-store.js";
 import type {
   ElectronMainDependencies,
@@ -718,13 +718,10 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
         broadcast, getTrustedContents,
         settings: requireValue(settings, "settings"), secretsStores: requireValue(secretsStores, "secrets-stores"), accountLifecycle, boxRecovery: requireValue(boxRecovery, "box-recovery"),
         shell, windowChrome, getMainWindow: () => runtime?.getMainWindow(), requireMainEdge: () => requireValue(mainEdge, "main-edge"),
-        fetchAvailableModels: async () => {
-          const response = await fetchSandAvailableModels({
-            getAccessToken: async ({ backendUrl }: { readonly backendUrl?: string }) => await (await requireValue(account, "account").getAuthService()).getValidAccessToken(backendUrl == null ? {} : { backendUrl }),
-            getMachineId: async () => machineId,
-          });
-          return response.toJson();
-        },
+        // The Cursor model catalog is disabled. The picker is filled by the `getAvailableModels`
+        // handler in `main-edge.ts`, which asks `https://api.deepseek.com/models`. This
+        // dependency stays so the wiring contract does not change, and it reaches no network.
+        fetchAvailableModels: async () => { throw new Error(SAND_CURSOR_MODEL_CATALOG_DISABLED_MESSAGE); },
         recordLocalToolApproval: (approval) => persistLocalToolApproval(approval as Parameters<typeof persistLocalToolApproval>[0]),
         clearLocalToolApprovals: () => clearPersistedLocalToolApprovals(),
         requireAccount: () => requireValue(account, "account"), requireExperiments: () => requireValue(experiments, "experiments"),
@@ -792,7 +789,7 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
       bindings.startup.attachTelemetry(telemetry.telemetry);
       desktopLifecycle.attach(telemetry.telemetry);
       if (sessionDeathSettlement?.settlePriorSessionAndArm(metadata.version) === true) void telemetry.spillPending?.();
-      if (env.SAND_DISABLE_TELEMETRY !== "1") {
+      if (env.SAND_ENABLE_TELEMETRY === "1") {
         desktopEventLoopSampler = createDesktopEventLoopTelemetry({
           report: (summary, severity) => telemetry?.telemetry.reportDesktopEventLoop(desktopEventLoopPressureMetadata(summary, severity)),
         });

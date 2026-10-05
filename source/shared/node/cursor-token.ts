@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 
-export const DEFAULT_CURSOR_BACKEND_URL = "https://api2.cursor.sh";
+/**
+ * The Cursor backend is not reachable from this build. The URL can only come from the
+ * environment, and an empty one makes every client that would dial it fail before a socket
+ * is opened. Nothing in DB Bot Lite is expected to call these clients any more.
+ */
+export const DEFAULT_CURSOR_BACKEND_URL = process.env.SAND_BACKEND_URL?.trim() ?? "";
 export const PROD_AUTH_CLIENT_ID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB";
 export const DEV_AUTH_CLIENT_ID = "OzaBXLClY5CAGxNzUhQ2vlknpi07tGuE";
 export const TOKEN_REFRESH_LEEWAY_MS = 5 * 60 * 1_000;
@@ -36,7 +41,8 @@ export function getAccessTokenExpiryMs(token: string): number | null {
 }
 
 export function getConfiguredBackendUrl(env: NodeJS.ProcessEnv = process.env): string {
-  return new URL(env.SAND_BACKEND_URL ?? env.CURSOR_API_BASE_URL ?? DEFAULT_CURSOR_BACKEND_URL).toString();
+  const configured = env.SAND_BACKEND_URL?.trim() ?? env.CURSOR_API_BASE_URL?.trim() ?? DEFAULT_CURSOR_BACKEND_URL;
+  return configured.length === 0 ? "" : new URL(configured).toString();
 }
 
 export function getAuthClientId(backendUrl: string, env: NodeJS.ProcessEnv = process.env): string {

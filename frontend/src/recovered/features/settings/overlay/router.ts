@@ -1,52 +1,32 @@
 import type { AgentDesktopBridge } from "../../../contracts/desktop-bridge";
 
-export type RouterProviderId = "cursor" | "claude-code" | "codex" | "openrouter" | "custom";
+/** DeepSeek is the only provider. The picker has one entry and no alternative. */
+export type RouterProviderId = "deepseek";
 
 export interface RouterProvider {
   readonly id: RouterProviderId;
   readonly label: string;
   readonly description: string;
   readonly usageDescription: string;
-  readonly usageSource: "cursor" | "external";
+  /** DeepSeek meters usage on its own side, so this is always "external". */
+  readonly usageSource: "external";
 }
 
-export const DEFAULT_ROUTER_PROVIDER: RouterProviderId = "cursor";
+export const DEFAULT_ROUTER_PROVIDER: RouterProviderId = "deepseek";
 export const ROUTER_PROVIDER_PERSISTENCE_KEY = "settings.router-provider.v1";
+
+/** The models `GET https://api.deepseek.com/models` currently returns. */
+export const DEEPSEEK_MODEL_CHOICES: readonly { readonly id: string; readonly label: string; readonly description: string }[] = [
+  { id: "deepseek-flash", label: "deepseek-flash", description: "Базовая модель. Понимает текст и картинки. Рекомендуется по умолчанию." },
+  { id: "deepseek-v4-pro", label: "deepseek-v4-pro", description: "Модель с размышлением. Только текст. Для сложных задач." }
+];
 
 export const ROUTER_PROVIDERS: readonly RouterProvider[] = [
   {
-    id: "cursor",
-    label: "Cursor",
-    description: "Use your signed-in Cursor account and its hosted agent models.",
-    usageDescription: "Included and on-demand usage from your Cursor account.",
-    usageSource: "cursor"
-  },
-  {
-    id: "claude-code",
-    label: "Claude Code",
-    description: "Use Anthropic's Claude Code provider for agent requests.",
-    usageDescription: "Claude Code usage is managed by your Anthropic account and is not exposed as an in-app meter.",
-    usageSource: "external"
-  },
-  {
-    id: "codex",
-    label: "Codex",
-    description: "Use OpenAI's Codex provider for agent requests.",
-    usageDescription: "Codex usage is managed by your OpenAI account and is not exposed as an in-app meter.",
-    usageSource: "external"
-  },
-  {
-    id: "openrouter",
-    label: "OpenRouter",
-    description: "Use models and billing from your OpenRouter account.",
-    usageDescription: "OpenRouter usage and spend are managed in your OpenRouter account and are not exposed as an in-app meter.",
-    usageSource: "external"
-  },
-  {
-    id: "custom",
-    label: "Custom",
-    description: "Route through your own OpenAI-compatible endpoint.",
-    usageDescription: "Usage for a custom endpoint is reported by that endpoint and is not exposed as an in-app meter.",
+    id: "deepseek",
+    label: "DeepSeek",
+    description: "Официальный API DeepSeek. Других провайдеров в приложении нет.",
+    usageDescription: "Расход токенов считает DeepSeek, а не DB Bot Lite.",
     usageSource: "external"
   }
 ];

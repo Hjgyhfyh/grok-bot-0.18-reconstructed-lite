@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { CursorUsageSummary, CursorUsageUpgradeAction, DesktopTimeZoneState } from "../../../contracts/desktop-bridge";
+import type { CursorUsageSummary, CursorUsageUpgradeAction, DesktopTimeZoneState, ThemePreference } from "../../../contracts/desktop-bridge";
 import { egressTunnelStatusDescription, type EgressTunnelStatus, type UpdateStatus, type UpdateTrack } from "./updates";
 // @evidence src/app/dist/renderer/assets/index-BlqerJhg.js#L1
 import { INTERNAL_RELEASE_TRACK_CONFIG_URL, UPDATE_TRACK_LABELS, updateStatusMessage } from "./updates";
@@ -12,7 +12,7 @@ import type { SandIconPlatform } from "../../../ui/sand-icon-registry";
 import { SandSelect } from "../../../ui/sand-floating-primitives";
 import { SandSwitch } from "../../../ui/sand-form-primitives";
 import { OverlayDialog } from "../../../ui/overlay-primitives";
-import { ROUTER_PROVIDERS, routerProviderById, type RouterProviderId } from "./router";
+import { DEEPSEEK_MODEL_CHOICES, routerProviderById, type RouterProviderId } from "./router";
 
 export type AccountState =
   | { kind: "logged-out"; errorMessage?: string }
@@ -23,9 +23,9 @@ export interface GeneralSettingsPanelProps {
   account: AccountState;
   accountPending?: boolean;
   accountError?: string | null;
-  theme: "system" | "light" | "dark";
+  theme: ThemePreference;
   onAccountAction(): void;
-  onThemeChange(theme: "system" | "light" | "dark"): void | Promise<unknown>;
+  onThemeChange(theme: ThemePreference): void | Promise<unknown>;
   timeZone?: { state: DesktopTimeZoneState; onChange(timeZone: string | null): void | Promise<DesktopTimeZoneState> };
   localToolPermission?: { state: LocalToolPermissionState; onChange(permission: LocalToolPermission): void | Promise<LocalToolPermission> };
   securityKey?: { enabled: boolean; platform: NodeJS.Platform; onChange(enabled: boolean): void | Promise<boolean> };
@@ -35,11 +35,12 @@ export interface GeneralSettingsPanelProps {
 
 export type LocalToolPermission = "always" | "ask" | "never";
 
-export const THEME_PREFERENCE_OPTIONS: readonly { value: GeneralSettingsPanelProps["theme"]; label: string }[] = [
-  // @evidence recovered/frontend/app/assets/index-BlqerJhg.js#byteOffset=37830 (immutable theme option map)
-  { value: "system", label: "Follow System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" }
+/** Четыре светлых варианта. Значение совпадает с data-theme на <html>. */
+export const THEME_PREFERENCE_OPTIONS: readonly { value: ThemePreference; label: string }[] = [
+  { value: "light-white", label: "Белый" },
+  { value: "milk", label: "Молочный" },
+  { value: "smoke", label: "Дымчатый" },
+  { value: "sky", label: "Небо" }
 ];
 
 export interface LocalToolPermissionState {
@@ -294,7 +295,7 @@ export interface UsageSettingsPanelProps {
 const UPGRADE_ERROR = "Couldn’t complete the upgrade action — try again";
 const CANCEL_TRIAL_COPY = "This ends your Grok Bot trial now and removes your remaining trial credits. Your card won’t be charged either way — the trial never turns into a paid plan on its own.";
 
-export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onCancelTrial, onCancelDialogOpen, provider = "cursor" }: UsageSettingsPanelProps) {
+export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onCancelTrial, onCancelDialogOpen, provider = "deepseek" }: UsageSettingsPanelProps) {
   const [upgradePending, setUpgradePending] = useState(false);
   const [upgradeNotice, setUpgradeNotice] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
@@ -462,31 +463,90 @@ export interface RouterSettingsPanelProps {
   provider: RouterProviderId;
   pending?: boolean;
   onChange(provider: RouterProviderId): void | Promise<unknown>;
+  /** The DeepSeek model this installation uses. `null` while the first read is in flight. */
+  modelId?: string | null;
+  onModelChange?(modelId: string): void | Promise<unknown>;
+  /** True when a key is already stored. The stored value is never sent to the renderer. */
+  apiKeyConfigured?: boolean;
+  /** Что показать, когда ключа нет. Текст приходит из основного процесса. */
+  apiKeyMessage?: string | null;
+  onSaveApiKey?(apiKey: string): void | Promise<unknown>;
 }
 
-export function RouterSettingsPanel({ provider, pending = false, onChange }: RouterSettingsPanelProps) {
+/**
+ * DeepSeek is the only provider, so this panel has no provider choice left: it shows which
+ * model is used, where the key lives, and what to do when the key is missing.
+ */
+export function RouterSettingsPanel({ provider, pending = false, modelId, onModelChange, apiKeyConfigured = false, apiKeyMessage, onSaveApiKey }: RouterSettingsPanelProps) {
   const selectedProvider = routerProviderById(provider);
+  const [apiKeyDraft, setApiKeyDraft] = useState("");
+  const models = DEEPSEEK_MODEL_CHOICES.some((choice) => choice.id === modelId) ? DEEPSEEK_MODEL_CHOICES : DEEPSEEK_MODEL_CHOICES;
+  const selectedModel = models.find((choice) => choice.id === modelId) ?? models[0]!;
   return (
     <div className="sand-router-section">
-      <SettingsGroup title="Provider">
+      <SettingsGroup title="Провайдер">
         <label className="sand-settings-row">
           <span className="sand-settings-copy">
-            <strong>Route agent requests through</strong>
+            <strong>Модели</strong>
             <small>{selectedProvider.description}</small>
           </span>
           <SandSelect
-            ariaLabel="Router provider"
+            ariaLabel="Модель DeepSeek"
             className="ui-select-trigger"
-            disabled={pending}
+            disabled={pending || onModelChange === undefined}
             menuSize="md"
-            onValueChange={(value) => void onChange(value)}
-            options={ROUTER_PROVIDERS.map((option) => ({ value: option.id, label: option.label }))}
+            onValueChange={(value) => void onModelChange?.(value)}
+            options={models.map((choice) => ({ value: choice.id, label: choice.label }))}
             placement="bottom-end"
-            value={provider}
+            value={selectedModel.id}
           />
         </label>
+        <div className="sand-settings-row">
+          <span className="sand-settings-copy">
+            <strong>{selectedModel.label}</strong>
+            <small>{selectedModel.description}</small>
+          </span>
+        </div>
       </SettingsGroup>
-      <SettingsGroup title="Usage">
+      <SettingsGroup title="Ключ DeepSeek API">
+        <div className="sand-settings-row">
+          <span className="sand-settings-copy">
+            <strong>Ключ</strong>
+            <small>
+              {apiKeyConfigured
+                ? "Ключ сохранён в настройках на этом компьютере. Он не попадает в интернет иначе, чем в запросы к api.deepseek.com."
+                : apiKeyMessage ?? "Не задан ключ DeepSeek API. Открой Настройки → DeepSeek и вставь ключ вида sk-…"}
+            </small>
+          </span>
+        </div>
+        {onSaveApiKey === undefined ? null : (
+          <label className="sand-settings-row">
+            <span className="sand-settings-copy">
+              <strong>Вставь ключ</strong>
+              <small>Ключ хранится только на этом компьютере, в файле настроек.</small>
+            </span>
+            <input
+              aria-label="Ключ DeepSeek API"
+              autoComplete="off"
+              disabled={pending}
+              onChange={(event) => setApiKeyDraft(event.currentTarget.value)}
+              placeholder={apiKeyConfigured ? "Ключ уже сохранён — введите новый, чтобы заменить" : "sk-…"}
+              type="password"
+              value={apiKeyDraft}
+            />
+          </label>
+        )}
+        {onSaveApiKey === undefined || apiKeyDraft.trim().length === 0 ? null : (
+          <SandButton
+            disabled={pending}
+            onClick={() => { void Promise.resolve(onSaveApiKey(apiKeyDraft.trim())).then(() => setApiKeyDraft(""), () => setApiKeyDraft("")); }}
+            title="Сохранить ключ"
+          >
+            Сохранить ключ
+          </SandButton>
+        )}
+      </SettingsGroup>
+      <SettingsGroup title="Расход">
         <div className="sand-provider-usage-card">
           <strong>{selectedProvider.label}</strong>
           <span>{selectedProvider.usageDescription}</span>

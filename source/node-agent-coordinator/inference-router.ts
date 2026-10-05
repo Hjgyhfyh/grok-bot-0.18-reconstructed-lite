@@ -3,11 +3,11 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { runRoutedProviderText } from "../host/extensions/inference/provider-session.js";
-import type { SandInferenceProvider } from "../shared/inference-router.js";
+import { SAND_INFERENCE_PROVIDERS, type SandInferenceProvider } from "../shared/inference-router.js";
 import { SandSettingsStore } from "../shared/node/settings/sand-settings-store.js";
 
 type StoredEntry = {
-  readonly provider: Exclude<SandInferenceProvider, "cursor">;
+  readonly provider: SandInferenceProvider;
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly richText?: string;
@@ -104,7 +104,7 @@ export function parseInferenceRouterTranscriptStore(value: unknown): Store {
     const entries: StoredEntry[] = [];
     for (const raw of rawEntries) {
       const row = asRecord(raw);
-      if (row == null || !["codex", "claude-code", "openrouter", "custom"].includes(String(row.provider)) || !["user", "assistant"].includes(String(row.role)) || typeof row.content !== "string" || typeof row.id !== "string" || typeof row.timestampMs !== "number" || (row.clientNonce !== undefined && typeof row.clientNonce !== "string") || (row.richText !== undefined && typeof row.richText !== "string")) continue;
+      if (row == null || !["deepseek"].includes(String(row.provider)) || !["user", "assistant"].includes(String(row.role)) || typeof row.content !== "string" || typeof row.id !== "string" || typeof row.timestampMs !== "number" || (row.clientNonce !== undefined && typeof row.clientNonce !== "string") || (row.richText !== undefined && typeof row.richText !== "string")) continue;
       if (row.reactions !== undefined && (!Array.isArray(row.reactions) || row.reactions.some(reaction => asRecord(reaction) == null || typeof asRecord(reaction)!.emoji !== "string" || typeof asRecord(reaction)!.by !== "string"))) continue;
       entries.push(row as unknown as StoredEntry);
     }
@@ -191,7 +191,7 @@ export function createCoordinatorInferenceRouter(options: {
   // A name is asked for once, while the agent is still untitled, so a title the user or the
   // agent already chose is never overwritten by a fresh guess on every message. Nothing here
   // can fail a turn: no title is an acceptable outcome, and an error is not worth a bubble.
-  const nameConversation = async (provider: Exclude<SandInferenceProvider, "cursor">, agentId: string, prompt: string): Promise<void> => {
+  const nameConversation = async (provider: SandInferenceProvider, agentId: string, prompt: string): Promise<void> => {
     const roster = await options.dispatchRemote("listAgents", {});
     if (!Array.isArray(roster)) return;
     const current = asRecord(roster.find(raw => asRecord(raw)?.id === agentId));
@@ -200,9 +200,6 @@ export function createCoordinatorInferenceRouter(options: {
     const reply = await runRoutedProviderText(
       provider,
       [{ role: "user", content: `${ROUTED_TITLE_INSTRUCTION}\n\n${prompt.slice(0, ROUTED_TITLE_SOURCE_CHARS)}` }],
-      // The conversation is the identity OpenCode Go caches on, and the agent id is stable
-      // for the life of the conversation.
-      { sessionId: agentId },
     );
     const envelope = parseRoutedControlEnvelope(reply);
     if (envelope == null) return;
@@ -228,7 +225,7 @@ export function createCoordinatorInferenceRouter(options: {
           return { handled: true, value: undefined };
         }
       }
-      if (provider !== "cursor" && ["getAgentTranscriptTail", "openAgentTail", "getAgentTranscriptWindow"].includes(method)) {
+      if (["getAgentTranscriptTail", "openAgentTail", "getAgentTranscriptWindow"].includes(method)) {
         const record = asRecord(args) ?? {};
         const agentId = typeof record.id === "string" ? record.id : "";
         const [remote, local] = await Promise.all([options.dispatchRemote(method, args), load()]);
@@ -249,7 +246,12 @@ export function createCoordinatorInferenceRouter(options: {
       // had sent it. None of that reaches the user any more: the route declines the turn and
       // `dispatchRequest` forwards it to the box, where the runner has its real system
       // prompt, its real toolset and `SendMessage` as the only way to speak.
-      if (method !== "sendPrompt" || provider === "cursor") return { handled: false };
+      if (method !== "sendPrompt") return { handled: false };
+      // A settings file or a transcript written by an earlier build can still name a provider
+      // this build does not have. Naming a conversation is a courtesy, and a courtesy asked on
+      // behalf of a provider that does not exist is a request nobody can account for, so the
+      // turn is declined without any outbound call at all.
+      if (!SAND_INFERENCE_PROVIDERS.includes(provider)) return { handled: false };
       const record = asRecord(args) ?? {};
       const agentId = typeof record.agentId === "string" ? record.agentId : "";
       const prompt = typeof record.prompt === "string" ? record.prompt : "";

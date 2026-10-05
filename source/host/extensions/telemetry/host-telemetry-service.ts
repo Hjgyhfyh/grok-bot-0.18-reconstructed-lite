@@ -215,7 +215,7 @@ export class HostTelemetryService {
       unsubscribeRenewal();
       unsubscribeModelExperiment();
     };
-    const telemetryEnabled = process.env.SAND_DISABLE_TELEMETRY !== "1";
+    const telemetryEnabled = process.env.SAND_ENABLE_TELEMETRY === "1";
     if (telemetryEnabled) {
       this.pressureProfiler = createPressureCpuProfiler({
         overrides: () =>

@@ -265,9 +265,12 @@ test("the preload and main edge expose one read-only model-listing call", async 
   const mainEdge = await readFile(path.join(repoRoot, "source", "electron-main", "main-edge.ts"), "utf8");
 
   assert.match(preload, /listInferenceRouterModels: \(baseUrl: string\) => edge\("listInferenceRouterModels", \{ baseUrl \}\)/);
-  assert.match(mainEdge, /listInferenceRouterModels: async \(raw\) => await listSandEndpointModels\(\{ baseUrl: req\(raw\)\.baseUrl, apiKey: await storedCustomEndpointApiKey\(deps\) \}\)/);
+  assert.match(mainEdge, /listInferenceRouterModels: async \(raw\) => await listSandEndpointModels\(\{ baseUrl: req\(raw\)\.baseUrl \?\? DEEPSEEK_BASE_URL, apiKey: await secretDeepSeekApiKey\(deps\) \}\)/);
+  // The model list comes from DeepSeek itself. The Cursor catalog is wired but disabled, and
+  // the handler above never calls it, so `api2.cursor.sh` is not asked what models exist.
+  assert.match(mainEdge, /getAvailableModels: async \(\) => await listSandEndpointModels\(\{ baseUrl: DEEPSEEK_BASE_URL, apiKey: await secretDeepSeekApiKey\(deps\) \}\)/);
   // The handler reveals the key itself and never forwards it into the reply.
-  assert.match(mainEdge, /const CUSTOM_ENDPOINT_SECRET_KEY = "OPENAI_COMPATIBLE_API_KEY"/);
+  assert.match(mainEdge, /const CUSTOM_ENDPOINT_SECRET_KEY = "DEEPSEEK_API_KEY"/);
   assert.equal(serializable(mainEdge.match(/listInferenceRouterModels:[^\n]*/)[0]).includes(SECRET), false);
   // Untouched by this change: the router save path a test regex-matches.
   assert.match(mainEdge, /syncHostSettingsToBox\(\{ inferenceProvider: provider \}\)/);

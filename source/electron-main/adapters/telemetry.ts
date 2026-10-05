@@ -113,7 +113,7 @@ export function createElectronProductionTelemetryBinding(): ElectronProductionAd
         spill: createDesktopStructuredLogSpill({
           path: join(electron.app.getPath("userData"), DESKTOP_STRUCTURED_LOG_SPILL_FILE_NAME),
           onFailure: (failure) => {
-            if (context.env.SAND_DISABLE_SENTRY !== "1") captureSandSentryWarning(`desktop telemetry spill ${failure.operation} failed: ${failure.errorClass}`);
+            if (context.env.SAND_ENABLE_SENTRY === "1") captureSandSentryWarning(`desktop telemetry spill ${failure.operation} failed: ${failure.errorClass}`);
           },
         }),
         getAccessToken: async ({ backendUrl }) => (await account.getAuthService()).getValidAccessToken({ backendUrl }),

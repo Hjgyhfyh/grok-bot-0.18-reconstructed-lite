@@ -8,8 +8,13 @@ import { getSandBackendClientHeaders } from "../sand-client-metadata.js";
 import { parseRetryAfterHeaderMs } from "../../retry-after.js";
 import { reportExperimentsDiagnostic } from "./experiments-diagnostics.js";
 
-export const STATSIG_CLIENT_KEY = "client-Bm4HJ0aDjXHQVsoACMREyLNxm5p6zzuzhO50MgtoT5D";
-export const STATSIG_LOG_EVENT_PROXY_URL = "https://api3.cursor.sh/tev1/v1";
+/**
+ * Statsig is disabled. The client key and the log-event proxy below belonged to the Cursor
+ * product and both point at Cursor hosts. They are kept as empty strings so a build cannot
+ * report a single event: every caller treats an empty key as "no client".
+ */
+export const STATSIG_CLIENT_KEY = "";
+export const STATSIG_LOG_EVENT_PROXY_URL = "";
 export const BOOTSTRAP_CACHE_FILENAME = "sand-statsig-bootstrap.json";
 
 export function sandStatsigNetworkUrlAllowed(url: string): boolean { return url.includes("/rgstr"); }
@@ -30,6 +35,10 @@ export async function fetchStatsigBootstrap(options: {
   readonly getAccessToken: (options: { backendUrl: string }) => Promise<string>;
   readonly getMachineId: () => Promise<string>; readonly fetchImpl?: typeof fetch; readonly env?: NodeJS.ProcessEnv | undefined;
 }): Promise<{ config?: string; retryAfterMs?: number }> {
+  // Statsig is disabled in DB Bot Lite. An empty client key is the switch: no request is made,
+  // so nothing reaches the Cursor backend and every feature gate falls back to the bundled
+  // default below. Removing the feature-flag service entirely is a separate, larger change.
+  if (STATSIG_CLIENT_KEY.length === 0) return {};
   const accessToken = await options.getAccessToken({ backendUrl: options.backendUrl }).catch((error) => { reportExperimentsDiagnostic({ kind: "bootstrap_anonymous", errorClass: errorLogTag(error) }); return undefined; });
   const machineId = await options.getMachineId();
   const headers = new Headers({ "content-type": "application/json", "x-cursor-checksum": createCursorChecksum(machineId), ...getSandBackendClientHeaders(options.env), "x-ghost-mode": "true", "x-request-id": randomUUID() });

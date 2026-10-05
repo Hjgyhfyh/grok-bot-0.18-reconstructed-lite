@@ -27,6 +27,8 @@ type ExistingMainRpcCoreDeps = Pick<MainEdgeWiringDeps,
   | "ensureTranscriptionManager"
   | "fetchAvailableModels"
   | "readCustomEndpointApiKey"
+  | "getInferenceApiKey"
+  | "setInferenceApiKey"
   | "recordLocalToolApproval"
   | "clearLocalToolApprovals"
   | "experiments"
@@ -212,6 +214,10 @@ function createExistingMainRpcCoreDeps(
     // Read-only probe support for the Router model list: the key is revealed
     // here and handed straight to the lister, never to the renderer.
     readCustomEndpointApiKey: async (key: string) => await context.secretsStores.userSecretsStore.reveal(key),
+    // The DeepSeek key the user typed in Settings. Stored in the user's own
+    // `settings.json`; only its presence is ever reported back to the renderer.
+    getInferenceApiKey: () => (settingsStore as { getInferenceApiKey?(): string | undefined }).getInferenceApiKey?.() ?? null,
+    setInferenceApiKey: (value: string | undefined) => { (settingsStore as { setInferenceApiKey?(next: string | undefined): void }).setInferenceApiKey?.(value); },
     recordLocalToolApproval,
     clearLocalToolApprovals,
     experiments,

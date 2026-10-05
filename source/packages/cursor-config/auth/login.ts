@@ -10,7 +10,9 @@ export interface LoginLinkHandler { openUrl(url: string): Promise<void> }
 
 function stripTrailingSlashes(url: string): string { return url.replace(/\/+$/, ""); }
 function resolveWebsiteUrl(url?: string): string { return stripTrailingSlashes(url ?? process.env.CURSOR_WEBSITE_URL ?? "https://cursor.com"); }
-function resolveApiBaseUrl(url?: string): string { return stripTrailingSlashes(url ?? process.env.CURSOR_API_BASE_URL ?? "https://api2.cursor.sh"); }
+// Cursor sign-in is dead in DB Bot Lite: there is one local user and no account to create.
+// The API base URL is therefore empty unless an operator supplies one.
+function resolveApiBaseUrl(url?: string): string { return stripTrailingSlashes(url ?? process.env.CURSOR_API_BASE_URL ?? ""); }
 function base64UrlEncode(bytes: Uint8Array): string { return Buffer.from(bytes).toString("base64url"); }
 function sha256(data: string): Buffer { return createHash("sha256").update(data).digest(); }
 

@@ -59,7 +59,7 @@ export interface KnownMainRpcArguments {
   generateAgentAvatarImage: { description: string };
   transcribeAudio: { audio: Uint8Array; mimeType: string; language?: string };
   updateCursorAccountName: { name: string };
-  setThemePreference: { preference: "system" | "light" | "dark" };
+  setThemePreference: { preference: "light-white" | "milk" | "smoke" | "sky" };
   setEgressTunnelEnabled: { enabled: boolean };
   setWebauthnProxyEnabled: { enabled: boolean };
   setOnboardingSeen: { seen: boolean };

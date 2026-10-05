@@ -233,15 +233,28 @@ test("a title that cannot be stored never turns into an error in the chat", asyn
   }
 });
 
-test("the cursor provider declines the turn and asks the model for nothing, exactly as before", async () => {
+// The Cursor provider is gone. What a settings file still naming it produces is not a decline:
+// the store rewrites the retired id onto the one provider this build has, so the route still
+// names the conversation — with DeepSeek, and with nothing else on the wire. The obligation
+// this file was opened for survives that: a retired provider name must never reach a model
+// as itself.
+test("a retired provider name is rewritten, and only DeepSeek is ever addressed", async () => {
   const loaded = await loadRouter({ provider: "cursor" });
   const host = stubbedHost();
   try {
     const run = await sendPrompt(loaded, host);
 
-    assert.equal(run.dispatched.handled, false, "the cursor provider stopped declining sendPrompt, which is not this route's to change");
-    assert.deepEqual(run.providerCalls, [], "the cursor provider was sent a request it never sent before");
-    assert.deepEqual(host.remote, [], "the cursor provider was asked for a roster it never needed before");
+    assert.equal(run.dispatched.handled, false, "this route must not claim sendPrompt, which belongs to the box");
+    assert.deepEqual(
+      run.providerCalls.map((call) => call.provider),
+      ["deepseek"],
+      "a retired provider id reached a model as itself, so the rewrite in the settings store is not the last line of defence",
+    );
+    assert.deepEqual(
+      run.providerCalls.map((call) => call.options?.tools),
+      [undefined],
+      "naming a conversation may not carry tools: a tool call here would be a tool call with no agent behind it",
+    );
   } finally {
     await loaded.dispose();
   }

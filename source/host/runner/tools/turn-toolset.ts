@@ -30,7 +30,7 @@ import {
 } from "../../../packages/agent/tools/mcp/mcp.js";
 import { createGetMcpToolsTool } from "../../../packages/agent/tools/mcp/get-mcp-tools.js";
 import type { ProductionTurnToolInputs } from "../../runner-production-bridge.js";
-import { SAND_BOX_WORKSPACE_ROOT } from "../../cloud-agents/cloud-agent-images.js";
+import { SAND_BOX_WORKSPACE_ROOT } from "../../box/box-transfer.js";
 import {
   sandToolCallExecutionTimeoutMs,
   wrapDynamicInvocationToolWithTimeout,
@@ -104,10 +104,6 @@ import {
   createMcpManagementTools,
   type McpManagementDependencies,
 } from "./sand-mcp-management-tools.js";
-import {
-  createCloudAgentTool,
-  type CloudAgentToolDeps,
-} from "../../cloud-agents/cloud-agent-tool.js";
 import {
   createReadTool,
   type ReadFormattingOptions,
@@ -953,7 +949,6 @@ export interface ToolFactoryContext {
     readonly mcp: string;
     readonly computer: string;
     readonly automationWrite: string;
-    readonly cloudAgent: string;
     readonly subagentLaunch: string;
   };
   readonly stateHandler?: unknown;
@@ -974,7 +969,6 @@ export interface TurnToolFactories {
   webSearch?(): TurnTool;
   webFetch?(): TurnTool;
   generateImage?(): TurnTool;
-  cloudAgent?(): TurnTool;
   boxShell?(): TurnTool | undefined;
   boxRead?(): TurnTool;
   boxAwait?(): TurnTool;
@@ -1103,10 +1097,6 @@ export interface TurnMcpManagementToolFactoryInput {
   readonly emitConnectorCard?: Parameters<typeof createMcpManagementTools>[4];
 }
 
-export interface TurnCloudAgentToolFactoryInput {
-  readonly dependencies: CloudAgentToolDeps;
-}
-
 export interface TurnToolsetFactoryInputs {
   readonly task?: TurnTaskToolFactoryInput;
   readonly multitask?: TurnMultitaskToolFactoryInput;
@@ -1132,7 +1122,6 @@ export interface TurnToolsetFactoryInputs {
   readonly state?: TurnStateToolFactoryInput;
   readonly subagentManagement?: TurnSubagentManagementToolFactoryInput;
   readonly mcpManagement?: TurnMcpManagementToolFactoryInput;
-  readonly cloudAgent?: TurnCloudAgentToolFactoryInput;
 }
 
 /** Host-facing per-turn projection; resource/session identities stay fresh. */
@@ -1234,10 +1223,6 @@ export interface TurnToolsetHostFactoryProvider {
     turn: TurnToolsetTurnInput,
     props: TurnToolsetBuildProps,
   ) => TurnMcpManagementToolFactoryInput;
-  readonly createCloudAgentToolInputs?: (
-    turn: TurnToolsetTurnInput,
-    props: TurnToolsetBuildProps,
-  ) => TurnCloudAgentToolFactoryInput;
 }
 
 function isTurnTool<T extends object>(value: T): value is T & TurnTool {
@@ -1494,12 +1479,6 @@ export function createTurnMcpManagementToolFactory(
   ).map(asTurnTool);
 }
 
-export function createTurnCloudAgentToolFactory(
-  input: TurnCloudAgentToolFactoryInput,
-): () => TurnTool {
-  return () => asTurnTool(createCloudAgentTool(input.dependencies));
-}
-
 /**
  * Concrete producer for the currently closed turn-tool owners. Read's
  * ordinary text/image path is source-closed; PDF extraction remains an
@@ -1517,7 +1496,7 @@ export function createTurnToolsetFactories(
   | "boxAwait" | "externalShell" | "externalRead" | "boxShell" | "boxRead"
   | "sendMessage" | "sendToAgent" | "reaction" | "createAgent" | "updateAgent" | "updateState"
   | "subagentManagement"
-  | "mcpManagement" | "cloudAgent"
+  | "mcpManagement"
 > {
   return {
     ...(input.task === undefined
@@ -1601,9 +1580,6 @@ export function createTurnToolsetFactories(
       : {
         mcpManagement: createTurnMcpManagementToolFactory(input.mcpManagement),
       }),
-    ...(input.cloudAgent === undefined
-      ? {}
-      : { cloudAgent: createTurnCloudAgentToolFactory(input.cloudAgent) }),
   };
 }
 
@@ -1696,11 +1672,6 @@ export function createTurnToolsetFactoriesForTurn(
       : {
         mcpManagement: provider.createMcpManagementToolInputs(turn, props),
       }),
-    ...(provider.createCloudAgentToolInputs === undefined
-      ? {}
-      : {
-        cloudAgent: provider.createCloudAgentToolInputs(turn, props),
-      }),
   });
 }
 
@@ -1715,7 +1686,6 @@ export interface TurnToolsetHost {
   readonly localToolPermission?: LocalToolPermission;
   getConversationId(): string;
   getRemoteBoxAvailable(): boolean;
-  cloudAgentsDisabledByTeam(): boolean;
   spotlightEnabled(): boolean;
   isDynamicToolsEnabled?(): boolean;
   isMultitaskEnabled?(): boolean;
@@ -1899,14 +1869,6 @@ export function buildTurnTools(
   if (!host.isSubagentRunner) {
     const generateImage = factories.generateImage?.();
     if (generateImage !== undefined) tools.push(generateImage);
-  }
-
-  if (
-    !host.isBoxScopedSubagent
-    && !host.cloudAgentsDisabledByTeam()
-  ) {
-    const cloudAgent = factories.cloudAgent?.();
-    if (cloudAgent !== undefined) tools.push(cloudAgent);
   }
 
   if (host.getRemoteBoxAvailable()) {

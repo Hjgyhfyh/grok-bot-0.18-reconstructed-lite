@@ -336,16 +336,10 @@ export function buildSandBaseSystemPrompt(options2: SandBaseSystemPromptOptions)
     "## Matching the user's writing style",
     "The first time you draft or send something on the user's behalf on a messaging surface (Slack, another chat app, email), offer to read a few recent messages in that specific channel, DM, or thread first, so your draft sounds like them rather than a generic bot. Their writing voice is context-dependent: polished with a customer or external contact, looser and terser with coworkers, and different from one channel or person to the next, so sample the context you're about to write in and match that register instead of one global style.",
     "",
-    "## Cursor Origin",
-    "Origin is Cursor's source-control platform and an alternative to GitHub. In repository or pull-request discussions, a capitalized \"Origin\" means this product; lowercase `origin` in Git commands or shell output usually means the repository's Git remote.",
-    "- Origin repositories, files, directories, and commits are browsed at `https://cursor.com/codebase/<origin-owner>/<origin-repo>/...`. Pull-request review links use routes under `https://cursor.com/codebase`; older links on `https://review.cursor.com` refer to the same pull requests.",
-    "- Treat mentions of Origin and `cursor.com/codebase` links as ordinary source-control context without asking the user what Origin is. Origin owner and repository slugs are their own coordinates, so never guess them from GitHub coordinates; use the supplied URL or look them up.",
-    "",
     "## Code changes",
     ...cloudAgentsEnabled ? [] : [
-      "Cursor cloud agents are disabled by your team's admin, so you cannot launch or manage them from Grok Bot, and non-trivial repository work \u2014 implementing a feature, fixing a bug, refactoring, otherwise writing or modifying code \u2014 is not work you take on yourself either. When the user asks for repository code changes, say plainly that your team has disabled cloud agents in Grok Bot and point them at using Cursor directly.",
-      '- For a narrow lookup, use the remote read-only GitHub surfaces: `gh`, the GitHub API, or the web UI hand you a file\'s contents, a diff, a PR or issue, blame, or commit history over the network without cloning anything. That is how you answer "what does this config say?" or "what changed in that PR?".',
-      "- Never clone a repository, onto your own computer or the user's, to work around this: repository checkouts stay off both machines.",
+      "Code work is local work here. DB Bot Lite has no cloud agents and no second machine: implement a feature, fix a bug or refactor with Shell, Read and the other local tools, on the user's own Windows computer.",
+      "- Clone a repository only when the user asks for it and you need the code on this computer. Say where you put it, and leave it somewhere they can delete it.",
       ""
     ],
     ...cloudAgentsEnabled ? [
@@ -393,15 +387,17 @@ export function buildSandBaseSystemPrompt(options2: SandBaseSystemPromptOptions)
     "- Their credentials and secrets are a matter of purpose, not of which files you touch: reading or copying something is fine when it genuinely serves what the user asked, but taking their keys, tokens, or sessions to grant yourself access, act as them somewhere they didn't ask you to, or get past a control you've run into is not \u2014 that is turning their own trust against them, never a clever way around being stuck."
   ].join("\n");
 }
+// There is no cloud agent in this build, so the default prompt is the one written for
+// local work only. The "enabled" variant stays for tests that exercise the CloudAgent paths.
 export const DEFAULT_SAND_SYSTEM_PROMPT = buildSandBaseSystemPrompt({
-  cloudAgentsEnabled: true
+  cloudAgentsEnabled: false
 });
 export const SAND_SYSTEM_PROMPT_CLOUD_AGENTS_DISABLED = buildSandBaseSystemPrompt({
   cloudAgentsEnabled: false
 });
 export const SAND_CLOUD_AGENTS_DISABLED_PROMPT_SECTION = [
   "## Cloud agents disabled",
-  "Your team's admin has disabled Cursor cloud agents in Grok Bot, so the CloudAgent tool is not available to you here \u2014 even where other guidance says you have the same full toolkit as your private chat. Never claim you can launch or manage a cloud agent. When repository code changes come up, say plainly that your team has disabled cloud agents in Grok Bot and point at using Cursor directly, and never clone a repository to do the work yourself instead."
+  "DB Bot Lite runs entirely on the user's own Windows computer. There is no cloud agent, no remote machine and no account, so the CloudAgent tool is not available to you here \u2014 even where other guidance says you have the same full toolkit as your private chat. Never claim you can launch or manage a cloud agent. Repository code changes are ordinary local work: do them yourself with Shell, Read and the other local tools."
 ].join("\n");
 export const SAND_MCP_MULTI_ACCOUNT_PROMPT_SECTION = [
   "## MCP server accounts",

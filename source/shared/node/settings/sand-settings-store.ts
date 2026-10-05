@@ -9,13 +9,14 @@ import { DEFAULT_SAND_AUTO_REVIEW_INSTRUCTIONS, normalizeSandAutoReviewInstructi
 import { SidebarSections, type SidebarSection } from "../../sidebar-sections.js";
 import { coerceToEnabledTrack, isSandUpdateTrack, type SandUpdateTrack } from "../../update-track.js";
 import { isSandAgentModelSelection, type SandAgentModelSelection } from "../../agents/sand-agent-model.js";
-import { emptySandInferenceRouterUsage, isSandInferenceProvider, normalizeSandInferenceCustomEndpoint, type SandInferenceCustomEndpoint, type SandInferenceProvider, type SandInferenceRouterUsage } from "../../inference-router.js";
+import { emptySandInferenceRouterUsage, isSandInferenceProvider, normalizeSandInferenceCustomEndpoint, SAND_INFERENCE_PROVIDER, defaultSandInferenceCustomEndpoint, type SandInferenceCustomEndpoint, type SandInferenceProvider, type SandInferenceRouterUsage } from "../../inference-router.js";
 import { DEFAULT_SAND_BOX_RUNTIME, isSandBoxRuntime, type SandBoxRuntime } from "../../box-runtime.js";
 
 export const SETTINGS_VERSION = 1;
 export const SAND_DOWNGRADE_MAX_FAST_MIGRATION_ID = "downgrade-persisted-max-fast";
 export const SAND_LOCAL_INFERENCE_PROVIDER_MIGRATION_ID = "local-inference-provider";
-export const SAND_SETTINGS_MIGRATION_IDS = [SAND_DOWNGRADE_MAX_FAST_MIGRATION_ID, SAND_LOCAL_INFERENCE_PROVIDER_MIGRATION_ID] as const;
+export const SAND_DEEPSEEK_ONLY_MIGRATION_ID = "deepseek-only";
+export const SAND_SETTINGS_MIGRATION_IDS = [SAND_DOWNGRADE_MAX_FAST_MIGRATION_ID, SAND_LOCAL_INFERENCE_PROVIDER_MIGRATION_ID, SAND_DEEPSEEK_ONLY_MIGRATION_ID] as const;
 
 type StringMap = Record<string, string>;
 type StringListMap = Record<string, string[]>;
@@ -28,6 +29,8 @@ export interface SandStoredSettings {
   userTimeZone?: string; userTimeZoneOverride?: string; autoReviewInstructions?: SandAutoReviewInstructions;
   localToolPermission?: SandLocalToolPermission; localToolPermissionCeiling?: SandLocalToolPermission;
   inferenceProvider?: SandInferenceProvider; inferenceRouterUsage?: SandInferenceRouterUsage; inferenceCustomEndpoint?: SandInferenceCustomEndpoint;
+  /** The DeepSeek API key. Stored in the user's own settings file; never compiled into the sources. */
+  inferenceApiKey?: string;
   boxRuntime?: SandBoxRuntime;
   mcpCustomInstructionsAccountScope?: string; pinnedAgentIds?: string[]; sidebarSections?: SidebarSection[];
 }
@@ -72,6 +75,7 @@ function parseSettings(value: unknown): SandStoredSettings | null {
   if (isSandLocalToolPermission(raw.localToolPermissionCeiling)) result.localToolPermissionCeiling = raw.localToolPermissionCeiling;
   if (isSandInferenceProvider(raw.inferenceProvider)) result.inferenceProvider = raw.inferenceProvider;
   const customEndpoint = normalizeSandInferenceCustomEndpoint(raw.inferenceCustomEndpoint); if (customEndpoint !== undefined) result.inferenceCustomEndpoint = customEndpoint;
+  if (typeof raw.inferenceApiKey === "string" && raw.inferenceApiKey.trim().length > 0) result.inferenceApiKey = raw.inferenceApiKey.trim();
   if (isSandBoxRuntime(raw.boxRuntime)) result.boxRuntime = raw.boxRuntime;
   if (typeof raw.inferenceRouterUsage === "object" && raw.inferenceRouterUsage != null && !Array.isArray(raw.inferenceRouterUsage)) {
     const usage = emptySandInferenceRouterUsage();
@@ -105,7 +109,11 @@ export class SandSettingsStore {
     // The early return this replaced only ever checked the first id, so a second
     // migration would have been unreachable on every already-migrated file.
     if (!done.has(SAND_DOWNGRADE_MAX_FAST_MIGRATION_ID)) { pending.push(SAND_DOWNGRADE_MAX_FAST_MIGRATION_ID); next = { ...next, ...(next.agentDefaultModel === undefined ? {} : { agentDefaultModel: downgradePersistedFast(next.agentDefaultModel) }) }; }
-    if (!done.has(SAND_LOCAL_INFERENCE_PROVIDER_MIGRATION_ID)) { pending.push(SAND_LOCAL_INFERENCE_PROVIDER_MIGRATION_ID); next = { ...next, inferenceProvider: next.inferenceProvider ?? "custom" }; }
+    if (!done.has(SAND_LOCAL_INFERENCE_PROVIDER_MIGRATION_ID)) { pending.push(SAND_LOCAL_INFERENCE_PROVIDER_MIGRATION_ID); next = { ...next, inferenceProvider: SAND_INFERENCE_PROVIDER }; }
+    // DeepSeek is the only provider left. A file written by an earlier build still carries
+    // `inferenceProvider: "cursor" | "openrouter" | ...` and, with it, an endpoint pointing at
+    // that provider's host. Both are rewritten so no old route survives the upgrade.
+    if (!done.has(SAND_DEEPSEEK_ONLY_MIGRATION_ID)) { pending.push(SAND_DEEPSEEK_ONLY_MIGRATION_ID); next = { ...next, inferenceProvider: SAND_INFERENCE_PROVIDER, inferenceCustomEndpoint: defaultSandInferenceCustomEndpoint() }; }
     if (pending.length === 0) return settings;
     const migrated = { ...next, settingsMigrations: [...settings.settingsMigrations, ...pending] };
     try { this.persist(migrated); } catch {}
@@ -163,13 +171,15 @@ export class SandSettingsStore {
   getLocalToolPermissionChoice(): SandLocalToolPermission { return this.load().localToolPermission ?? SAND_DEFAULT_LOCAL_TOOL_PERMISSION; }
   getLocalToolPermissionCeiling(): SandLocalToolPermission | undefined { return this.load().localToolPermissionCeiling; }
   setLocalToolPermission(value: SandLocalToolPermission): void { this.update((s) => ({ ...s, localToolPermission: value })); }
-  // The bundled default is the user's own endpoint. There is no account here to
-  // serve the "cursor" provider, so defaulting to it routed every turn into a
-  // provider that can never answer.
-  getInferenceProvider(): SandInferenceProvider { return this.load().inferenceProvider ?? "custom"; }
+  // DeepSeek is the only route. Every earlier provider is gone from the type, so a value
+  // read from an old file cannot name one of them any more.
+  getInferenceProvider(): SandInferenceProvider { return this.load().inferenceProvider ?? SAND_INFERENCE_PROVIDER; }
   setInferenceProvider(value: SandInferenceProvider): void { this.update((s) => ({ ...s, inferenceProvider: value })); }
   getInferenceCustomEndpoint(): SandInferenceCustomEndpoint | undefined { return this.load().inferenceCustomEndpoint; }
   setInferenceCustomEndpoint(value: SandInferenceCustomEndpoint | undefined): void { this.update((s) => { const { inferenceCustomEndpoint: _old, ...rest } = s; return value === undefined ? rest : { ...rest, inferenceCustomEndpoint: value }; }); }
+  /** The DeepSeek API key, or `undefined` when the user has not entered one yet. */
+  getInferenceApiKey(): string | undefined { return this.load().inferenceApiKey; }
+  setInferenceApiKey(value: string | undefined): void { this.update((s) => { const { inferenceApiKey: _old, ...rest } = s; const trimmed = value?.trim(); return trimmed == null || trimmed.length === 0 ? rest : { ...rest, inferenceApiKey: trimmed }; }); }
   getInferenceRouterUsage(): SandInferenceRouterUsage { return this.load().inferenceRouterUsage ?? emptySandInferenceRouterUsage(); }
   recordInferenceUsage(provider: SandInferenceProvider, usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number }): void {
     const safe = (value: number | undefined): number => Number.isFinite(value) && value! >= 0 ? Math.round(value!) : 0;

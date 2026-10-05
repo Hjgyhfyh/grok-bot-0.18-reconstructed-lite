@@ -1,5 +1,3 @@
-import { errorLogTag } from "../../shared/errors.js";
-import { reportHostDiagnostic } from "../host-diagnostics.js";
 import type { HostBoxInner } from "../extensions/forever-box/host-box.js";
 import {
   applyBoxEnvironmentViaTransport,
@@ -7,7 +5,7 @@ import {
   type BoxEnvironmentUpdate
 } from "./box-env.js";
 import { uploadFileViaExecDaemon, type FileTransferAccessor } from "./box-file-transfer.js";
-import { applySharedDesktop, createSandBox } from "./box-factory.js";
+import { createSandBox } from "./box-factory.js";
 import {
   loadBoxMcpServersViaTransport,
   type BoxMcpControlClient
@@ -27,7 +25,7 @@ import type {
   LoopbackTelemetry,
   PingResult
 } from "./loopback-sand-box.js";
-import type { ShellAccessor } from "./box-windows.js";
+import type { ShellAccessor } from "./box-capabilities.js";
 
 export type ProductionBoxControlClient = BoxPingControlClient &
   BoxEnvironmentControlClient &
@@ -67,10 +65,12 @@ export interface ProductionBoxProviderOptions<
   readonly host?: string;
   readonly authToken?: string;
   /**
-   * The shipped co-resident image owns fork desktops and the 1339 router. The
-   * reconstructed standalone exec daemon intentionally does not advertise
-   * those absent capabilities, so agents use its authenticated primary
-   * accessor instead of attempting /usr/local/bin/start-window.
+   * Принято и проигнорировано. Раньше этот флаг выбирал обёртку
+   * `SharedDesktopSandBox`: она раздавала агентам X11-дисплеи
+   * `/usr/local/bin/start-window` на порту 1339 и хранила назначения в
+   * `/home/box/.sand-window-assignments.json`. На Windows этого нет, поэтому
+   * обёртка удалена, а файл остаётся в типе, чтобы вызывающая сторона
+   * (`forever-box/extension.ts`) продолжала собираться без правки.
    */
   readonly sharedDesktop?: boolean;
 }
@@ -140,8 +140,12 @@ function decodeBoxEnvironmentUpdate(value: unknown): BoxEnvironmentUpdate {
 }
 
 /**
- * Rebuilds the artifact's production construction:
- * HostBox(applySharedDesktop(createSandBox(...), { persistAssignments: true })).
+ * Rebuilds the artifact's production construction.
+ *
+ * Раньше это было `HostBox(applySharedDesktop(createSandBox(...), { persistAssignments: true }))`.
+ * Обёртка раздавала X11-дисплеи и хранила их в `/home/box/.sand-window-assignments.json`;
+ * её удалили вместе с `shared-desktop-sand-box.ts`. Теперь единственный путь —
+ * один дисплей на пользователя с честным `noMonitorComputerUse`-исполнителем.
  *
  * Artifact anchors:
  * - src/app/dist/host/host-main.cjs:614442-615551 (box primitives/factory)
@@ -207,29 +211,8 @@ export function createProductionBoxInner<
     }
   });
 
-  if (options.sharedDesktop === false) {
-    return createStandaloneProductionBoxInner(
-      loopback,
-      accessor => generated.withNoMonitorComputerUse(accessor)
-    );
-  }
-
-  const composed = applySharedDesktop(loopback, {
-    persistAssignments: true,
-    gateComputerUse(primary) {
-      return {
-        ...primary,
-        remoteAccessor: generated.withNoMonitorComputerUse(
-          primary.remoteAccessor
-        )
-      };
-    },
-    reportPersistFailure(error) {
-      reportHostDiagnostic({
-        kind: "window_assignment_persist_failed",
-        errorClass: errorLogTag(error)
-      });
-    }
-  });
-  return composed;
+  return createStandaloneProductionBoxInner(
+    loopback,
+    accessor => generated.withNoMonitorComputerUse(accessor)
+  );
 }

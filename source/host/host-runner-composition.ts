@@ -31,11 +31,6 @@ import type {
   AutomationReview,
   WorkflowRecord,
 } from "./runner/tools/sand-state-tool.js";
-import type {
-  CloudAgentApi,
-  CloudAgentToolContext,
-  CloudAgentToolDeps,
-} from "./cloud-agents/cloud-agent-tool.js";
 import {
   SAND_EXTERNAL_READ_TOOL_DESCRIPTION,
   SAND_BOX_READ_TOOL_DESCRIPTION,
@@ -45,7 +40,6 @@ import {
 } from "./runner/tools/turn-toolset.js";
 import type {
   TurnAwaitToolFactoryInput,
-  TurnCloudAgentToolFactoryInput,
   TurnMcpManagementToolFactoryInput,
   TurnMcpMetaToolFactoryInput,
   TurnReadToolFactoryInput,
@@ -147,15 +141,6 @@ import {
 } from "./runner/sand-auto-review-classifier-run.js";
 import { SAND_AUTOMATION_WRITE_CLASSIFIER_ERROR_REASON } from "./runner/sand-automation-auto-review.js";
 import { surfaceListenerConnectCards } from "./runner/tools/listener-connect-cards.js";
-import {
-  buildSandCloudAgentRiskTarget,
-  buildSandCloudAgentLifecycleReviewTarget,
-  buildSandCloudAgentReviewTarget,
-  describeSandCloudAgentReviewImages,
-  reviewSandCloudAgentAction,
-  reviewSandCloudAgentLifecycleAction,
-  SAND_CLOUD_AGENT_CLASSIFIER_ERROR_REASON,
-} from "./runner/sand-cloud-agent-auto-review.js";
 import type { Context } from "../packages/context/core.js";
 import type {
   TurnShellAutoReviewInput,
@@ -1081,24 +1066,11 @@ function resolveRequestContextEnvironment(
   };
 }
 
-function isCloudAgentApi(api: DynamicApi): api is CloudAgentApi {
-  return ["launch", "list", "listModels", "get", "reply", "rename", "cancel", "setArchived", "delete", "listArtifacts", "getTranscriptDump"]
-    .every(name => typeof api[name] === "function");
-}
-
 interface RunnerSubagentOwner {
   listRunningSubagents(): readonly RunningSubagentInfo[];
   getRunningSubagent(id: string): RunningSubagentInfo | null;
   steerSubagent(id: string, message: string): "steered" | "not-running" | string;
   abortSubagent(id: string): "aborted" | "not-running" | string;
-}
-
-interface RunnerCloudWatchOwner {
-  isCloudWatchReady?(): boolean;
-  watchCloudAgent(
-    id: string,
-    options?: { readonly quietOrigin?: string; readonly afterFollowup?: boolean },
-  ): void;
 }
 
 function isRunnerSubagentOwner(value: unknown): value is RunnerSubagentOwner {
@@ -1121,32 +1093,6 @@ function createRunnerSubagentManagement(
     getRunningSubagent: id => value.getRunningSubagent(id) ?? undefined,
     steerSubagent: (id, message) => value.steerSubagent(id, message),
     abortSubagent: id => value.abortSubagent(id),
-  };
-}
-
-function createRunnerCloudWatch(
-  value: unknown,
-): CloudAgentToolDeps["watch"] | undefined {
-  if (
-    typeof value !== "object"
-    || value == null
-    || typeof (value as Record<string, unknown>).watchCloudAgent !== "function"
-  ) return undefined;
-  const owner = value as RunnerCloudWatchOwner;
-  if (
-    typeof owner.isCloudWatchReady === "function"
-    && owner.isCloudWatchReady() !== true
-  ) return undefined;
-  return (id, options) => {
-    const quietOrigin = typeof options.quietOrigin === "string"
-      ? options.quietOrigin
-      : undefined;
-    owner.watchCloudAgent(id, {
-      ...(quietOrigin === undefined ? {} : { quietOrigin }),
-      ...(options.afterFollowup === undefined
-        ? {}
-        : { afterFollowup: options.afterFollowup }),
-    });
   };
 }
 
@@ -1251,7 +1197,6 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
     const mcp = extensions.api("mcp");
     const sessionApi = extensions.api("session");
     const settings = extensions.api("settings");
-    const cloudAgents = extensions.api("cloud-agents");
     const foreverBox = extensions.api("forever-box");
     const remoteBox = foreverBox.box as DynamicApi;
     /** Tool names of the most recent turn built for this runner; empty at first. */
@@ -1567,9 +1512,6 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
             await method(auth, "getUserFullName")?.()
         });
 
-    const resolveCloudAgentTitle = async (_ctx: unknown, bcId: string) =>
-      (await method(cloudAgents, "get")?.(bcId))?.name;
-    const awaitCloudAgent = method(cloudAgents, "awaitCompletion");
     const sendToAgent = (
       toAgentId: string,
       text: string,
@@ -1808,16 +1750,6 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
       diskPressureReminder: foreverBox.diskPressureReminder,
       box: localExec.box,
       ctx,
-      ...(awaitCloudAgent === undefined
-        ? {}
-        : {
-            cloudAgentWatcher: {
-              awaitCompletion: (
-                id: string,
-                options: { readonly waitForRestart: boolean },
-              ) => awaitCloudAgent(id, options),
-            },
-          }),
       remoteBox,
       userComputers: localExec.userComputers,
       remoteBoxHasDesktop: boxHasMonitorDesktop(),
@@ -1885,7 +1817,6 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
           extensions.api("automations"),
           "isListenerPlatformConnected"
         )?.(platform) ?? false,
-      resolveCloudAgentTitle,
       sendToAgent,
       agentDirectory: () => {
         const roster = method(transcript, "listAgentsSync")?.() ?? [];
@@ -2138,119 +2069,8 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
 
     const hostDependencies = (): ProductionTurnHostDependencies => {
       const readMediaDimensions = method(attachments, "readMediaDimensions");
-      const uploadFile = method(remoteBox, "uploadFile");
-      const downloadFile = method(remoteBox, "downloadFile");
-      const watchCloudAgent = createRunnerCloudWatch(builtRunner);
-      const cloudAgent = (() => {
-        const launchedIds = cloudAgents.launchedIds;
-        if (
-          !isCloudAgentApi(cloudAgents)
-          || !(launchedIds instanceof Set)
-          || uploadFile === undefined
-        ) return undefined;
-        const reviewAction: NonNullable<CloudAgentToolDeps["reviewAction"]> | undefined =
-          productionContext === undefined || autoReviewGate === undefined
-            ? undefined
-            : async ({ args, toolCallId, images, signal }) => {
-              const instructions = autoReviewGate.userInstructions();
-              const reviewOptions = {
-                mode: autoReviewGate.currentModes().cloudAgent,
-                agentId: session.id,
-                ...(autoReviewController === undefined
-                  ? {}
-                  : { autoReviewController }),
-                ...(instructions === undefined
-                  ? {}
-                  : { userAutoRunInstructions: instructions }),
-                getApprovalExpiryPolicy: () =>
-                  sandAutoReviewApprovalExpiryPolicy("turn"),
-              };
-              const lifecycleTarget = buildSandCloudAgentLifecycleReviewTarget({
-                action: args.action,
-                ...(args.agent_id === undefined ? {} : { agent_id: args.agent_id }),
-                ...(args.title === undefined ? {} : { title: args.title }),
-              });
-              if (lifecycleTarget !== undefined) {
-                const result = await reviewSandCloudAgentLifecycleAction({
-                  ctx: productionContext,
-                  target: lifecycleTarget,
-                  options: reviewOptions,
-                  ...(signal === undefined ? {} : { signal }),
-                });
-                return { allowed: result.allowed, reason: result.reason ?? "" };
-              }
-              const target = buildSandCloudAgentReviewTarget(
-                args,
-                describeSandCloudAgentReviewImages(
-                  images.map(image => image.path),
-                  images,
-                ),
-              );
-              if (target === undefined) return { allowed: true, reason: "" };
-              const result = await reviewSandCloudAgentAction({
-                ctx: productionContext,
-                target,
-                toolCallId,
-                ...(signal === undefined ? {} : { signal }),
-                options: {
-                  ...reviewOptions,
-                  classify: async (classifyContext, classifyTarget, mode, id) =>
-                    await runSandAutoReviewClassifier({
-                      ctx: classifyContext,
-                      resourceAccessor: await productionResourceAccessor(classifyContext),
-                      toolCallId: id,
-                      mode,
-                      buildTarget: () => buildSandCloudAgentRiskTarget({
-                        target: classifyTarget,
-                        ...(instructions === undefined
-                          ? {}
-                          : { userAutoRunInstructions: instructions }),
-                      }),
-                      loadConversationContext: async () =>
-                        await extractProductionTurnAutoReviewConversationContext(
-                          classifyContext,
-                          agentStateOwner,
-                        ),
-                      errorReason: SAND_CLOUD_AGENT_CLASSIFIER_ERROR_REASON,
-                    }),
-                },
-              });
-              return { allowed: result.allowed, reason: result.reason ?? "" };
-            };
-        return {
-          api: cloudAgents,
-          launchedIds,
-          agentDir: dirname(session.dbPath),
-          ...(downloadFile === undefined
-            ? {}
-            : {
-                readBoxFile: async (
-                  cloudContext: CloudAgentToolContext,
-                  boxPath: string,
-                ) => await downloadFile(cloudContext, session.id, boxPath),
-              }),
-          writeBoxFile: async (
-            cloudContext: CloudAgentToolContext,
-            boxPath: string,
-            data: Uint8Array,
-          ) => await uploadFile(cloudContext, session.id, boxPath, data),
-          ...(awaitCloudAgent === undefined
-            ? {}
-            : {
-                cloudAgentWatcher: () => ({
-                  awaitCompletion: (id: string, options: { waitForRestart: boolean }) =>
-                    awaitCloudAgent(id, options),
-                }),
-              }
-          ),
-          ...(watchCloudAgent === undefined ? {} : { watch: watchCloudAgent }),
-          ...(reviewAction === undefined ? {} : { reviewAction }),
-        };
-      })();
-
       const sendMessage = {
         getIngestAttachment: () => hooks.ingestAttachment,
-        resolveCloudAgentTitle,
         ...(readMediaDimensions === undefined
           ? {}
           : { readMediaDimensions }),
@@ -2450,7 +2270,6 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
           && typeof mcp.management.listPlugins === "function"
           ? { mcpManagement: mcp.management }
           : {}),
-        ...(cloudAgent === undefined ? {} : { cloudAgent }),
         ...(subagentManagement === undefined
           ? {}
           : { subagentManagement }),
@@ -2464,7 +2283,6 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
       dependencies: ProductionTurnHostDependencies,
       turnInputs?: ProductionTurnToolInputs,
     ): TurnToolsetHostFactoryProvider => {
-      const cloudAgent = dependencies.cloudAgent;
       const mcpManagement = dependencies.mcpManagement;
       const fileTransferController = createHostFileTransferController();
       const provider: TurnToolsetHostFactoryProvider = {
@@ -2639,28 +2457,6 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
                 callOptions: {},
               }),
             }),
-        ...(!isSharedRoomTurn && cloudAgent !== undefined
-          ? {
-              createCloudAgentToolInputs: (): TurnCloudAgentToolFactoryInput => ({
-                dependencies: {
-                  api: cloudAgent.api,
-                  launchedIds: cloudAgent.launchedIds,
-                  agentDir: cloudAgent.agentDir,
-                  writeBoxFile: cloudAgent.writeBoxFile,
-                  ...(cloudAgent.readBoxFile === undefined
-                    ? {}
-                    : { readBoxFile: cloudAgent.readBoxFile }),
-                  ...(cloudAgent.watch === undefined
-                    ? {}
-                    : { watch: cloudAgent.watch }),
-                  ...(cloudAgent.reviewAction === undefined
-                    ? {}
-                    : { reviewAction: cloudAgent.reviewAction }),
-                },
-              }),
-            }
-          : {}
-        ),
       };
       const state = dependencies.state;
       if (state === undefined) return provider;
@@ -2784,7 +2580,6 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
         mcp: "off",
         computer: "off",
         automationWrite: "off",
-        cloudAgent: "off",
         subagentLaunch: "off",
       };
       /** Agents of this runner that have a turn in flight right now. */
@@ -2825,7 +2620,6 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
         remoteBoxHasDesktop: boxHasMonitorDesktop(),
         getConversationId: () => session.id,
         getRemoteBoxAvailable: () => method(remoteBox, "isAvailable")?.() !== false,
-        cloudAgentsDisabledByTeam: () => method(experiments, "isCloudAgentsDisabledByTeam")?.() ?? false,
         spotlightEnabled: () => method(experiments, "isSpotlightEnabled")?.() ?? false,
         isDynamicToolsEnabled: () => method(experiments, "isDynamicToolsEnabled")?.() ?? false,
         isMultitaskEnabled: () => method(experiments, "isMultitaskEnabled")?.() ?? false,

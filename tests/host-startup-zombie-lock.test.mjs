@@ -34,6 +34,9 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 // `path` still comes from Node.
 const HOST_GRAPH_STUB = `
 export const installInvariantReporter = () => {};
+// The host logs whether it found a DeepSeek key at startup. A stubbed host reports one.
+export const defaultSandInferenceCustomEndpoint = () => ({ baseUrl: "https://api.deepseek.com", modelId: "deepseek-flash" });
+export const deepSeekApiKeyStatus = () => ({ configured: true, source: "env", message: null });
 export const gatewayScheme = () => "http";
 export const resolveGatewayServerConfig = () => ({ host: "127.0.0.1" });
 export const startGatewayServer = async () => ({ port: 0, close: async () => {} });

@@ -9,10 +9,11 @@
 export type Unsubscribe = () => void;
 export type BridgeListener<Value = unknown> = (value: Value) => void;
 
-export type ThemePreference = "system" | "light" | "dark";
+/** Четыре светлых варианта оформления. Тёмных тем нет, системная тема не читается. */
+export type ThemePreference = "light-white" | "milk" | "smoke" | "sky";
 export interface ThemeState {
   preference: ThemePreference;
-  resolved: "light" | "dark";
+  resolved: ThemePreference;
 }
 
 export type CursorAuthStatus =
@@ -364,6 +365,11 @@ export interface AgentDesktopBridge {
   getComputerUseModel(): Promise<AgentModelSelection | null>;
   setComputerUseModel(model: AgentModelSelection | null): Promise<AgentModelSelection | null>;
   getAvailableModels(): Promise<unknown>;
+  /** Модель DeepSeek и состояние ключа. Значение ключа renderer не получает. */
+  getInferenceRouter(): Promise<{ provider: string; endpoint?: { baseUrl?: string; modelId?: string } | null; apiKeyConfigured?: boolean }>;
+  getInferenceApiKeyStatus(): Promise<{ configured: boolean; message: string | null }>;
+  setInferenceApiKey(apiKey: string): Promise<{ configured: boolean }>;
+  setInferenceRouter(provider: string, endpoint?: unknown): Promise<{ provider: string; endpoint?: { baseUrl?: string; modelId?: string } | null }>;
   clientPersistence: {
     read(key: string): Promise<string | null>;
     write(key: string, value: string): Promise<void>;

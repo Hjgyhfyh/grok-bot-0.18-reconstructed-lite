@@ -109,7 +109,6 @@ export const SAND_GATEWAY_COMMANDS = {
   setAgentAvatarBytes: (api: GatewayApi, body: string) => api.setAgentAvatarBytes(parseCommandArgs(body)),
   getAgentAvatar: (api: GatewayApi, body: string) => api.getAgentAvatar(parseCommandArgs(body)),
   getForeverBoxStatus: (api: GatewayApi, body: string) => api.getForeverBoxStatus(parseCommandArgs(body)),
-  getCloudAgentInfo: (api: GatewayApi, body: string) => api.getCloudAgentInfo(parseCommandArgs(body)),
   ensureForeverBox: (api: GatewayApi, body: string) => api.ensureForeverBox(parseCommandArgs(body)),
   resetForeverBox: (api: GatewayApi, body: string) => api.resetForeverBox(parseCommandArgs(body)),
   updateForeverBox: (api: GatewayApi, body: string) => api.updateForeverBox(parseCommandArgs(body)),

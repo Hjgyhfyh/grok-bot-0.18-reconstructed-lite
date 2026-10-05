@@ -120,7 +120,6 @@ export const COORDINATOR_METHOD_TABLE = {
   kickstartAgent: { args: "object", reply: "record-or-null" },
   requestDiskSaverAudit: { args: "object", reply: "record-or-null" },
   broadcastToAgents: { args: "object", reply: "record" },
-  getCloudAgentInfo: { args: "object", reply: "record-or-null" },
   getListenerIntegrations: { args: "none", reply: "record" },
   getListenerConnectUrl: { args: "object", reply: "connect-url" },
   setAgentUnread: { args: "object", reply: "void" },

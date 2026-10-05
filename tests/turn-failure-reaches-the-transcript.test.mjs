@@ -76,12 +76,14 @@ test.after(() => dispose());
 // database file, or in anything this test prints.
 const API_KEY = "sk-live-turn-failure-probe-DO-NOT-LEAK-9c41";
 const USER_PROMPT_MARKER = "user-secret-marker-4f21";
-const SYSTEM_PROMPT_MARKER = "warm, concise desktop assistant";
+// A phrase from the prompt this build actually sends. The old marker was quoted from the
+// Grok-era prompt, which made the negative assertion below pass against a prompt nobody sends.
+const SYSTEM_PROMPT_MARKER = "desktop assistant";
 const SAFETY_CEILING_MS = 20_000;
 
 const TOUCHED_ENV = [
   "SAND_DATA_ROOT",
-  "OPENAI_COMPATIBLE_API_KEY",
+  "DEEPSEEK_API_KEY",
   "SAND_ROUTED_TEMPERATURE",
   "SAND_ROUTED_CONTEXT_WINDOW",
 ];
@@ -98,7 +100,23 @@ function restoreEnv() {
 let server;
 let dataRoot;
 let serverUrl;
-const received = [];
+
+/**
+ * The executor pins `baseURL` to the DeepSeek constant and there is no seam to point it
+ * anywhere else, so the probe server is reached by redirecting the one host this build is
+ * allowed to address. The bytes on the wire are the bytes DeepSeek would receive, and the
+ * socket, the SSE frames and the abort are the real ones.
+ *
+ * The migration ids in every settings file below are load-bearing: without them the
+ * `deepseek-only` migration rewrites the endpoint to its default on the first read, and the
+ * probe model these tests select behaviour by would never reach the wire.
+ */
+const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const realFetch = globalThis.fetch;
+const redirectDeepSeek = (input, init) => realFetch(
+  String(input?.url ?? input).replace(DEEPSEEK_BASE_URL, serverUrl.replace(/\/v1$/, "")),
+  init,
+);const received = [];
 
 function sseFrame(payload) {
   return `data: ${JSON.stringify(payload)}\n\n`;
@@ -189,7 +207,11 @@ function setModel(modelId) {
   writeFileSync(
     path.join(dataRoot, "settings.json"),
     JSON.stringify(
-      { version: 1, inferenceCustomEndpoint: { baseUrl: serverUrl, modelId } },
+      {
+        version: 1,
+        settingsMigrations: ["downgrade-persisted-max-fast", "local-inference-provider", "deepseek-only"],
+        inferenceCustomEndpoint: { baseUrl: DEEPSEEK_BASE_URL, modelId },
+      },
       null,
       2,
     ),
@@ -223,7 +245,7 @@ function withDeadline(promise, ms, label) {
  */
 async function runProviderTurn(modelId, prompt) {
   setModel(modelId);
-  const inner = createProviderPromptSession("custom").getExecutor();
+  const inner = createProviderPromptSession("deepseek").getExecutor();
   const executor = new SimplePromptToolExecutor({
     appendMessages(messages) {
       inner.appendMessages(messages);
@@ -407,14 +429,16 @@ function assertNoSecretReachedTheNote(note, where) {
 test.before(async () => {
   dataRoot = mkdtempSync(path.join(os.tmpdir(), "grok-sand-root-"));
   process.env.SAND_DATA_ROOT = dataRoot;
-  process.env.OPENAI_COMPATIBLE_API_KEY = API_KEY;
+  process.env.DEEPSEEK_API_KEY = API_KEY;
   delete process.env.SAND_ROUTED_TEMPERATURE;
   delete process.env.SAND_ROUTED_CONTEXT_WINDOW;
   await startServer();
+  globalThis.fetch = redirectDeepSeek;
 });
 
 test.after(() => {
   restoreEnv();
+  globalThis.fetch = realFetch;
   server?.close();
   rmSync(dataRoot, { recursive: true, force: true });
 });

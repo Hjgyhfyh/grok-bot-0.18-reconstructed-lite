@@ -203,9 +203,12 @@ function assembleMainAgentPrompt({ basePrompt = DEFAULT_SAND_SYSTEM_PROMPT, tool
 }
 
 /**
- * Stands in for the OpenAI-compatible endpoint the custom provider posts to. It records
- * the exact request body so the tests can assert on what the model would have received,
- * and answers with a minimal, well-formed SSE stream so `streamText` settles.
+ * Stands in for the DeepSeek endpoint. It records the exact request body so the tests can
+ * assert on what the model would have received, and answers with a minimal, well-formed SSE
+ * stream so `streamText` settles.
+ *
+ * The executor pins `baseURL` to `https://api.deepseek.com`, so the capture server is reached
+ * by redirecting that one host. The body recorded here is the body DeepSeek would get.
  */
 async function withCapturingEndpoint(run) {
   const requests = [];
@@ -243,25 +246,29 @@ async function withCapturingEndpoint(run) {
     path.join(dataRoot, "settings.json"),
     JSON.stringify({
       version: 1,
-      inferenceProvider: "custom",
-      inferenceCustomEndpoint: { baseUrl: `http://127.0.0.1:${port}/v1`, modelId: "capture-model" },
+      settingsMigrations: ["downgrade-persisted-max-fast", "local-inference-provider", "deepseek-only"],
+      inferenceProvider: "deepseek",
+      inferenceCustomEndpoint: { baseUrl: "https://api.deepseek.com", modelId: "capture-model" },
     }),
     "utf8",
   );
 
   const savedSandRoot = process.env.SAND_DATA_ROOT;
-  const savedKey = process.env.OPENAI_COMPATIBLE_API_KEY;
+  const savedKey = process.env.DEEPSEEK_API_KEY;
+  const savedFetch = globalThis.fetch;
   process.env.SAND_DATA_ROOT = dataRoot;
-  process.env.OPENAI_COMPATIBLE_API_KEY = "test-key";
+  process.env.DEEPSEEK_API_KEY = "test-key";
+  globalThis.fetch = (input, init) => savedFetch(String(input?.url ?? input).replace("https://api.deepseek.com", `http://127.0.0.1:${port}/v1`), init);
   try {
     // Without a bound a hanging endpoint fails the suite by hanging, not by asserting.
     await withSafetyCeiling(() => run({ port, dataRoot }));
     return requests;
   } finally {
+    globalThis.fetch = savedFetch;
     if (savedSandRoot === undefined) delete process.env.SAND_DATA_ROOT;
     else process.env.SAND_DATA_ROOT = savedSandRoot;
-    if (savedKey === undefined) delete process.env.OPENAI_COMPATIBLE_API_KEY;
-    else process.env.OPENAI_COMPATIBLE_API_KEY = savedKey;
+    if (savedKey === undefined) delete process.env.DEEPSEEK_API_KEY;
+    else process.env.DEEPSEEK_API_KEY = savedKey;
     await new Promise((resolve) => server.close(resolve));
     rmSync(dataRoot, { recursive: true, force: true });
   }
@@ -326,20 +333,26 @@ test("the cloud-agents-disabled variant still describes the same hands", () => {
     disabled.includes("SendMessage") && disabled.includes("Task") && disabled.includes("WebSearch"),
     "disabling cloud agents must not take the core capability description with it",
   );
-  assert.notEqual(
+  // DB Bot Lite has no cloud agent at all, so the default prompt is the cloud-disabled one.
+  // If this ever changes, the build would start telling the agent about a tool that is absent.
+  assert.equal(
     disabled,
     DEFAULT_SAND_SYSTEM_PROMPT,
-    "the cloud-disabled prompt is identical to the default, so the variant is not being exercised",
+    "the default prompt is no longer the local-only one: a turn would be told about cloud agents that do not exist",
+  );
+  assert.ok(
+    !DEFAULT_SAND_SYSTEM_PROMPT.includes("Cursor cloud agent"),
+    "the prompt still describes Cursor cloud agents, which this build cannot launch",
   );
 });
 
-test("the custom provider sends no capability text at all when the routed tool list is empty", async () => {
+test("the DeepSeek provider sends no capability text at all when the routed tool list is empty", async () => {
   const requests = await withCapturingEndpoint(async () => {
-    await runRoutedProviderText("custom", [{ role: "user", content: "hi" }], { tools: [], sessionId: "s" });
+    await runRoutedProviderText("deepseek", [{ role: "user", content: "hi" }], { tools: [] });
     return true;
   });
 
-  assert.equal(requests.length, 1, "the custom provider made a different number of requests than the one under test");
+  assert.equal(requests.length, 1, "the DeepSeek provider made a different number of requests than the one under test");
   const [request] = requests;
   assert.equal(
     request.tools,
@@ -351,10 +364,10 @@ test("the custom provider sends no capability text at all when the routed tool l
   assert.equal(
     systems[0].content,
     [
-      "You are Grok Bot, a warm, concise desktop assistant.",
-      "You are running inside Grok Bot, not inside Codex CLI or Claude Code.",
-      "The tools supplied with this request are Grok Bot's already-connected plugins and accounts. Use them whenever they are relevant instead of claiming that a plugin is unavailable or asking the user to reconnect it.",
-      "Never ask for an API key for an already-connected plugin. Respond directly to the user in natural language after completing any necessary tool calls.",
+      "You are DB Bot, a local desktop assistant for one library librarian.",
+      "You run entirely on this Windows computer. There is no remote machine, no virtual box, no cloud agent and no second account.",
+      "Everything the tools of this request offer is already connected and works on this computer. Use them instead of asking the user to reconnect anything.",
+      "Never ask for an API key for an already-connected service. Answer the user in Russian, in plain words, after the tool calls are done.",
     ].join("\n"),
     "the routed system prompt has changed; re-measure what the agent is actually told before concluding anything about its capabilities",
   );
@@ -362,14 +375,13 @@ test("the custom provider sends no capability text at all when the routed tool l
 
 test("the routed provider does send tools once the caller has any, so the empty list is the whole defect", async () => {
   const requests = await withCapturingEndpoint(async () => {
-    await runRoutedProviderText("custom", [{ role: "user", content: "hi" }], {
+    await runRoutedProviderText("deepseek", [{ role: "user", content: "hi" }], {
       tools: [{ name: "CreateAgent", description: "Create an agent", inputSchema: { type: "object", properties: {} } }],
-      sessionId: "s",
     });
     return true;
   });
 
-  assert.equal(requests.length, 1, "the custom provider made a different number of requests than the one under test");
+  assert.equal(requests.length, 1, "the DeepSeek provider made a different number of requests than the one under test");
   const names = (requests[0].tools ?? []).map((entry) => entry.function?.name ?? entry.name);
   assert.deepEqual(names, ["CreateAgent"], "a non-empty tool list must reach the model by registered name");
 });

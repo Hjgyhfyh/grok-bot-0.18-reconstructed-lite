@@ -1079,14 +1079,6 @@ export function createHostGatewayApi(
       deps.decorateForeverBoxStatus(
         await method(deps.extensions.api("forever-box"), "getStatus")(args)
       ),
-    // `POST /api/getCloudAgentInfo {}` and `{"includeFiles":true}` answered
-    // `500 {"error":"Cannot read properties of undefined (reading 'trim')"}` — the
-    // cloud agent key, trimmed one layer down, on a request that carried none.
-    getCloudAgentInfo: (args: any) =>
-      method(deps.extensions.api("cloud-agents"), "getInfo")(
-        requireText(args, "bcId", "getCloudAgentInfo"),
-        args.includeFiles
-      ),
     ensureForeverBox: async (args: any) =>
       deps.decorateForeverBoxStatus(
         await method(deps.extensions.api("forever-box"), "ensure")(args)

@@ -133,9 +133,9 @@ export function createDevControlsWindowRuntime(options: DevControlsWindowRuntime
   };
 }
 
-export interface SandThemeState { readonly preference: SandThemePreference; readonly resolved: "light" | "dark" }
+export interface SandThemeState { readonly preference: SandThemePreference; readonly resolved: SandThemePreference }
 export function isSandThemeState(value: unknown): value is SandThemeState {
-  return typeof value === "object" && value != null && !Array.isArray(value) && "preference" in value && isSandThemePreference(value.preference) && "resolved" in value && (value.resolved === "light" || value.resolved === "dark");
+  return typeof value === "object" && value != null && !Array.isArray(value) && "preference" in value && isSandThemePreference(value.preference) && "resolved" in value && isSandThemePreference(value.resolved);
 }
 export class SandDevThemeControlError extends Error {}
 export class SandDevGatewayOfflineControlError extends Error {}

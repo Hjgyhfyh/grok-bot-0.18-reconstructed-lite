@@ -162,7 +162,6 @@ const CASES = [
   { command: "setAgentAvatarBytes", body: {}, field: "id" },
   { command: "setAgentAvatarBytes", body: { id: AGENT, pngBase64: 42 }, field: "pngBase64" },
   { command: "getAgentAvatar", body: {}, field: "id" },
-  { command: "getCloudAgentInfo", body: {}, field: "bcId" },
 
   { command: "executeRoutedMcpTool", body: {}, field: "name" },
   { command: "executeRoutedMcpTool", body: { name: "routed" }, field: "toolName" },

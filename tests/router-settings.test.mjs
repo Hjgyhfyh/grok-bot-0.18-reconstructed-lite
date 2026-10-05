@@ -15,12 +15,18 @@ async function loadRouterModule() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
-test("router provider preference defaults to Cursor and round-trips every provider", async () => {
+test("router provider preference is DeepSeek and nothing else round-trips", async () => {
   const router = await loadRouterModule();
-  assert.deepEqual(router.ROUTER_PROVIDERS.map(({ id }) => id), ["cursor", "claude-code", "codex", "openrouter", "custom"]);
-  assert.equal(router.parseRouterProviderPreference(null), "cursor");
-  assert.equal(router.parseRouterProviderPreference("not-json"), "cursor");
-  assert.equal(router.parseRouterProviderPreference(JSON.stringify({ schemaVersion: 1, provider: "unknown" })), "cursor");
+  // One provider, so the picker can never offer the user a route this build cannot serve.
+  assert.deepEqual(router.ROUTER_PROVIDERS.map(({ id }) => id), ["deepseek"]);
+  assert.equal(router.DEFAULT_ROUTER_PROVIDER, "deepseek");
+  assert.equal(router.parseRouterProviderPreference(null), "deepseek");
+  assert.equal(router.parseRouterProviderPreference("not-json"), "deepseek");
+  assert.equal(router.parseRouterProviderPreference(JSON.stringify({ schemaVersion: 1, provider: "unknown" })), "deepseek");
+  // A value left by an earlier build names a provider that no longer exists, and must not survive.
+  assert.equal(router.parseRouterProviderPreference(JSON.stringify({ schemaVersion: 1, provider: "cursor" })), "deepseek");
+  assert.equal(router.parseRouterProviderPreference(JSON.stringify({ schemaVersion: 1, provider: "openrouter" })), "deepseek");
+  assert.equal(router.isRouterProviderId("cursor"), false, "the retired provider id must not still validate");
 
   let stored = null;
   const persistence = {

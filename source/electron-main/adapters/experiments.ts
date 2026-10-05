@@ -53,7 +53,7 @@ export function createProductionExperimentsAdapter(
             refreshNow: () => created.refreshNow(),
           };
         },
-        isTelemetryDisabled() { return process.env.SAND_DISABLE_TELEMETRY === "1"; },
+        isTelemetryDisabled() { return process.env.SAND_ENABLE_TELEMETRY !== "1"; },
         startRpcTraceWindow() { return startSandRpcTraceWindow(); },
         getComputerUseModelOverride() { return service?.getComputerUseModelOverride(); },
         subscribe(listener: () => void) {

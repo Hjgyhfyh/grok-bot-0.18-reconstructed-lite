@@ -16,7 +16,9 @@ const SAND_PRODUCT_ANALYTICS_GATE = "sand_product_analytics";
 const MAX_DEFERRED_EVENTS = 256;
 
 function isAnalyticsOptedOut(): boolean {
-  return process.env.SAND_DISABLE_TELEMETRY === "1" || process.env.SAND_DISABLE_ANALYTICS === "1";
+  // Opt-in. DB Bot Lite is one librarian's app with no account and no consent screen, so
+  // nothing leaves this machine unless `SAND_ENABLE_TELEMETRY=1` is set on purpose.
+  return process.env.SAND_ENABLE_TELEMETRY !== "1";
 }
 
 function isAnalyticsDebug(): boolean {

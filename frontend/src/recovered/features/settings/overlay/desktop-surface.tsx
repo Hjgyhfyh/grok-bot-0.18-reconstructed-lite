@@ -58,6 +58,10 @@ export function SettingsDesktopSurface({ bridge, coordinatorClient = null, initi
   const [surfaceNotice, setSurfaceNotice] = useState<SettingsNotice | null>(null);
   const [cancelTrialDialogOpen, setCancelTrialDialogOpen] = useState(false);
   const [routerProvider, setRouterProvider] = useState<RouterProviderId>(DEFAULT_ROUTER_PROVIDER);
+  const [deepSeekModelId, setDeepSeekModelId] = useState<string | null>(null);
+  const [deepSeekApiKeyConfigured, setDeepSeekApiKeyConfigured] = useState(false);
+  const [deepSeekApiKeyMessage, setDeepSeekApiKeyMessage] = useState<string | null>(null);
+  const [routerReloadToken, setRouterReloadToken] = useState(0);
   const [routerPending, setRouterPending] = useState(false);
   const handleCancelTrialDialogOpen = useCallback((open: boolean) => setCancelTrialDialogOpen(open), []);
   const handleNotice = useCallback((event: SettingsNoticeEvent) => {
@@ -143,6 +147,23 @@ export function SettingsDesktopSurface({ bridge, coordinatorClient = null, initi
     });
     return () => { active = false; };
   }, [bridge, isOpen]);
+
+  // Модель и наличие ключа приходят из основного процесса. Значение ключаrenderer не видит.
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    void bridge.agent.getInferenceApiKeyStatus().then((status) => {
+      if (!active) return;
+      setDeepSeekApiKeyConfigured(status.configured === true);
+      setDeepSeekApiKeyMessage(typeof status.message === "string" ? status.message : null);
+    }).catch(() => {
+      if (active) setDeepSeekApiKeyConfigured(false);
+    });
+    void bridge.agent.getInferenceRouter().then((router) => {
+      if (active) setDeepSeekModelId(typeof router.endpoint?.modelId === "string" ? router.endpoint.modelId : null);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [bridge, isOpen, routerReloadToken]);
 
   const mutate = async <Value,>(action: () => Promise<Value>, operation: SettingsNoticeEvent["operation"], apply: (value: Value) => void): Promise<Value> => {
     try {
@@ -251,6 +272,8 @@ export function SettingsDesktopSurface({ bridge, coordinatorClient = null, initi
         );
         if (section === "router") return (
           <RouterSettingsPanel
+            apiKeyConfigured={deepSeekApiKeyConfigured}
+            apiKeyMessage={deepSeekApiKeyMessage}
             onChange={async (provider) => {
               if (routerPending || provider === routerProvider) return;
               const previous = routerProvider;
@@ -266,8 +289,38 @@ export function SettingsDesktopSurface({ bridge, coordinatorClient = null, initi
                 setRouterPending(false);
               }
             }}
+            onModelChange={async (modelId) => {
+              if (routerPending) return;
+              setRouterPending(true);
+              try {
+                await mutate(
+                  () => bridge.agent.setInferenceRouter(routerProvider, { baseUrl: "https://api.deepseek.com", modelId }),
+                  "settings-router-model",
+                  (router) => setDeepSeekModelId(router.endpoint?.modelId ?? modelId)
+                );
+                setRouterReloadToken((token) => token + 1);
+              } catch {
+                // `mutate` already published the reason to the user.
+              } finally {
+                setRouterPending(false);
+              }
+            }}
+            onSaveApiKey={async (apiKey) => {
+              setRouterPending(true);
+              try {
+                await mutate(() => bridge.agent.setInferenceApiKey(apiKey), "settings-router-api-key", (result) => {
+                  setDeepSeekApiKeyConfigured(result.configured === true);
+                  setRouterReloadToken((token) => token + 1);
+                });
+              } catch {
+                // `mutate` already published the reason to the user.
+              } finally {
+                setRouterPending(false);
+              }
+            }}
             pending={routerPending}
             provider={routerProvider}
+            modelId={deepSeekModelId}
           />
         );
         return (
@@ -300,7 +353,7 @@ export function SettingsDesktopSurface({ bridge, coordinatorClient = null, initi
           />
         );
       }}
-      showUsage={snapshot != null && (routerProvider !== "cursor" || shouldShowUsageSettings(snapshot.usagePageFeatureGateEnabled, snapshot.usage))}
+      showUsage={snapshot != null && shouldShowUsageSettings(snapshot.usagePageFeatureGateEnabled, snapshot.usage)}
       iconPlatform={bridge.platform === "win32" ? "windows" : "mac"}
       closeOnBackdrop={!cancelTrialDialogOpen}
       closeOnEscape={!cancelTrialDialogOpen}

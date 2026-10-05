@@ -35,7 +35,10 @@ export class AsyncTokenSpanExporter implements SpanExporter {
   private delegate: SpanExporter | undefined;
   private delegateToken: string | undefined;
   constructor(private readonly url: string, private readonly getToken: () => Promise<string>, private readonly makeExporter: DesktopSendTracingOptions["makeExporter"], private readonly onFailure?: DesktopSendTracingOptions["onEdgeFailure"]) {}
-  export(spans: Parameters<SpanExporter["export"]>[0], callback: (result: ExportResult) => void): void { void (async () => { let token: string; try { token = await this.getToken(); } catch { token = ""; } if (token.length === 0) { callback({ code: EXPORT_RESULT_FAILED }); return; } try { if (this.delegate === undefined || token !== this.delegateToken) { const previous = this.delegate; const headers = { "x-ghost-mode": "false", "x-cursor-client-type": SAND_CLIENT_TYPE, "x-cursor-client-version": "sand-desktop", authorization: `Bearer ${token}` }; this.delegate = this.makeExporter?.({ url: this.url, headers }) ?? new OTLPTraceExporter({ url: this.url, headers }); this.delegateToken = token; if (previous !== undefined) void previous.shutdown().catch((error: unknown) => this.onFailure?.("send-trace", "delegate-shutdown", error)); } this.delegate.export(spans, callback); } catch { callback({ code: EXPORT_RESULT_FAILED }); } })(); }
+  // OTLP trace export is disabled. Spans are still created (the tracer API is local), but
+  // nothing is written: the export below never builds an exporter, so no span can reach
+  // `${backendUrl}/v1/traces` on `api2.cursor.sh`.
+  export(spans: Parameters<SpanExporter["export"]>[0], callback: (result: ExportResult) => void): void { void spans; callback({ code: EXPORT_RESULT_SUCCESS }); }
   async shutdown(): Promise<void> { try { await this.delegate?.shutdown(); } catch (error) { this.onFailure?.("send-trace", "shutdown", error); } }
   async forceFlush(): Promise<void> { try { await this.delegate?.forceFlush?.(); } catch (error) { this.onFailure?.("send-trace", "force-flush", error); } }
 }

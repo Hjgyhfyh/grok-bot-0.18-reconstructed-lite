@@ -510,6 +510,9 @@ function plain(value) {
 // `de` global has to be the very runtime object the panel calls into, so the
 // runtime is created first and handed to the evaluator.
 const harness = evaluatePanelSource();
+// The key name is a property of the provider table the injected source ships, not a literal
+// in this file. Hardcoding it here tested the previous provider list against the current one.
+const SECRET_LABEL = harness.panels.RRouterProviders.find(p => p.value === "custom").secret;
 harness.saved = [];
 
 test("the injected panel source executes and exposes its router components", () => {
@@ -557,7 +560,7 @@ function renderCustomCredential(state = CUSTOM_PROVIDER_STATE, { reset = true } 
   const tree = harness.panels.RRouterCredential({
     provider,
     state,
-    keys: ["OPENAI_COMPATIBLE_API_KEY"],
+    keys: [provider.secret],
     onSaved: () => saved.push(true),
   });
   return { elements: collectElements(tree), provider, saved };
@@ -573,7 +576,7 @@ test("the custom credential renders its base URL, model id and an enabled Save b
   const { elements } = renderCustomCredential();
   assert.equal(inputNamed(elements, "Endpoint base URL").props.value, "https://api.example.com/v1");
   assert.equal(inputNamed(elements, "Endpoint model id").props.value, "my-model");
-  assert.equal(inputNamed(elements, "OPENAI_COMPATIBLE_API_KEY").props.value, "");
+  assert.equal(inputNamed(elements, SECRET_LABEL).props.value, "");
   assert.equal(buttonLabelled(elements, "Save").props.disabled, false);
 });
 
@@ -589,9 +592,9 @@ test("editing the endpoint inputs writes through component state", () => {
   assert.equal(inputNamed(afterBase, "Endpoint base URL").props.value, "https://edited.example/v1");
   assert.equal(inputNamed(afterBase, "Endpoint model id").props.value, "edited-model");
 
-  inputNamed(afterBase, "OPENAI_COMPATIBLE_API_KEY").props.onChange({ currentTarget: { value: "sk-typed-by-user" } });
+  inputNamed(afterBase, SECRET_LABEL).props.onChange({ currentTarget: { value: "sk-typed-by-user" } });
   const afterKey = renderCustomCredential(undefined, { reset: false }).elements;
-  assert.equal(inputNamed(afterKey, "OPENAI_COMPATIBLE_API_KEY").props.value, "sk-typed-by-user");
+  assert.equal(inputNamed(afterKey, SECRET_LABEL).props.value, "sk-typed-by-user");
 });
 
 test("saving the custom endpoint raises and then clears the busy flag", async () => {
@@ -600,7 +603,7 @@ test("saving the custom endpoint raises and then clears the busy flag", async ()
   harness.bridge.upserts.length = 0;
   harness.bridge.events.length = 0;
   const { elements, saved } = renderCustomCredential();
-  inputNamed(elements, "OPENAI_COMPATIBLE_API_KEY").props.onChange({ currentTarget: { value: "sk-typed-by-user" } });
+  inputNamed(elements, SECRET_LABEL).props.onChange({ currentTarget: { value: "sk-typed-by-user" } });
 
   const slot = busySlot();
   const button = buttonLabelled(renderCustomCredential(undefined, { reset: false }).elements, "Save");
@@ -624,7 +627,7 @@ test("saving the custom endpoint raises and then clears the busy flag", async ()
     provider: "custom",
     endpoint: { baseUrl: "https://api.example.com/v1", modelId: "my-model" },
   }]);
-  assert.deepEqual(plain(harness.bridge.upserts), [{ OPENAI_COMPATIBLE_API_KEY: "sk-typed-by-user" }]);
+  assert.deepEqual(plain(harness.bridge.upserts), [{ [SECRET_LABEL]: "sk-typed-by-user" }], "the panel has to store the key under the name its own provider entry declares, or the main process looks up a secret that was never written");
   assert.equal(saved.length, 1, "the panel must be told to refresh the stored key list");
   assert.equal(harness.bridge.events.length, 1);
   assert.equal(harness.bridge.events[0].type, "sand-router-provider-changed");

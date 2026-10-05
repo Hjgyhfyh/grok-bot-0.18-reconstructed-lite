@@ -1,4 +1,6 @@
 import { installInvariantReporter } from "../shared/invariant.js";
+import { defaultSandInferenceCustomEndpoint } from "../shared/inference-router.js";
+import { deepSeekApiKeyStatus } from "./extensions/inference/deepseek-credential.js";
 import { gatewayScheme, resolveGatewayServerConfig } from "./gateway-config.js";
 import { startGatewayServer } from "./gateway-server.js";
 import { clearGatewayDiscovery, writeGatewayDiscovery } from "./host-discovery.js";
@@ -296,6 +298,12 @@ export async function main(
     host.reportProcessCrash(error, kind);
   });
   deps.installInvariantReporter(report => host.reportInvariantViolation(report));
+
+  // Проверка ключа при старте. Без него ни один ход не дойдёт до модели, и отказ выглядел бы
+  // как зависший агент. Сообщение ниже пользователь видит в окне и в настройках.
+  const deepSeekKey = deepSeekApiKeyStatus();
+  if (!deepSeekKey.configured) log.error(`[sand-host] ВНИМАНИЕ: ${deepSeekKey.message}`);
+  else log.log(`[sand-host] ключ DeepSeek найден (источник: ${deepSeekKey.source}), модель: ${defaultSandInferenceCustomEndpoint().modelId}`);
   deps.pinHostDiagnosticsReporter(diagnostic => {
     host.reportHostDiagnostic(diagnostic);
   });

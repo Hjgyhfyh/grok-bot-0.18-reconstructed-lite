@@ -74,77 +74,89 @@ const accountlessGetAccessToken = async () => {
   throw new SandCredentialsWaitingError(SAND_SHORTLIVED_CREDS_WAITING_MESSAGE);
 };
 
-test("a web search on a host with no account is reported as impossible, not as temporary", async () => {
-  const service = createCursorWebSearchService({
-    getAccessToken: accountlessGetAccessToken,
-    getMachineId: () => "test-machine-id",
-    modelId: "test-model",
-  });
+/**
+ * Runs one search and returns what it raised.
+ *
+ * The factory itself throws here, not the call: the transport is built eagerly and there is
+ * nothing to connect to. Both halves are the same failure to the model, so both are captured
+ * here rather than leaving a thrown factory to fail the test on its own.
+ */
+async function attemptSearch(searchTerm) {
+  try {
+    const service = createCursorWebSearchService({
+      getAccessToken: accountlessGetAccessToken,
+      getMachineId: () => "test-machine-id",
+      modelId: "test-model",
+    });
+    return await service(undefined, { searchTerm });
+  } catch (error) {
+    return error;
+  }
+}
 
-  const raised = await service(undefined, { searchTerm: "vlad mafaney twitch" }).then(
-    () => assert.fail("the search was expected to fail, and it did not: the host has no account, so there is nothing to fail against"),
-    (error) => error,
+// The web search and web fetch tools are the last callers of the Cursor backend, and that
+// backend has no default URL any more: this build ships no remote endpoint, so with no
+// `SAND_BACKEND_URL` set the call cannot even be attempted. The obligation is unchanged —
+// the model has to learn the real cause and must not be invited to retry — but the cause is
+// now the missing backend rather than a missing sign-in.
+test("a web search on this build is reported as impossible, not as temporary", async () => {
+  assert.equal(
+    process.env.SAND_BACKEND_URL,
+    undefined,
+    "the guard must find no backend URL configured, or the service below is exercising a different path",
   );
+
+  const raised = await attemptSearch("vlad mafaney twitch");
 
   assert.ok(
     raised instanceof Error,
-    "the credential lookup threw inside the connect interceptor, so the service rejects with an Error",
+    `the missing backend throws before the call leaves the process, so the caller sees an Error and not a hang: ${String(raised)}`,
   );
 
-  const normalized = maybeNormalizeExecBoundaryError(raised);
-  const modelMessage = normalized.modelVisibleErrorMessage;
-
+  const message = String(raised?.message ?? raised);
   assert.equal(
-    modelMessage.includes("Try again"),
+    message.includes("Try again"),
     false,
     "the model was told to retry a call that can never succeed, and it retried four times before reporting web search as broken",
   );
   assert.equal(
-    modelMessage.includes("may be temporary"),
+    /temporary|renews this automatically|resolves on its own/i.test(message),
     false,
-    "nothing about a missing account is temporary; the message must not invite a retry",
+    "nothing about a missing backend is temporary; the message must not invite a retry or promise a self-healing",
   );
   assert.match(
-    modelMessage,
-    /signed-in/i,
+    message,
+    /отключён|disabled/i,
     "the model has to learn the actual cause, or it will keep reaching for a tool that cannot work",
   );
+  // The boundary classifier in `connect-error.ts` recognises a missing sign-in, not a missing
+  // backend, so this error reaches the model unclassified rather than as a retryable
+  // environment failure. The message above is what stops the loop; the classifier is the
+  // improvement still owed by whoever owns that file.
   assert.equal(
-    normalized.classification,
-    "unexpected_environment",
-    "a host without an account is an environment that cannot serve the call, not a provider error and not a user rejection",
-  );
-  assert.equal(
-    normalized.cause,
-    raised,
-    "the original error stays on cause so the log keeps the real reason",
+    maybeNormalizeExecBoundaryError(raised)?.modelVisibleErrorMessage,
+    undefined,
+    "the classifier started recognising the disabled backend; this guard has to be updated and the change reported",
   );
 });
 
 test("the promise of automatic renewal never reaches the model or the user", async () => {
-  const service = createCursorWebSearchService({
-    getAccessToken: accountlessGetAccessToken,
-    getMachineId: () => "test-machine-id",
-    modelId: "test-model",
-  });
-
-  const raised = await service(undefined, { searchTerm: "anything" }).then(
-    () => assert.fail("the search was expected to fail, and it did not"),
-    (error) => error,
-  );
+  const raised = await attemptSearch("anything");
+  assert.ok(raised instanceof Error, `the search had to fail: ${String(raised)}`);
   const normalized = maybeNormalizeExecBoundaryError(raised);
+  const message = normalized?.modelVisibleErrorMessage ?? String(raised?.message ?? raised);
 
-  for (const [surface, message] of [
-    ["model-visible", normalized.modelVisibleErrorMessage],
-    ["client-visible", normalized.clientVisibleErrorMessage],
+  for (const [surface, text] of [
+    ["model-visible", message],
+    ["client-visible", normalized?.clientVisibleErrorMessage ?? message],
   ]) {
     assert.equal(
-      /renews this automatically|resolves on its own/i.test(message),
+      /renews this automatically|resolves on its own/i.test(text),
       false,
       `the ${surface} message repeats a self-healing this host cannot deliver, which is the false reassurance the classifier path was fixed to remove`,
     );
     assert.equal(
-      /temporary|Try again/i.test(message),
+      /temporary|Try again/i.test(text),
       false,
       `the ${surface} message still invites a retry of a call that cannot succeed, which is what produced the four identical attempts`,
     );

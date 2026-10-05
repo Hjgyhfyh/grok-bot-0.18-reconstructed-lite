@@ -302,7 +302,7 @@ export class SandStructuredLogTelemetry {
         polling: options.flushPolling,
         submitDeadline: options.submitDeadline,
         holdForIdentity: options.holdFlushForHostBundleIdentity === true,
-        disabled: process.env.SAND_DISABLE_TELEMETRY === "1",
+        disabled: process.env.SAND_ENABLE_TELEMETRY !== "1",
         ...(options.identityHoldExpiry === undefined
           ? {}
           : { identityHoldExpiry: options.identityHoldExpiry }),

@@ -99,7 +99,7 @@ const SAFETY_CEILING_MS = 20_000;
 
 const TOUCHED_ENV = [
   "SAND_DATA_ROOT",
-  "OPENAI_COMPATIBLE_API_KEY",
+  "DEEPSEEK_API_KEY",
   "SAND_ROUTED_TEMPERATURE",
   "SAND_ROUTED_CONTEXT_WINDOW",
 ];
@@ -116,7 +116,23 @@ function restoreEnv() {
 let server;
 let dataRoot;
 let serverUrl;
-const received = [];
+
+/**
+ * The executor pins `baseURL` to the DeepSeek constant and there is no seam to point it
+ * anywhere else, so the probe server is reached by redirecting the one host this build is
+ * allowed to address. The bytes on the wire are the bytes DeepSeek would receive, and the
+ * socket, the SSE frames and the abort are the real ones.
+ *
+ * The migration ids in every settings file below are load-bearing: without them the
+ * `deepseek-only` migration rewrites the endpoint to its default on the first read, and the
+ * probe model these tests select behaviour by would never reach the wire.
+ */
+const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const realFetch = globalThis.fetch;
+const redirectDeepSeek = (input, init) => realFetch(
+  String(input?.url ?? input).replace(DEEPSEEK_BASE_URL, serverUrl.replace(/\/v1$/, "")),
+  init,
+);const received = [];
 
 function startServer() {
   server = http.createServer((req, res) => {
@@ -190,7 +206,7 @@ function withDeadline(promise, ms, label) {
 /** The real provider refusal `abstract-user-message-action-handler.ts` throws out of the step. */
 async function providerRefusal(modelId) {
   setModel(modelId);
-  const inner = createProviderPromptSession("custom").getExecutor();
+  const inner = createProviderPromptSession("deepseek").getExecutor();
   const executor = new SimplePromptToolExecutor({
     appendMessages(messages) {
       inner.appendMessages(messages);
@@ -346,14 +362,16 @@ function assertNoCredentialIn(text, where) {
 test.before(async () => {
   dataRoot = mkdtempSync(path.join(os.tmpdir(), "grok-run-error-root-"));
   process.env.SAND_DATA_ROOT = dataRoot;
-  process.env.OPENAI_COMPATIBLE_API_KEY = API_KEY;
+  process.env.DEEPSEEK_API_KEY = API_KEY;
   delete process.env.SAND_ROUTED_TEMPERATURE;
   delete process.env.SAND_ROUTED_CONTEXT_WINDOW;
   await startServer();
+  globalThis.fetch = redirectDeepSeek;
 });
 
 test.after(() => {
   restoreEnv();
+  globalThis.fetch = realFetch;
   server?.close();
   rmSync(dataRoot, { recursive: true, force: true });
 });

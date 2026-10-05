@@ -55,7 +55,7 @@ test.after(() => dispose());
 const TOUCHED_ENV = [
   "SAND_DATA_ROOT",
   "SAND_USER_DATA_DIR",
-  "OPENAI_COMPATIBLE_API_KEY",
+  "DEEPSEEK_API_KEY",
 ];
 
 const savedEnv = new Map();
@@ -116,10 +116,13 @@ async function startEndpoint() {
 }
 
 /**
- * Points `getSandRootDir()` at a private directory holding a settings file that
- * names the loopback endpoint. The host re-reads that file on every turn, so
- * the executor under test resolves its base URL from here exactly as it does in
- * the box.
+ * Points `getSandRootDir()` at a private directory holding a settings file that names the
+ * DeepSeek endpoint, and redirects that one host to the loopback probe server.
+ *
+ * The executor pins `baseURL` to `https://api.deepseek.com` and there is no seam to point it
+ * elsewhere, so the bytes below are still the bytes DeepSeek would receive. The migration ids
+ * are written on purpose: without them the `deepseek-only` migration rewrites the endpoint to
+ * its default on the first read, and the probe model would never reach the wire.
  */
 function useEndpoint(baseUrl) {
   const root = mkdtempSync(path.join(os.tmpdir(), "grok-tools-root-"));
@@ -127,14 +130,21 @@ function useEndpoint(baseUrl) {
     path.join(root, "settings.json"),
     JSON.stringify({
       version: 1,
-      inferenceProvider: "custom",
-      inferenceCustomEndpoint: { baseUrl, modelId: "probe-model" },
+      settingsMigrations: ["downgrade-persisted-max-fast", "local-inference-provider", "deepseek-only"],
+      inferenceProvider: "deepseek",
+      inferenceCustomEndpoint: { baseUrl: "https://api.deepseek.com", modelId: "probe-model" },
     }),
     "utf8",
   );
   process.env.SAND_DATA_ROOT = root;
-  process.env.OPENAI_COMPATIBLE_API_KEY = "probe-key";
-  return () => rmSync(root, { recursive: true, force: true });
+  process.env.DEEPSEEK_API_KEY = "probe-key";
+  const probe = baseUrl.replace(/\/v1$/, "");
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = (input, init) => savedFetch(String(input?.url ?? input).replace("https://api.deepseek.com", probe), init);
+  return () => {
+    globalThis.fetch = savedFetch;
+    rmSync(root, { recursive: true, force: true });
+  };
 }
 
 /**
@@ -150,7 +160,7 @@ async function drain(result) {
   await result.response;
 }
 
-test("the custom provider puts every turn tool into the POST body it sends to the endpoint", async (t) => {
+test("the DeepSeek provider puts every turn tool into the POST body it sends to the endpoint", async (t) => {
   const endpoint = await startEndpoint();
   const restoreRoot = useEndpoint(endpoint.baseUrl);
   t.after(async () => {
@@ -158,13 +168,15 @@ test("the custom provider puts every turn tool into the POST body it sends to th
     await endpoint.close();
   });
 
-  const executor = createProviderPromptSession("custom").getExecutor();
+  const executor = createProviderPromptSession("deepseek").getExecutor();
   executor.appendMessages([{ role: "user", content: "Что ты умеешь?" }]);
   await drain(executor.stream(undefined, "probe-invocation", DEFINITIONS));
 
   assert.equal(endpoint.requests.length, 1, "the executor issued exactly one inference request for one turn");
   const body = JSON.parse(endpoint.requests[0].body);
-  assert.equal(endpoint.requests[0].url, "/v1/chat/completions", "the tools reach the chat-completions route, not some other one");
+  // `https://api.deepseek.com` has no `/v1` suffix: DeepSeek serves `/chat/completions` at the
+  // root and treats `/v1` as an accepted alias.
+  assert.equal(endpoint.requests[0].url, "/chat/completions", "the tools reach the chat-completions route, not some other one");
   assert.equal(body.model, "probe-model", "the turn ran against the model the settings file named");
   assert.equal(body.tool_choice, "auto", "the endpoint is allowed to pick a tool, so a missing tools array would be the only reason it cannot");
   assert.deepEqual(
@@ -179,7 +191,7 @@ test("the custom provider puts every turn tool into the POST body it sends to th
   );
 });
 
-test("the OpenCode session header is sent only to the host it belongs to", async (t) => {
+test("no retired provider's private routing header is sent to DeepSeek", async (t) => {
   const endpoint = await startEndpoint();
   const restoreRoot = useEndpoint(endpoint.baseUrl);
   t.after(async () => {
@@ -187,14 +199,19 @@ test("the OpenCode session header is sent only to the host it belongs to", async
     await endpoint.close();
   });
 
-  const executor = createProviderPromptSession("custom").getExecutor();
+  const executor = createProviderPromptSession("deepseek").getExecutor();
   executor.appendMessages([{ role: "user", content: "hello" }]);
   await drain(executor.stream(undefined, "probe-invocation", DEFINITIONS));
 
   assert.equal(
     endpoint.requests[0].headers["x-opencode-session"],
     undefined,
-    "a user-supplied OpenAI-compatible host is not opencode.ai and must not be sent OpenCode's private routing header",
+    "DeepSeek is not opencode.ai and must never be sent OpenCode's private routing header",
+  );
+  assert.deepEqual(
+    Object.keys(endpoint.requests[0].headers).filter((name) => name.startsWith("x-cursor")),
+    [],
+    "no Cursor-specific header may travel to DeepSeek either",
   );
 });
 
@@ -207,9 +224,9 @@ test("the one-shot routed text helper carries the same tool list onto the wire",
   });
 
   await runRoutedProviderText(
-    "custom",
+    "deepseek",
     [{ role: "user", content: "hello" }],
-    { tools: DEFINITIONS, sessionId: "probe-session" },
+    { tools: DEFINITIONS },
   );
 
   const body = JSON.parse(endpoint.requests[0].body);

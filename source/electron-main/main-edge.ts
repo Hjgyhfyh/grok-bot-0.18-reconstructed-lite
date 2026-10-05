@@ -6,9 +6,8 @@ import { isSandUpdateTrack } from "../shared/update-track.js";
 import { isValidIanaTimeZone } from "../shared/timezone.js";
 import { sandWebauthnProxyMirroredEnablement } from "../shared/webauthn-proxy-availability.js";
 import { reportDesktopEdgeFailure } from "./desktop-edge-failures.js";
-import { isSandInferenceProvider, normalizeSandInferenceCustomEndpoint } from "../shared/inference-router.js";
+import { SAND_INFERENCE_PROVIDER, defaultSandInferenceCustomEndpoint, isSandInferenceProvider, normalizeSandInferenceCustomEndpoint, DEEPSEEK_BASE_URL } from "../shared/inference-router.js";
 import { listSandEndpointModels } from "../shared/node/inference-endpoint-models.js";
-import { getLocalInferenceCliStatus } from "../shared/node/inference-router-local.js";
 import { isSandBoxRuntime } from "../shared/box-runtime.js";
 import { getLocalDockerStatus, startLocalDockerBox, stopLocalDockerBox } from "./box/local-docker-host-connector.js";
 
@@ -55,6 +54,10 @@ export interface MainEdgeDeps {
   readonly fetchAvailableModels: () => unknown;
   /** Reveals one stored secret for a read-only model probe. Optional: absent means "no list". */
   readonly readCustomEndpointApiKey?: (key: string) => Promise<string | null | undefined>;
+  /** Reads the DeepSeek key the user typed into the settings panel. Optional. */
+  readonly getInferenceApiKey?: () => string | null | undefined;
+  /** Writes the DeepSeek key the user typed into the settings panel. Optional. */
+  readonly setInferenceApiKey?: (value: string | undefined) => void;
   readonly emitEgressTunnelChanged: (enabled: boolean) => void;
   readonly emitWebauthnProxyChanged: (enabled: boolean) => void;
   readonly ensureTranscriptionManager: () => Promise<UnknownRecord>;
@@ -75,9 +78,26 @@ function required(read: () => UnknownRecord | null, code: string, detail: string
 function updateService(deps: MainEdgeDeps) { return required(deps.readLiveUpdateService, MAIN_EDGE_UPDATE_UNAVAILABLE, "The update service is not running."); }
 function themeController(deps: MainEdgeDeps) { return required(deps.readThemeController, MAIN_EDGE_THEME_UNAVAILABLE, "The theme controller is not running."); }
 function egressController(deps: MainEdgeDeps) { return required(deps.readEgressTunnelController, MAIN_EDGE_EGRESS_TUNNEL_UNAVAILABLE, "The egress tunnel controller is not running."); }
-/** The custom provider keeps its credential in the OS secret store under this name; the renderer never sees it. */
-const CUSTOM_ENDPOINT_SECRET_KEY = "OPENAI_COMPATIBLE_API_KEY";
-async function storedCustomEndpointApiKey(deps: MainEdgeDeps): Promise<string | null> {
+/** The DeepSeek key name in the OS secret store. The renderer never receives its value. */
+const CUSTOM_ENDPOINT_SECRET_KEY = "DEEPSEEK_API_KEY";
+const DEEPSEEK_MISSING_KEY_HINT =
+  "Не задан ключ DeepSeek API. Открой Настройки → DeepSeek и вставь ключ вида sk-… " +
+  "или задай переменную окружения DEEPSEEK_API_KEY.";
+
+/**
+ * The key a model probe signs with, taken from the settings file first and from the OS secret
+ * store second. Only its presence ever leaves this module.
+ */
+function storedDeepSeekApiKey(deps: MainEdgeDeps): string | null {
+  const fromSettings = deps.getInferenceApiKey?.() ?? null;
+  if (typeof fromSettings === "string" && fromSettings.trim().length > 0) return fromSettings.trim();
+  return null;
+}
+async function secretDeepSeekApiKey(deps: MainEdgeDeps): Promise<string | null> {
+  const stored = storedDeepSeekApiKey(deps);
+  if (stored != null) return stored;
+  const fromEnv = process.env[CUSTOM_ENDPOINT_SECRET_KEY]?.trim();
+  if (typeof fromEnv === "string" && fromEnv.length > 0) return fromEnv;
   const read = deps.readCustomEndpointApiKey;
   if (typeof read !== "function") return null;
   try { const value = await read(CUSTOM_ENDPOINT_SECRET_KEY); return typeof value === "string" && value.trim().length > 0 ? value.trim() : null; }
@@ -122,21 +142,26 @@ export function createMainEdgeHandlers(deps: MainEdgeDeps): HandlerMap {
     setHostPinnedAgents: (raw) => echo(deps, "pinnedAgentIds", req(raw).pinnedAgentIds, "pinned agents"),
     getHostSidebarSections: async () => (await deps.readHostSettingsFromBox()).sidebarSections ?? null,
     setHostSidebarSections: (raw) => echo(deps, "sidebarSections", req(raw).sections, "sidebar sections"),
-    getAvailableModels: () => deps.fetchAvailableModels(),
-    getInferenceRouter: async () => { const settings = await deps.readHostSettingsFromBox().catch(() => ({} as UnknownRecord)); const provider = invoke(deps.settingsStore, "getInferenceProvider"); return { provider: isSandInferenceProvider(provider) ? provider : "custom", usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, endpoint: invoke(deps.settingsStore, "getInferenceCustomEndpoint") ?? null, local: getLocalInferenceCliStatus() }; },
-    listInferenceRouterModels: async (raw) => await listSandEndpointModels({ baseUrl: req(raw).baseUrl, apiKey: await storedCustomEndpointApiKey(deps) }),
+    // The model list used to come from Cursor's `AiService.availableModels`. DeepSeek answers
+    // the same question on `GET https://api.deepseek.com/models`, so the picker works with the
+    // key the user typed and with no Cursor account anywhere.
+    getAvailableModels: async () => await listSandEndpointModels({ baseUrl: DEEPSEEK_BASE_URL, apiKey: await secretDeepSeekApiKey(deps) }),
+    getInferenceApiKeyStatus: () => { const key = storedDeepSeekApiKey(deps) ?? process.env[CUSTOM_ENDPOINT_SECRET_KEY]?.trim(); const configured = typeof key === "string" && key.length > 0; return { configured, message: configured ? null : DEEPSEEK_MISSING_KEY_HINT }; },
+    setInferenceApiKey: (raw) => { const value = req(raw).apiKey; const key = typeof value === "string" ? value.trim() : ""; deps.setInferenceApiKey?.(key.length === 0 ? undefined : key); return { configured: key.length > 0 }; },
+    getInferenceRouter: async () => { const settings = await deps.readHostSettingsFromBox().catch(() => ({} as UnknownRecord)); const provider = invoke(deps.settingsStore, "getInferenceProvider"); return { provider: isSandInferenceProvider(provider) ? provider : SAND_INFERENCE_PROVIDER, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, endpoint: invoke(deps.settingsStore, "getInferenceCustomEndpoint") ?? defaultSandInferenceCustomEndpoint(), apiKeyConfigured: storedDeepSeekApiKey(deps) != null }; },
+    listInferenceRouterModels: async (raw) => await listSandEndpointModels({ baseUrl: req(raw).baseUrl ?? DEEPSEEK_BASE_URL, apiKey: await secretDeepSeekApiKey(deps) }),
     // The routing decision is made from the BOX copy of the settings
     // (`inference-router.ts` reads `getInferenceProvider()` on the host side),
     // while the panel reads this desktop-local store. `syncHostSettingsToBox`
     // resolves to `null` on failure instead of rejecting, so an unchecked result
     // left the panel showing "Custom" while every message still went to Cursor.
     // Treat an unreachable host as the failure it is, exactly like `echo` does.
-    setInferenceRouter: async (raw) => { const request = req(raw); const provider = request.provider; invariant(isSandInferenceProvider(provider), "Unknown inference provider."); const requestedEndpoint = request.endpoint; const endpoint = requestedEndpoint === null ? undefined : normalizeSandInferenceCustomEndpoint(requestedEndpoint); invariant(requestedEndpoint === undefined || requestedEndpoint === null || endpoint !== undefined, "Custom endpoint must be an https URL (or http on localhost) with a non-empty model id."); const effectiveEndpoint = requestedEndpoint === undefined ? invoke(deps.settingsStore, "getInferenceCustomEndpoint") : endpoint; invariant(provider !== "custom" || effectiveEndpoint !== undefined, "Set the custom endpoint's base URL and model before routing to it."); // Remember what the desktop store held so a failed sync can put it back. Writing the
+    setInferenceRouter: async (raw) => { const request = req(raw); const provider = request.provider; invariant(isSandInferenceProvider(provider), "Unknown inference provider."); const requestedEndpoint = request.endpoint; const endpoint = requestedEndpoint === null ? undefined : normalizeSandInferenceCustomEndpoint(requestedEndpoint); invariant(requestedEndpoint === undefined || requestedEndpoint === null || endpoint !== undefined, "The DeepSeek endpoint must be an https URL on api.deepseek.com with a non-empty model id."); const effectiveEndpoint = requestedEndpoint === undefined ? invoke(deps.settingsStore, "getInferenceCustomEndpoint") : endpoint; invariant(effectiveEndpoint !== undefined, "Set the DeepSeek model before routing to it."); // Remember what the desktop store held so a failed sync can put it back. Writing the
     // local store first and only then discovering the box is unreachable leaves the panel
     // reading "Custom" locally while the host still routes to Cursor — and because
     // `coordinator-resync` re-pushes the desktop copy on every reconnect, that divergence
     // would then be made permanent.
-    const previousProvider = invoke(deps.settingsStore, "getInferenceProvider"); const previousEndpoint = invoke(deps.settingsStore, "getInferenceCustomEndpoint"); invoke(deps.settingsStore, "setInferenceProvider", provider); if (requestedEndpoint !== undefined) invoke(deps.settingsStore, "setInferenceCustomEndpoint", endpoint); const settings = await (requestedEndpoint === undefined ? deps.syncHostSettingsToBox({ inferenceProvider: provider }) : deps.syncHostSettingsToBox({ inferenceProvider: provider, inferenceCustomEndpoint: endpoint ?? null })).catch(() => null); if (settings === null) { invoke(deps.settingsStore, "setInferenceProvider", previousProvider); invoke(deps.settingsStore, "setInferenceCustomEndpoint", previousEndpoint); throw new SandHostSettingsUnreachableError("Couldn't reach the computer to save the inference route."); } return { provider, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, endpoint: requestedEndpoint === undefined ? invoke(deps.settingsStore, "getInferenceCustomEndpoint") ?? null : endpoint ?? null, local: getLocalInferenceCliStatus() }; },
+    const previousProvider = invoke(deps.settingsStore, "getInferenceProvider"); const previousEndpoint = invoke(deps.settingsStore, "getInferenceCustomEndpoint"); invoke(deps.settingsStore, "setInferenceProvider", provider); if (requestedEndpoint !== undefined) invoke(deps.settingsStore, "setInferenceCustomEndpoint", endpoint); const settings = await (requestedEndpoint === undefined ? deps.syncHostSettingsToBox({ inferenceProvider: provider }) : deps.syncHostSettingsToBox({ inferenceProvider: provider, inferenceCustomEndpoint: endpoint ?? null })).catch(() => null); if (settings === null) { invoke(deps.settingsStore, "setInferenceProvider", previousProvider); invoke(deps.settingsStore, "setInferenceCustomEndpoint", previousEndpoint); throw new SandHostSettingsUnreachableError("Couldn't reach the computer to save the inference route."); } return { provider, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, endpoint: requestedEndpoint === undefined ? invoke(deps.settingsStore, "getInferenceCustomEndpoint") ?? defaultSandInferenceCustomEndpoint() : endpoint ?? defaultSandInferenceCustomEndpoint(), apiKeyConfigured: storedDeepSeekApiKey(deps) != null }; },
     getBoxRuntime: async () => { const mode = invoke(deps.settingsStore, "getBoxRuntime"); invariant(isSandBoxRuntime(mode), "Unknown box runtime."); return { mode, status: await getLocalDockerStatus(String(Reflect.get(deps.settingsStore, "settingsPath"))) }; },
     setBoxRuntime: async (raw) => { const mode = req(raw).mode; invariant(isSandBoxRuntime(mode), "Unknown box runtime."); const settingsPath = String(Reflect.get(deps.settingsStore, "settingsPath")); invoke(deps.settingsStore, "setBoxRuntime", mode); try { if (mode === "local-docker") await startLocalDockerBox(settingsPath); else await stopLocalDockerBox(); } catch (error) { invoke(deps.settingsStore, "setBoxRuntime", mode === "local-docker" ? "remote" : "local-docker"); throw error; } invoke(deps.boxRecovery, "restartCoordinator"); return { mode, status: await getLocalDockerStatus(settingsPath) }; },
 

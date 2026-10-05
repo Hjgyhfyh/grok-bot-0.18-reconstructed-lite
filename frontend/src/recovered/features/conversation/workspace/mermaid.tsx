@@ -210,7 +210,9 @@ export function MermaidDiagramFigure({ svg, size, onOpen }: { svg: string; size:
 
 export function MermaidDiagram({ code, fallback, theme, loadRuntime = loadShippedMermaidRuntime }: { code: string; fallback: ReactNode; theme?: "light" | "dark"; loadRuntime?: MermaidRuntimeLoader }) {
   const [result, setResult] = useState<MermaidDiagramResult | null>(null);
-  const resolvedTheme = theme ?? (typeof document !== "undefined" && document.documentElement.dataset.theme === "light" ? "light" : "dark");
+  // В приложении только светлые темы, поэтому схемы всегда рисуются в светлом варианте mermaid.
+  // Значение data-theme на <html> больше не читается: оно несёт имя светлого варианта оформления.
+  const resolvedTheme = theme === "dark" ? "dark" : "light";
   useEffect(() => {
     let active = true;
     setResult(null);

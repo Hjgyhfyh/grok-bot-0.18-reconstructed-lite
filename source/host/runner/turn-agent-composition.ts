@@ -33,10 +33,6 @@ import {
   SAND_EXTERNAL_SHELL_TOOL_NAME,
 } from "../sand-activity.js";
 import type { SummarizationPromptSession } from "../../packages/agent-summarization/summarization-handler.js";
-import type {
-  CloudAgentToolDeps,
-} from "../cloud-agents/cloud-agent-tool.js";
-import type { BackgroundWatchesHost } from "./background-work.js";
 import type { BlobStore } from "../../packages/agent-kv/blob-store.js";
 import {
   CombinedResourceAccessor,
@@ -827,60 +823,6 @@ export function buildAgentForRun(
     getActiveStateHandler: tools.getActiveStateHandler,
     runStream,
   };
-}
-
-export type TurnCloudAgentTool = {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-  readonly execute: (...args: readonly unknown[]) => Promise<unknown>;
-};
-export type TurnCloudAgentReviewAction = NonNullable<
-  CloudAgentToolDeps["reviewAction"]
->;
-export type TurnCloudAgentWatch = NonNullable<CloudAgentToolDeps["watch"]>;
-export type TurnCloudAgentWatcher = NonNullable<
-  ReturnType<BackgroundWatchesHost["cloudAgentWatcher"]>
->;
-
-export interface TurnCloudAgentProjectionInput {
-  readonly createCloudAgentTool: (input: {
-    readonly reviewAction?: TurnCloudAgentReviewAction;
-  }) => TurnCloudAgentTool;
-  readonly watchCloudAgent: TurnCloudAgentWatch;
-  readonly cloudAgentWatcher: BackgroundWatchesHost["cloudAgentWatcher"];
-}
-
-export interface TurnCloudAgentProjection {
-  readonly createCloudAgentTool: TurnCloudAgentProjectionInput["createCloudAgentTool"];
-  readonly watchCloudAgent: TurnCloudAgentWatch;
-  readonly cloudAgentWatcher: BackgroundWatchesHost["cloudAgentWatcher"];
-}
-
-/**
- * Projects the host-owned cloud tool and watcher into one per-run boundary.
- * The policy fence remains in buildTurnTools, while reviewAction and watcher
- * callbacks retain their host identities and are never cached here.
- */
-export function createTurnCloudAgentProjection(
-  input: TurnCloudAgentProjectionInput,
-): TurnCloudAgentProjection {
-  return {
-    createCloudAgentTool: ({ reviewAction } = {}) => input.createCloudAgentTool(
-      reviewAction === undefined ? {} : { reviewAction },
-    ),
-    watchCloudAgent: input.watchCloudAgent,
-    cloudAgentWatcher: input.cloudAgentWatcher,
-  };
-}
-
-export function createTurnCloudAgentFactory(
-  projection: TurnCloudAgentProjection,
-  reviewAction?: TurnCloudAgentReviewAction,
-): () => TurnCloudAgentTool {
-  return () => projection.createCloudAgentTool(
-    reviewAction === undefined ? {} : { reviewAction },
-  );
 }
 
 export interface TurnAgentConstructionInputs {

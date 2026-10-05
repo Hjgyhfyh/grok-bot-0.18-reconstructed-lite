@@ -109,6 +109,9 @@ export async function resolveSandRunPrivacyMode(options: { readonly getAccessTok
 export async function resolveSandGhostModeHeader(options: PrivacyLookupOptions, fetchPrivacyMode: PrivacyModeFetcher = fetchSandPrivacyMode): Promise<"true" | "false"> { return getSandGhostModeHeaderFromPrivacyMode(await resolveSandPrivacyMode(options, fetchPrivacyMode)); }
 export function getSandInferenceBackendUrl(): string { return getConfiguredBackendUrl(); }
 
+/** Why no gRPC service in this build can be reached. Reported instead of a network error. */
+export const CURSOR_BACKEND_DISABLED_MESSAGE = "Cursor backend отключён: задай SAND_BACKEND_URL, чтобы включить обращения к нему.";
+
 export interface RequestLineage { readonly parentRequestId: string; readonly rootParentRequestId: string; readonly parentAgentToolCallId?: string }
 function lineageHeaders(lineage?: RequestLineage): Record<string, string> {
   if (lineage === undefined) return {};
@@ -154,6 +157,9 @@ export function createSandInferenceInterceptor(options: SandInferenceOptions): I
 
 export function createSandBackendTransport(options: Omit<SandInferenceOptions, "backendUrl">): Transport {
   const backendUrl = getSandInferenceBackendUrl();
+  // No Cursor backend in this build. Failing here, before a socket is opened, keeps every
+  // gRPC service that used to dial it from reaching the network at all.
+  if (backendUrl.length === 0) throw new Error(CURSOR_BACKEND_DISABLED_MESSAGE);
   return createConnectTransport({ baseUrl: backendUrl, httpVersion: "1.1", interceptors: [createSandRpcTracingInterceptor(), createSandInferenceInterceptor({ ...options, backendUrl })] });
 }
 export function createSandCursorBackendClient<Service extends ServiceType>(service: Service, options: Omit<SandInferenceOptions, "backendUrl">): Client<Service> { return createClient(service, createSandBackendTransport(options)); }
@@ -185,9 +191,7 @@ export function createCursorInferencePromptSession(options: Omit<SandInferenceOp
   readonly requestedModel: RequestedModel;
   readonly inferenceReason?: InferenceReason;
 }) {
-  const settingsPath = join(getSandRootDir(), "settings.json");
-  const routedProvider = new SandSettingsStore(settingsPath).getInferenceProvider();
-  if (routedProvider !== "cursor") return createProviderPromptSession(routedProvider);
-  const client = createSandCursorBackendClient(InferenceService, options);
-  return createProtoSessionProvider(client, options.requestedModel, undefined, options.inferenceReason).getSession(imageResizingMiddleware);
+  // The Cursor gRPC inference session is disabled. DeepSeek is the only route, so this factory
+  // never builds a client and never reaches `api2.cursor.sh`.
+  throw new Error(CURSOR_BACKEND_DISABLED_MESSAGE);
 }

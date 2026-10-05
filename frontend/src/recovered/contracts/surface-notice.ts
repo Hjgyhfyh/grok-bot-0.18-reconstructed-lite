@@ -20,6 +20,8 @@ export type SettingsNoticeOperation =
   | "settings-security-key"
   | "settings-time-zone"
   | "settings-router-provider"
+  | "settings-router-model"
+  | "settings-router-api-key"
   | "settings-usage-cancel-trial"
   | "settings-update-check"
   | "settings-update-install"

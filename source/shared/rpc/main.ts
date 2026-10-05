@@ -65,6 +65,8 @@ export const MAIN_METHOD_TABLE = {
   setHostSidebarSections: { args: "object" },
   getAvailableModels: { args: "none" },
   getInferenceRouter: { args: "none" },
+  getInferenceApiKeyStatus: { args: "none" },
+  setInferenceApiKey: { args: "object" },
   setInferenceRouter: { args: "object" },
   getBoxRuntime: { args: "none" },
   setBoxRuntime: { args: "object" },

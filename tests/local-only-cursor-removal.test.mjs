@@ -113,7 +113,7 @@ test("a signed-out host never constructs an analytics client, even with the gate
   const gate = { checkGate: async (name) => FLAGS[name]?.default ?? false, subscribe: () => () => {} };
   await analytics.activate(gate);
   try {
-    assert.equal(analytics.state.kind, "deferred", "the analytics buffer must stay local and bounded instead of going live");
+    assert.equal(analytics.state.kind, "disabled", "analytics is opt-in now: with no SAND_ENABLE_TELEMETRY the client must never be built, so nothing can reach api2.cursor.sh");
     assert.equal(clientBuilt, 0, "no AnalyticsService client may be constructed, because that is the call that reaches api2.cursor.sh");
     assert.equal(tokensRequested, 0, "no credential may be requested on the way to an endpoint the user never opted into");
   } finally {
@@ -185,8 +185,8 @@ test("a settings file with no routing key reads as the user's own endpoint", () 
     const settings = new store.SandSettingsStore(path.join(directory, "settings.json"));
     assert.equal(
       settings.getInferenceProvider(),
-      "custom",
-      "a fresh install has no settings.json, and the old fallback routed every turn into Cursor",
+      "deepseek",
+      "a fresh install has no settings.json, and the default route must be DeepSeek",
     );
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -211,37 +211,62 @@ test("an existing settings file without the routing key is migrated onto the use
     const settings = new store.SandSettingsStore(settingsPath);
     assert.equal(
       settings.getInferenceProvider(),
-      "custom",
+      "deepseek",
       "a store that already carries the first migration id must still receive the provider migration",
     );
     const onDisk = JSON.parse(readFileSync(settingsPath, "utf8"));
     assert.equal(
       onDisk.inferenceProvider,
-      "custom",
+      "deepseek",
       "the migration has to persist the key, or every later read falls back again",
     );
     assert.deepEqual(
       onDisk.settingsMigrations,
-      ["downgrade-persisted-max-fast", "local-inference-provider"],
+      ["downgrade-persisted-max-fast", "local-inference-provider", "deepseek-only"],
       "the migration id must be recorded exactly once so a second load is a no-op",
     );
     const second = new store.SandSettingsStore(settingsPath);
-    assert.equal(second.getInferenceProvider(), "custom", "a migrated store stays on the local provider across reloads");
+    assert.equal(second.getInferenceProvider(), "deepseek", "a migrated store stays on DeepSeek across reloads");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
 });
 
-test("an explicit provider choice is left alone by the migration", () => {
+test("a provider choice left by an older build is rewritten onto DeepSeek", () => {
   const directory = scratch();
   const settingsPath = path.join(directory, "settings.json");
   try {
-    writeFileSync(settingsPath, JSON.stringify({ ...store.emptySettings(), inferenceProvider: "openrouter" }), "utf8");
+    // `openrouter` was a real choice once. It is not a provider any more, so it must not
+    // survive the load: a turn would be routed into an account-backed endpoint that can
+    // never answer, which is exactly the defect this file was opened for.
+    // A file written by an older build: no `settingsMigrations` key at all, because the
+    // current ids did not exist yet, and an endpoint on someone else's host.
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        version: 1,
+        inferenceProvider: "openrouter",
+        inferenceCustomEndpoint: { baseUrl: "https://openrouter.ai/api/v1", modelId: "openrouter-model-777" },
+      }),
+      "utf8",
+    );
     const settings = new store.SandSettingsStore(settingsPath);
     assert.equal(
       settings.getInferenceProvider(),
-      "openrouter",
-      "the migration fills an absent key only; rewriting a value the user chose would be a different decision",
+      "deepseek",
+      "a retired provider id read back as itself would route the turn to a service this build cannot reach",
+    );
+    assert.deepEqual(
+      settings.getInferenceCustomEndpoint(),
+      { baseUrl: "https://api.deepseek.com", modelId: "deepseek-flash" },
+      "a non-DeepSeek endpoint must not survive the load: nothing in this build may address another host",
+    );
+    const onDisk = JSON.parse(readFileSync(settingsPath, "utf8"));
+    assert.equal(onDisk.inferenceProvider, "deepseek", "the rewrite has to be persisted, or every later read falls back again");
+    assert.equal(
+      onDisk.inferenceCustomEndpoint.baseUrl,
+      "https://api.deepseek.com",
+      "the migrated endpoint has to reach the disk, or the next start reads the old host back",
     );
   } finally {
     rmSync(directory, { recursive: true, force: true });

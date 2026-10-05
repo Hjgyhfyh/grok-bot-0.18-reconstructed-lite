@@ -32,7 +32,9 @@ function defaultWiringDeps(context: ProductionServiceContext): CursorAuthWiringD
     openExternal: async (url) => { await context.native.shell.openExternal(url); },
     getAccountRuntime: () => accountRuntimeOf(context),
     emitAuthStatus: (status) => context.requireMainEdge().emit("cursor-auth-changed", status),
-    sentryEnabled: context.env.SAND_DISABLE_SENTRY !== "1",
+    // Sentry is opt-in. There is no account here to report crashes for, and the DSN would point
+    // at the Cursor backend, so nothing is sent unless `SAND_ENABLE_SENTRY=1` is set.
+    sentryEnabled: context.env.SAND_ENABLE_SENTRY === "1",
     settingsStore: context.settings.settingsStore,
     syncHostSettingsToBox: async (settings) => {
       const setHostSettings = context.coordinatorLegs.legs.setHostSettings;

@@ -392,9 +392,10 @@ const SETTINGS_COMMANDS: readonly { id: SettingsSectionId; label: string; keywor
   { id: "beta", label: "Updates", keywords: ["beta", "updates", "release", "track", "danger"] }
 ];
 const THEME_COMMANDS: readonly { preference: ThemePreference; label: string; keywords: readonly string[] }[] = [
-  { preference: "system", label: "Theme: System", keywords: ["appearance", "os", "auto", "follow"] },
-  { preference: "light", label: "Theme: Light", keywords: ["appearance", "day", "bright"] },
-  { preference: "dark", label: "Theme: Dark", keywords: ["appearance", "night", "mode"] }
+  { preference: "light-white", label: "Тема: Белый", keywords: ["appearance", "white", "bright", "day"] },
+  { preference: "milk", label: "Тема: Молочный", keywords: ["appearance", "milk", "warm", "cream"] },
+  { preference: "smoke", label: "Тема: Дымчатый", keywords: ["appearance", "smoke", "grey", "gray"] },
+  { preference: "sky", label: "Тема: Небо", keywords: ["appearance", "sky", "blue", "cold"] }
 ];
 const EMPTY_ACCESS_ROSTER_SNAPSHOT = {
   agents: [],
@@ -892,8 +893,8 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   const [windowFullscreen, setWindowFullscreen] = useState(false);
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [agentNetworkEnabled, setAgentNetworkEnabled] = useState(false);
-  const [themePreference, setThemePreference] = useState<ThemePreference>(() => bridge?.theme.initial.preference ?? "system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(() => bridge?.theme.initial.resolved ?? "dark");
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() => bridge?.theme.initial.preference ?? "light-white");
+  const [resolvedTheme, setResolvedTheme] = useState<ThemePreference>(() => bridge?.theme.initial.resolved ?? "light-white");
   const [settingsUpdateController] = useState(() => createSettingsUpdateController(bridge));
   const [settingsNoticeController] = useState(() => createSettingsNoticeController());
   const updateSnapshot = useSyncExternalStore(

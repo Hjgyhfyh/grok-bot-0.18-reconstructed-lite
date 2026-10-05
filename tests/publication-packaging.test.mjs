@@ -92,7 +92,6 @@ test("Router settings use the trusted backend and display recorded inference usa
   const cursorSession = await readFile(path.join(repoRoot, "source", "host", "extensions", "inference", "cursor-session.ts"), "utf8");
   const cursorBackend = await readFile(path.join(repoRoot, "source", "shared", "node", "cursor-backend", "cursor-inference.ts"), "utf8");
   const providers = await readFile(path.join(repoRoot, "source", "host", "extensions", "inference", "provider-session.ts"), "utf8");
-  const codexDirect = await readFile(path.join(repoRoot, "source", "host", "extensions", "inference", "codex-direct-responses.ts"), "utf8");
   const turnShell = await readFile(path.join(repoRoot, "source", "host", "runner", "turn-run-shell.ts"), "utf8");
   const coordinator = await readFile(path.join(repoRoot, "source", "node-agent-coordinator", "inference-router.ts"), "utf8");
   const coordinatorMain = await readFile(path.join(repoRoot, "source", "node-agent-coordinator", "main.ts"), "utf8");
@@ -104,7 +103,7 @@ test("Router settings use the trusted backend and display recorded inference usa
   // negative assertions below into no-ops. Every source has to carry content.
   for (const [name, text] of Object.entries({
     rendererPatch, preload, mainEdge, inference, cursorSession, cursorBackend,
-    providers, codexDirect, turnShell, coordinator, coordinatorMain, mcpBridge, localDocker,
+    providers, turnShell, coordinator, coordinatorMain, mcpBridge, localDocker,
   })) {
     assert.ok(text.trim().length > 0, `${name} is empty, so its regex assertions below prove nothing`);
   }
@@ -123,7 +122,10 @@ test("Router settings use the trusted backend and display recorded inference usa
   assert.match(rendererPatch, /Last used/);
   assert.match(rendererPatch, /Tracked activity/);
   assert.match(rendererPatch, /RRouterProviders\.filter/);
-  assert.match(rendererPatch, /\{value:"custom",label:"Custom",description:"Route through your own OpenAI-compatible endpoint\.",kind:"custom",secret:"OPENAI_COMPATIBLE_API_KEY"/);
+  // The injected table still has to name one endpoint provider whose key goes to the secret
+  // the main process reads. Which label it carries belongs to the patch author's file, so the
+  // pin is on the shape and on the key name, not on the wording.
+  assert.match(rendererPatch, /\{value:"[a-z-]+",label:"[^"]+",description:"[^"]+",kind:"custom",secret:"DEEPSEEK_API_KEY"/);
   assert.match(rendererPatch, /kind:"custom"/);
   assert.match(rendererPatch, /s\.kind==="custom"/);
   assert.match(rendererPatch, /"aria-label":"Endpoint base URL"/);
@@ -154,35 +156,31 @@ test("Router settings use the trusted backend and display recorded inference usa
   assert.match(inference, /routerSettings\.getInferenceProvider\(\)/);
   assert.match(inference, /typeof extendedUsage\.then === "function"/);
   assert.match(inference, /createProviderPromptSession\(provider\)/);
-  assert.match(providers, /https:\/\/chatgpt\.com\/backend-api\/codex/);
-  assert.match(providers, /headers\.set\("ChatGPT-Account-Id", credentials\.accountId\)/);
-  assert.match(providers, /streamCodexDirectResponses/);
-  assert.doesNotMatch(providers, /provider\.responses\(configuredCodexModel\(\)\)/);
-  assert.match(codexDirect, /store: false/);
-  assert.match(codexDirect, /response\.output_text\.delta/);
-  assert.match(codexDirect, /type: "function_call_output"/);
   assert.match(providers, /parameters: jsonSchema\(parameters\)/);
-  assert.match(providers, /You are Grok Bot, a warm, concise desktop assistant/);
-  assert.match(providers, /mcpServers: \{ grok_bot_plugins:/);
+  assert.match(providers, /You are DB Bot, a local desktop assistant/);
   assert.match(providers, /recordRoutedUsage\(provider, usage\)/);
-  assert.match(providers, /queryClaude/);
-  assert.match(providers, /tools: mcpServerUrl == null \? \[\] : \["mcp__grok_bot_plugins__\*"\]/);
-  assert.match(providers, /https:\/\/openrouter\.ai\/api\/v1/);
-  assert.match(providers, /OpenRouter needs OPENROUTER_API_KEY/);
-  assert.match(cursorSession, /routedProvider !== "cursor"/);
-  assert.match(cursorSession, /createProviderPromptSession\(routedProvider\)/);
-  assert.match(cursorBackend, /routedProvider !== "cursor"/);
-  assert.match(cursorBackend, /createProviderPromptSession\(routedProvider\)/);
+  assert.match(providers, /baseURL: DEEPSEEK_BASE_URL/);
+  assert.match(providers, /modelId: endpoint\.modelId/);
+  assert.match(providers, /toolCallStreaming: true/);
+  assert.match(providers, /compatibility: "strict"/);
+  // One provider. Every retired route has to be gone from this file, not merely unused,
+  // or the next person to edit it has to decide which half of it is live.
+  assert.doesNotMatch(providers, /chatgpt\.com|openrouter\.ai|api\.openai\.com|api\.anthropic\.com|api2\.cursor\.sh|opencode\.ai/);
+  assert.doesNotMatch(providers, /queryClaude|streamCodexDirectResponses|OPENROUTER_API_KEY|ANTHROPIC_API_KEY/);
+  assert.doesNotMatch(providers, /mcpServers: \{ grok_bot_plugins:/);
+  assert.doesNotMatch(cursorSession, /routedProvider !== "cursor"/);
+  assert.match(cursorSession, /createProviderPromptSession\(\)/);
+  assert.doesNotMatch(cursorBackend, /routedProvider !== "cursor"/);
   assert.doesNotMatch(rendererPatch, /ANTHROPIC_API_KEY|OPENAI_API_KEY/);
-  assert.match(turnShell, /inferenceProvider === "cursor"/);
-  assert.match(turnShell, /createProviderPromptSession\(inferenceProvider\)/);
+  assert.doesNotMatch(turnShell, /inferenceProvider === "cursor"/);
+  assert.match(turnShell, /createProviderPromptSession\(\)/);
   // The coordinator's inference route used to claim `sendPrompt` for every provider except
   // `cursor` and answer the user itself: a bare chat completion with no agent system prompt and
   // no tools, written into the chat as if the agent had sent it. It now declines the turn and
   // asks a model for exactly one thing -- a conversation title, with no tool list -- so these are
   // the pins that hold that in place. Every one of them is a real symbol or a real call site in
   // the shipped file, never a line that exists only to satisfy a regex.
-  assert.match(coordinator, /method !== "sendPrompt" \|\| provider === "cursor"/);
+  assert.match(coordinator, /method !== "sendPrompt"/);
   assert.match(coordinator, /return \{ handled: false \}/);
   // The old `execute()` brought a tool executor, a streaming callback, an activity indicator and
   // the whole routed MCP bridge with it. A route that answers the user again needs every one of
@@ -196,7 +194,7 @@ test("Router settings use the trusted backend and display recorded inference usa
   // What is left is the one concern that is genuinely agent-free: a conversation title, asked for
   // with no tool list, so no tool call can be answered with no agent behind it.
   assert.match(coordinator, /runRoutedProviderText\(/);
-  assert.match(coordinator, /\{ sessionId: agentId \}/);
+  assert.doesNotMatch(coordinator, /provider === "cursor"|provider !== "cursor"/);
   assert.match(coordinator, /parseRoutedControlEnvelope\(reply\)/);
   assert.match(coordinator, /applyRoutedControlEnvelope\(agentId, envelope\)/);
   // The transcript file survives as a read-only archive of the turns this route used to own, so

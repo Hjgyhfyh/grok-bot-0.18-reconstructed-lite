@@ -35,7 +35,6 @@ import {
   boxIsPreparing,
   type CapableBox,
 } from "../box/box-capabilities.js";
-import { touchSandMonitorBusyLease, type ShellAccessor } from "../box/box-windows.js";
 import {
   boxNotReadyMessageForError,
   isNoMonitorComputerUseExecutor,
@@ -256,11 +255,6 @@ export function createRemoteBoxResourceAccessor(host: RemoteBoxResourceHost) {
         void host.computerUse.getOrCreateNavigationProbe()?.captureBaseline(
           context.withDetached(),
           connection.remoteAccessor,
-          windowIndex,
-        );
-        await touchSandMonitorBusyLease(
-          context,
-          connection.remoteAccessor as ShellAccessor,
           windowIndex,
         );
         guardAutoReviewBarrier();

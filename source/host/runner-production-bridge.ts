@@ -80,12 +80,6 @@ export function createProductionRunnerRunStepProvider(
   };
 }
 
-import type {
-  CloudAgentApi,
-  CloudAgentToolContext,
-  CloudAgentToolDeps,
-} from "./cloud-agents/cloud-agent-tool.js";
-import type { BackgroundWatchesHost } from "./runner/background-work.js";
 import type { SendMessageDependencies } from "./runner/tools/send-message-tool.js";
 import type { SendToAgentDependencies } from "./runner/tools/sand-agent-management-tools.js";
 import type { ReactToMessageDependencies } from "./runner/tools/sand-reaction-tool.js";
@@ -222,7 +216,6 @@ export interface ProductionTurnToolsetHostInput {
   readonly remoteBoxHasDesktop: boolean;
   readonly getConversationId: () => string;
   readonly getRemoteBoxAvailable: () => boolean;
-  readonly cloudAgentsDisabledByTeam: () => boolean;
   readonly spotlightEnabled: () => boolean;
   readonly isDynamicToolsEnabled?: () => boolean;
   readonly isMultitaskEnabled?: () => boolean;
@@ -258,7 +251,6 @@ export function createProductionTurnToolsetHost(
     remoteBoxHasDesktop: input.remoteBoxHasDesktop,
     getConversationId: input.getConversationId,
     getRemoteBoxAvailable: input.getRemoteBoxAvailable,
-    cloudAgentsDisabledByTeam: input.cloudAgentsDisabledByTeam,
     spotlightEnabled: input.spotlightEnabled,
     ...(input.isDynamicToolsEnabled === undefined ? {} : { isDynamicToolsEnabled: input.isDynamicToolsEnabled }),
     ...(input.isMultitaskEnabled === undefined ? {} : { isMultitaskEnabled: input.isMultitaskEnabled }),
@@ -314,16 +306,6 @@ export interface ProductionTurnHostDependencies {
     | "reviewAutomationWrite" | "onListenerRoutineSaved"
   > & { readonly state: SandStateWriter };
   readonly mcpManagement?: McpManagementDependencies;
-  readonly cloudAgent?: {
-    readonly api: CloudAgentApi;
-    readonly launchedIds: Set<string>;
-    readonly agentDir: string;
-    readonly readBoxFile?: CloudAgentToolDeps["readBoxFile"];
-    readonly writeBoxFile: CloudAgentToolDeps["writeBoxFile"];
-    readonly cloudAgentWatcher?: BackgroundWatchesHost["cloudAgentWatcher"];
-    readonly watch?: CloudAgentToolDeps["watch"];
-    readonly reviewAction?: CloudAgentToolDeps["reviewAction"];
-  };
   readonly subagentManagement?: SubagentManagementController<unknown>;
   /**
    * Closed host-owned Auto-review identities. Classifier context and

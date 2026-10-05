@@ -11,7 +11,6 @@ import { automationsExtension } from "./extensions/automations/extension.js";
 import { boxLifecycleExtension } from "./extensions/box-lifecycle/extension.js";
 import { boxStoreSyncExtension } from "./extensions/box-store-sync/extension.js";
 import { browserUaExtension } from "./extensions/browser-ua/extension.js";
-import { cloudAgentsExtension } from "./extensions/cloud-agents/extension.js";
 import { codebaseTelemetryExtension } from "./extensions/codebase-telemetry/extension.js";
 import { contentSearchExtension } from "./extensions/content-search/extension.js";
 import { crossUserSharingExtension } from "./extensions/cross-user-sharing/extension.js";
@@ -115,7 +114,6 @@ export function createRecoveredProductionExtensionRegistry<Host extends { log(me
     [HostExtensions.ManagedSetup]: bind(managedSetupExtension, context => createManagedSetupProductionExtras(context as Parameters<typeof createManagedSetupProductionExtras>[0])),
     [HostExtensions.Mcp]: bind(mcpExtension, context => createMcpProductionExtras(context as unknown as Parameters<typeof createMcpProductionExtras>[0])),
     [HostExtensions.BoxStoreSync]: bind(boxStoreSyncExtension),
-    [HostExtensions.CloudAgents]: bind(cloudAgentsExtension),
     [HostExtensions.ActionAudit]: bind(actionAuditExtension),
     [HostExtensions.HostUpgrade]: bind(hostUpgradeExtension),
     [HostExtensions.AutoReview]: bind(autoReviewExtension),

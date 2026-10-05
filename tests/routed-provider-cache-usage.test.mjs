@@ -21,12 +21,9 @@ import { build } from "esbuild";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const CUSTOM_BASE_URL = "https://custom-endpoint.invalid/v1";
-const CUSTOM_MODEL_ID = "custom-model-9f3c2a";
-const CUSTOM_API_KEY = "sk-custom-endpoint-key-0000";
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-const OPENROUTER_API_KEY = "sk-openrouter-key-1111";
-const OPENROUTER_MODEL_ID = "openrouter-model-777";
+const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const DEEPSEEK_MODEL_ID = "deepseek-flash";
+const DEEPSEEK_API_KEY = "sk-deepseek-key-0000";
 
 /**
  * What the stubbed provider reports in `usage.prompt_tokens_details.cached_tokens`.
@@ -41,9 +38,7 @@ const PROVIDER_REPORTED_CACHED_TOKENS = 140;
 const TOUCHED_ENV = [
   "SAND_DATA_ROOT",
   "SAND_USER_DATA_DIR",
-  "OPENAI_COMPATIBLE_API_KEY",
-  "OPENROUTER_API_KEY",
-  "SAND_OPENROUTER_MODEL",
+  "DEEPSEEK_API_KEY",
 ];
 
 let providerSession;
@@ -60,13 +55,13 @@ function chatCompletionStream(text) {
     `data: ${JSON.stringify({
       id: "chatcmpl-stub",
       created: 1,
-      model: CUSTOM_MODEL_ID,
+      model: DEEPSEEK_MODEL_ID,
       choices: [{ index: 0, delta: { role: "assistant", content: text }, finish_reason: null }],
     })}\n\n`,
     `data: ${JSON.stringify({
       id: "chatcmpl-stub",
       created: 1,
-      model: CUSTOM_MODEL_ID,
+      model: DEEPSEEK_MODEL_ID,
       choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
       usage: usageFrame,
     })}\n\n`,
@@ -88,8 +83,9 @@ async function resetSettings() {
     settingsPath,
     `${JSON.stringify({
       version: 1,
-      inferenceProvider: "custom",
-      inferenceCustomEndpoint: { baseUrl: CUSTOM_BASE_URL, modelId: CUSTOM_MODEL_ID },
+      settingsMigrations: ["downgrade-persisted-max-fast", "local-inference-provider", "deepseek-only"],
+      inferenceProvider: "deepseek",
+      inferenceCustomEndpoint: { baseUrl: DEEPSEEK_BASE_URL, modelId: DEEPSEEK_MODEL_ID },
     }, null, 2)}\n`,
     "utf8",
   );
@@ -98,7 +94,7 @@ async function resetSettings() {
 /** Runs one real turn through the product module and returns the recorded ledger entry. */
 async function runTurnAndReadLedger(provider) {
   await resetSettings();
-  await providerSession.runRoutedProviderText(provider, [{ role: "user", content: "hi" }], { sessionId: "cache-test" });
+  await providerSession.runRoutedProviderText(provider, [{ role: "user", content: "hi" }]);
   // `recordInferenceUsage` writes synchronously from the `extendedUsage.then(onUsage)`
   // continuation, so one macrotask turn is enough for the file to be complete.
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -124,9 +120,7 @@ before(async () => {
   for (const name of TOUCHED_ENV) savedEnv.set(name, process.env[name]);
   process.env.SAND_DATA_ROOT = dataRoot;
   delete process.env.SAND_USER_DATA_DIR;
-  process.env.OPENAI_COMPATIBLE_API_KEY = CUSTOM_API_KEY;
-  process.env.OPENROUTER_API_KEY = OPENROUTER_API_KEY;
-  process.env.SAND_OPENROUTER_MODEL = OPENROUTER_MODEL_ID;
+  process.env.DEEPSEEK_API_KEY = DEEPSEEK_API_KEY;
 
   globalThis.fetch = async () => chatCompletionStream("cached");
 });
@@ -140,7 +134,7 @@ after(async () => {
   if (dataRoot !== undefined) await rm(dataRoot, { recursive: true, force: true });
 });
 
-test("the custom route records the cache read count the provider reported", async () => {
+test("the DeepSeek route records the cache read count the provider reported", async () => {
   usageFrame = {
     prompt_tokens: 1659,
     completion_tokens: 30,
@@ -148,30 +142,13 @@ test("the custom route records the cache read count the provider reported", asyn
     prompt_tokens_details: { cached_tokens: PROVIDER_REPORTED_CACHED_TOKENS },
   };
 
-  const ledger = await runTurnAndReadLedger("custom");
+  const ledger = await runTurnAndReadLedger("deepseek");
 
   assert.equal(ledger.requests, 1, "the turn under test must be recorded exactly once");
   assert.equal(
     ledger.cacheReadTokens,
     140,
     "the provider reported 140 cached prompt tokens; recording 0 is the dropped-count defect",
-  );
-});
-
-test("the OpenRouter route records the cache read count the provider reported", async () => {
-  usageFrame = {
-    prompt_tokens: 1659,
-    completion_tokens: 30,
-    total_tokens: 1689,
-    prompt_tokens_details: { cached_tokens: PROVIDER_REPORTED_CACHED_TOKENS },
-  };
-
-  const ledger = await runTurnAndReadLedger("openrouter");
-
-  assert.equal(
-    ledger.cacheReadTokens,
-    140,
-    "the OpenRouter route dropped the cached prompt tokens the provider reported",
   );
 });
 
@@ -183,17 +160,17 @@ test("input and output token counts are still recorded alongside the cache count
     prompt_tokens_details: { cached_tokens: PROVIDER_REPORTED_CACHED_TOKENS },
   };
 
-  const ledger = await runTurnAndReadLedger("custom");
+  const ledger = await runTurnAndReadLedger("deepseek");
 
   assert.equal(ledger.inputTokens, 1659, "reading the cache count must not disturb the input token count");
   assert.equal(ledger.outputTokens, 30, "reading the cache count must not disturb the output token count");
-  assert.equal(ledger.cacheWriteTokens, 0, "the OpenAI chat API reports no cache write count, so none is invented");
+  assert.equal(ledger.cacheWriteTokens, 0, "the DeepSeek chat API reports no cache write count, so none is invented");
 });
 
 test("a provider that reports no cache usage still records 0 rather than an invented count", async () => {
   usageFrame = { prompt_tokens: 1659, completion_tokens: 30, total_tokens: 1689 };
 
-  const ledger = await runTurnAndReadLedger("custom");
+  const ledger = await runTurnAndReadLedger("deepseek");
 
   assert.equal(
     ledger.cacheReadTokens,
@@ -211,13 +188,13 @@ test("a cached_tokens value of 0 is recorded as 0, not dropped", async () => {
     prompt_tokens_details: { cached_tokens: 0 },
   };
 
-  const ledger = await runTurnAndReadLedger("custom");
+  const ledger = await runTurnAndReadLedger("deepseek");
 
   assert.equal(ledger.cacheReadTokens, 0, "a provider that reports a genuine zero cache read records zero");
   assert.equal(ledger.requests, 1, "the turn must still be recorded when the provider reports a zero cache read");
 });
 
-test("the source no longer hardcodes a zero cache read in either OpenAI-compatible route", async () => {
+test("the source no longer hardcodes a zero cache read in the DeepSeek route", async () => {
   const raw = await readFile(
     path.join(repoRoot, "source", "host", "extensions", "inference", "provider-session.ts"),
     "utf8",
@@ -237,7 +214,7 @@ test("the source no longer hardcodes a zero cache read in either OpenAI-compatib
   // A static guard that finds nothing proves nothing, so prove the read sites exist.
   const readSites = source.match(/cacheReadTokens:\s*cachedPromptTokens\(/g) ?? [];
   assert.ok(
-    readSites.length >= 2,
-    `expected both OpenAI-compatible routes to read the provider's cache count, found ${readSites.length}`,
+    readSites.length >= 1,
+    `the DeepSeek route must read the provider's cache count, found ${readSites.length}`,
   );
 });

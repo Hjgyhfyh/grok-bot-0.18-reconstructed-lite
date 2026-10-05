@@ -1,7 +1,12 @@
 import { projectSandSentryEnvelope } from "./sentry-scrub.gen.js";
 import type { SandSentryPrivacyTier } from "./sentry-privacy-mode.js";
 
-export const SAND_SENTRY_DSN = "https://9fb7a1b8cb70c207a28a00476311bd40@metrics.cursor.sh/4511747394240513";
+/**
+ * Sentry is disabled. The old DSN pointed at `metrics.cursor.sh` and no DSN is baked into
+ * DB Bot Lite: a build must not be able to report anything unless an operator sets
+ * `SAND_SENTRY_DSN` in the environment on purpose.
+ */
+export const SAND_SENTRY_DSN = process.env.SAND_SENTRY_DSN?.trim() ?? "";
 export const SAND_SENTRY_CONVERSATION_TAG = "sand.conversation_id";
 export const SENTRY_EVENT_ID_PATTERN = /^[0-9a-f]{32}$/;
 export const MAX_SPOOL_PURGE_SHIFTS = 64;

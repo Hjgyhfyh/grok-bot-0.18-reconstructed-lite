@@ -13,8 +13,7 @@ import { SAND_HIDDEN_PROMPT_MARKER, SAND_TRUSTED_AUTOMATION_PROMPT_MARKER } from
 import { appendUserReplyReminder, buildAttachedFilesNote, buildReplyContextNote, buildUserMessageAddressNote } from "./system-prompt.js";
 import { bytesLookLikeVideoContainer } from "./video-container.js";
 import { collectPrependUserMessages, type ShellTerminalWatchHost } from "./shell-terminal-watch.js";
-import { SAND_BOX_WORKSPACE_ROOT } from "../cloud-agents/cloud-agent-images.js";
-import { downloadBoxFiles, type TransferBox } from "../box/box-transfer.js";
+import { downloadBoxFiles, SAND_BOX_WORKSPACE_ROOT, type TransferBox } from "../box/box-transfer.js";
 import {
   renderAutomationClearedStatusReminder,
   renderAutomationRuntimeStatusReminder,

@@ -183,26 +183,11 @@ export async function createTurnAgentRunContext<ContextValue>(
     skipLabeling: input.isSubagentRunner || input.hidden === true,
     ...(input.lineage === undefined ? {} : { lineage: input.lineage }),
   };
-  const inferenceProvider = new SandSettingsStore(join(getSandRootDir(), "settings.json")).getInferenceProvider();
-  const agent = inferenceProvider === "cursor"
-    ? input.inference.createSession(input.onRequestId, sessionOptions)
-    : createProviderPromptSession(inferenceProvider) as unknown as TurnAgentPromptSession;
-  const summarizationSession = inferenceProvider === "cursor" ? input.inference.createSummarizationSession?.(
-    input.onRequestId,
-    {
-      modelId: SAND_SUMMARIZATION_MODEL_ID,
-      isSummarizationSession: true,
-      ...(input.lineage === undefined ? {} : { lineage: input.lineage }),
-    },
-  ) : createProviderPromptSession(inferenceProvider) as unknown as SummarizationPromptSession;
-  const summarization = summarizationSession ?? input.inference.createSession(
-    input.onRequestId,
-    {
-      modelId: SAND_SUMMARIZATION_MODEL_ID,
-      isSummarizationSession: true,
-      ...(input.lineage === undefined ? {} : { lineage: input.lineage }),
-    },
-  );
+  // DeepSeek is the only route, so there is nothing to choose between: one call builds both
+  // the turn session and the summarization session.
+  const agent = createProviderPromptSession() as unknown as TurnAgentPromptSession;
+  const summarizationSession = createProviderPromptSession() as unknown as SummarizationPromptSession;
+  const summarization = summarizationSession;
   const profilePromptSnapshot = input.profilePromptSnapshot
     ?? input.systemPromptAssembly?.prepareAgentProfilePromptSnapshot(
       input.profilePromptSnapshotStore,

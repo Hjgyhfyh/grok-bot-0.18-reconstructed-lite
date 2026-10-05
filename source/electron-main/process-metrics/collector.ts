@@ -37,7 +37,8 @@ export function clampProcessMetricsRate(value: unknown, min: number, max: number
 }
 
 export function defaultProcessMetricsKillSwitch(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.SAND_DISABLE_TELEMETRY === "1";
+  // Process metrics are opt-in: they used to be sent to the Cursor backend.
+  return env.SAND_ENABLE_TELEMETRY !== "1";
 }
 
 export class SandProcessMetricsCollector {

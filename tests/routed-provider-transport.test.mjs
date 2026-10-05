@@ -56,8 +56,19 @@ const { isRetryableProviderError, isTransientStreamError } = await bundle([
   "host", "runner", "transient-stream-error.ts",
 ]).then(({ module }) => module);
 
-const TOUCHED_ENV = ["SAND_DATA_ROOT", "OPENAI_COMPATIBLE_API_KEY", "SAND_ROUTED_TEMPERATURE", "SAND_ROUTED_CONTEXT_WINDOW"];
+const TOUCHED_ENV = ["SAND_DATA_ROOT", "DEEPSEEK_API_KEY", "SAND_ROUTED_TEMPERATURE", "SAND_ROUTED_CONTEXT_WINDOW"];
 const savedEnv = new Map(TOUCHED_ENV.map((name) => [name, process.env[name]]));
+
+// The executor pins `baseURL` to the DeepSeek constant and there is no seam to point it
+// elsewhere, so the probe server is reached by redirecting the one host it is allowed to
+// address. The request on the wire still says `https://api.deepseek.com`, and the stream,
+// the sockets, the abort and the retry ladder are all the real ones.
+const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const realFetch = globalThis.fetch;
+function redirectDeepSeekToProbeServer(input, init) {
+  const url = typeof input === "string" ? input : String(input?.url ?? input);
+  return realFetch(url.replace(DEEPSEEK_BASE_URL, serverUrl), init);
+}
 
 function restoreEnv() {
   for (const name of TOUCHED_ENV) {
@@ -164,8 +175,14 @@ function setModel(modelId) {
   writeFileSync(
     path.join(dataRoot, "settings.json"),
     // `parseSettings` rejects any file whose `version` is not `SETTINGS_VERSION`, so a bare
-    // `{ inferenceCustomEndpoint }` silently reads back as an empty store.
-    JSON.stringify({ version: 1, inferenceCustomEndpoint: { baseUrl: serverUrl, modelId } }, null, 2),
+    // `{ inferenceCustomEndpoint }` silently reads back as an empty store. The migration ids
+    // matter just as much: without them the `deepseek-only` migration rewrites the endpoint
+    // to its default on the first read, and the probe model below would never reach the wire.
+    JSON.stringify({
+      version: 1,
+      settingsMigrations: ["downgrade-persisted-max-fast", "local-inference-provider", "deepseek-only"],
+      inferenceCustomEndpoint: { baseUrl: DEEPSEEK_BASE_URL, modelId },
+    }, null, 2),
     "utf8",
   );
 }
@@ -179,7 +196,7 @@ async function settleOrNull(promise, ms) {
 
 async function runModel(modelId, { abortSignal } = {}) {
   setModel(modelId);
-  const executor = createProviderPromptSession("custom").getExecutor();
+  const executor = createProviderPromptSession("deepseek").getExecutor();
   executor.appendMessages([{ role: "user", content: "probe" }]);
   const result = executor.stream({ signal: abortSignal }, "invocation-probe");
   const responseSettled = result.response.then(() => null, (error) => error);
@@ -212,13 +229,15 @@ async function runModel(modelId, { abortSignal } = {}) {
 test.before(async () => {
   dataRoot = mkdtempSync(path.join(os.tmpdir(), "grok-sand-root-"));
   process.env.SAND_DATA_ROOT = dataRoot;
-  process.env.OPENAI_COMPATIBLE_API_KEY = "probe-key-not-a-real-secret";
+  process.env.DEEPSEEK_API_KEY = "probe-key-not-a-real-secret";
   delete process.env.SAND_ROUTED_TEMPERATURE;
   delete process.env.SAND_ROUTED_CONTEXT_WINDOW;
   await startServer();
+  globalThis.fetch = redirectDeepSeekToProbeServer;
 });
 
 test.after(() => {
+  globalThis.fetch = realFetch;
   restoreEnv();
   server?.close();
   rmSync(dataRoot, { recursive: true, force: true });
@@ -251,9 +270,9 @@ test("the reported context window is real, so summarization and compaction can b
     "a non-positive maxTokens reads as 'unknown window' and silently disables background summarization, the overage block and compaction",
   );
   assert.equal(
-    resolveRoutedContextWindow("gpt-5.2"),
-    400_000,
-    "the context window lookup did not recognise a known model family",
+    resolveRoutedContextWindow("deepseek-flash"),
+    1_048_576,
+    "the context window must be the one DeepSeek reports for its own models, not a stale table of Cursor models",
   );
   assert.equal(
     resolveRoutedContextWindow("anything-else", { SAND_ROUTED_CONTEXT_WINDOW: "64000" }),

@@ -48,6 +48,9 @@ export const writeGatewayDiscovery = async () => {};
 export const pinHostDiagnosticsReporter = () => {};
 export const acquireHostLock = async () => { throw new Error("stubbed: main() must reach the lock only through deps"); };
 export const getSandRootDir = () => "";
+// The host logs whether it found a DeepSeek key at startup. A stubbed host reports one.
+export const defaultSandInferenceCustomEndpoint = () => ({ baseUrl: "https://api.deepseek.com", modelId: "deepseek-flash" });
+export const deepSeekApiKeyStatus = () => ({ configured: true, source: "env", message: null });
 export const installProcessCrashGuards = () => ({ setReporter() {} });
 export const createProductionSandHost = () => { throw new Error("stubbed"); };
 export const resolveBoxExecDaemonEntry = () => "";

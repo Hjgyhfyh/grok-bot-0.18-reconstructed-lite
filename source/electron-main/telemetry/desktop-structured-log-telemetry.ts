@@ -91,7 +91,7 @@ export class SandDesktopStructuredLogTelemetry {
   private readonly now: () => number;
 
   static async create(options: DesktopStructuredLogTelemetryOptions): Promise<SandDesktopStructuredLogTelemetry> {
-    const disabled = options.disabled ?? process.env.SAND_DISABLE_TELEMETRY === "1";
+    const disabled = options.disabled ?? process.env.SAND_ENABLE_TELEMETRY !== "1";
     if (disabled) { await options.spill?.clear(); return new SandDesktopStructuredLogTelemetry({ ...options, disabled }); }
     let loaded: Awaited<ReturnType<DesktopStructuredLogSpill["load"]>> = { kind: "empty" };
     if (options.spill !== undefined && options.accountSlot !== undefined) loaded = await options.spill.load(options.accountSlot);
@@ -103,7 +103,7 @@ export class SandDesktopStructuredLogTelemetry {
   private constructor(options: DesktopStructuredLogTelemetryOptions, loaded?: DesktopStructuredLogSpillState, spillWritable = true, spillOnDisk = false) {
     this.spill = options.spill; this.spillWritable = spillWritable; this.spillOnDisk = spillOnDisk; this.accountSlot = options.accountSlot; this.now = options.now ?? Date.now;
     const tags = { client: "sand", "client.type": "sand", "client.machine_id": options.machineId, client_version: options.clientVersion, app_version: options.appVersion ?? "0.18.0", arch: process.arch, platform: process.platform };
-    const disabled = options.disabled ?? process.env.SAND_DISABLE_TELEMETRY === "1";
+    const disabled = options.disabled ?? process.env.SAND_ENABLE_TELEMETRY !== "1";
     this.accountTransport = new BufferedTransport({ tags, createClient: options.createClient, disabled, now: this.now, ...(loaded === undefined ? {} : { initial: loaded.checkpoint }), polling: options.enablePolling ?? true });
     this.accountTransport.setFlushSettledListener(() => this.syncSpillAfterTransportFlush());
     this.anonymousSigninTransport = new BufferedTransport({ tags, createClient: options.createAnonymousClient, disabled, now: this.now, polling: options.enablePolling ?? true });
