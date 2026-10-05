@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DesktopBridge, DesktopUpdateStatus } from "../../../contracts/desktop-bridge";
-import { rendererRuntimeAssetUrl } from "../../../../production/runtime-assets";
+import { APP_MARK_DATA_URL } from "../../../ui/app-mark";
 import { SandButton, SandIconButton } from "../../../ui/sand-kit-primitives";
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L537
@@ -8,7 +8,7 @@ import { SandButton, SandIconButton } from "../../../ui/sand-kit-primitives";
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2195040 (app-icon URL)
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5742260 (About icon consumer at 64px)
 
-const APP_ICON_URL = rendererRuntimeAssetUrl("app-icon-C7NKj2u7.png");
+const APP_ICON_URL = APP_MARK_DATA_URL;
 const APP_ICON_SIZE_PX = 64;
 const ABOUT_HEADING_ROW_CLASS = "sand-78zum5 sand-dt5ytf sand-195vfkc sand-euugli";
 const ABOUT_ICON_CLASS = "sand-1lliihq sand-2lah0s sand-47corl sand-87ps6o sand-10xuot4";

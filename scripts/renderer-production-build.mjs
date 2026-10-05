@@ -177,53 +177,135 @@ async function validateEvidenceClosure() {
   return { closure: rendererClosureSnapshot(closure), ui };
 }
 
-export async function copyRuntimeAssets(rendererRoot, {
-  artifactRoot = null,
-  strict = false,
-} = {}) {
-  const manifest = await readJson("frontend/manifests/renderer-runtime-assets.json");
+const RUNTIME_ASSET_NAME = /^[A-Za-z0-9_.-]+$/;
+// Псевдоним ассетов восстановленного фронтенда. Сборка из `frontend/` такого
+// префикса не выпускает: любое его появление в готовом бандле означает ссылку
+// на файл, которого в пакете нет.
+const UPSTREAM_ASSET_ALIAS = "/upstream/assets/";
+
+function assertRuntimeAssetName(file) {
+  if (typeof file !== "string" || !RUNTIME_ASSET_NAME.test(file)) {
+    throw new Error(`Имя runtime-ассета рендерера не является именем файла: ${file}`);
+  }
+  return file;
+}
+
+/**
+ * Наборы данных приходят из npm как JSON, а рендерер грузит их через
+ * `import()`. Поэтому JSON переводится в ES-модуль с экспортом по умолчанию:
+ * иначе динамический импорт падает на разборе JSON как на модуле.
+ */
+function jsonModuleBytes(text) {
+  return Buffer.from(`export default ${text.trim()};\n`, "utf8");
+}
+
+async function frontendSourceText() {
   const frontendRoot = path.join(repoRoot, "frontend", "src");
-  const usedAssets = new Set();
+  const parts = [];
   for (const relative of await walk(frontendRoot)) {
     if (!/\.[cm]?tsx?$/.test(relative)) continue;
-    const source = await readFile(path.join(frontendRoot, relative), "utf8");
-    for (const match of source.matchAll(/rendererRuntimeAssetUrl\("([A-Za-z0-9_.-]+)"\)/g)) usedAssets.add(match[1]);
+    parts.push(await readFile(path.join(frontendRoot, relative), "utf8"));
   }
-  const declaredAssets = new Set(manifest.assets.map(asset => asset.file));
-  const undeclared = [...usedAssets].filter(file => !declaredAssets.has(file));
-  const unused = [...declaredAssets].filter(file => !usedAssets.has(file));
-  if (undeclared.length > 0 || unused.length > 0) {
-    throw new Error(`Renderer runtime asset manifest mismatch; undeclared=${undeclared.join(",") || "none"}, unused=${unused.join(",") || "none"}`);
+  return parts.join("\n");
+}
+
+/**
+ * Каждый объявленный ассет обязан быть назван строковым литералом в исходнике
+ * рендерера, а каждый литерал в `rendererRuntimeAssetUrl()` обязан быть
+ * объявлен. Проверка двусторонняя: раньше она смотрела только на литералы и
+ * пропускала ассеты, на которые ссылаются через константу.
+ */
+export function auditRuntimeAssetDeclarations(manifest, sourceText) {
+  const declared = new Set(manifest.assets.map(asset => assertRuntimeAssetName(asset.file)));
+  const usedLiterals = new Set([...sourceText.matchAll(/rendererRuntimeAssetUrl\("([^"]+)"\)/g)].map(match => match[1]));
+  const undeclared = [...usedLiterals].filter(file => !declared.has(file));
+  const unreferenced = [...declared].filter(file => !sourceText.includes(`"${file}"`));
+  const retired = new Set((manifest.retiredAssets ?? []).map(asset => asset.file));
+  const resurrected = [...declared].filter(file => retired.has(file));
+  if (undeclared.length > 0 || unreferenced.length > 0 || resurrected.length > 0) {
+    throw new Error(
+      `Манифест runtime-ассетов рендерера разошёлся с исходником; undeclared=${undeclared.join(",") || "none"}, unreferenced=${unreferenced.join(",") || "none"}, retiredButDeclared=${resurrected.join(",") || "none"}`,
+    );
   }
-  // `artifactRoot` defaults to the manifest's declared root, which points into
-  // the pinned 0.18 LFS payload. When that payload is absent the individual
-  // bytes are unavailable; the names are still validated against the source
-  // usage above, and every unavailable name is reported in the provenance
-  // instead of failing the whole build. `strict: true` restores the old
-  // fail-closed behaviour for a checkout that is supposed to have the payload.
-  const declaredArtifactRoot = artifactRoot ?? manifest.artifactRoot;
+  return { declared: [...declared].sort(), usedLiterals: [...usedLiterals].sort() };
+}
+
+/**
+ * Копирует каждый объявленный ассет из установленного npm-пакета.
+ *
+ * До схемы 2 источником был каталог `src/app/dist/renderer/assets` пакета 0.18,
+ * который жил только в Git LFS. Байтов нет ни в репозитории, ни в npm, поэтому
+ * каждый файл теперь приходит из своего пакета (`katex`, `pdfjs-dist`,
+ * `emojibase-data`), а версия пакета, размер и sha256 проверяются перед копированием.
+ */
+export async function copyRuntimeAssets(rendererRoot, {
+  strict = true,
+} = {}) {
+  const manifest = await readJson("frontend/manifests/renderer-runtime-assets.json");
+  if (manifest.schemaVersion !== 2) throw new Error(`Манифест runtime-ассетов рендерера имеет неизвестную схему: ${manifest.schemaVersion}`);
+  auditRuntimeAssetDeclarations(manifest, await frontendSourceText());
   const outputAssets = path.join(rendererRoot, "assets");
   await mkdir(outputAssets, { recursive: true });
   const copied = [];
   const missing = [];
-  for (const asset of [...manifest.assets, ...(manifest.immutableAssets ?? [])]) {
-    const source = path.join(repoRoot, declaredArtifactRoot, asset.file);
-    let bytes;
+  for (const asset of manifest.assets) {
+    assertRuntimeAssetName(asset.file);
+    const packageRoot = path.join(repoRoot, "node_modules", asset.package);
+    const source = path.join(packageRoot, asset.source);
+    let sourceBytes;
     try {
-      bytes = await readFile(source);
+      const packageManifest = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
+      if (packageManifest.version !== asset.packageVersion) {
+        throw new Error(`Версия пакета ${asset.package} разошлась: ждали ${asset.packageVersion}, нашли ${packageManifest.version}`);
+      }
+      sourceBytes = await readFile(source);
     } catch (error) {
       if (error?.code !== "ENOENT") throw error;
+      if (strict) throw new Error(`Источник runtime-ассета рендерера не найден: ${asset.package}/${asset.source}`);
       missing.push(asset.file);
       continue;
     }
-    const record = validateRuntimeAssetBytes(asset, bytes);
-    await cp(source, path.join(outputAssets, asset.file), { preserveTimestamps: true });
-    copied.push(record);
+    const bytes = asset.mode === "json-module" ? jsonModuleBytes(sourceBytes.toString("utf8")) : sourceBytes;
+    const record = validateRuntimeAssetBytes({ file: asset.file, sha256: asset.sha256, bytes: asset.bytes }, bytes);
+    await writeFile(path.join(outputAssets, asset.file), bytes);
+    copied.push({ ...record, package: asset.package, packageVersion: asset.packageVersion, source: asset.source, mode: asset.mode });
   }
-  if (strict && missing.length > 0) {
-    throw new Error(`Renderer runtime assets are missing under ${declaredArtifactRoot}: ${missing.join(",")}`);
+  return { copied, missing, manifest };
+}
+
+/**
+ * Ищет в готовом бандле рендерера ссылки на файлы, которых в пакете нет.
+ *
+ * Два вида поломки закрываются здесь. Первый — псевдоним `/upstream/assets/`,
+ * который восстановленный фронтенд использовал вместо настоящих файлов: он
+ * всегда даёт 404. Второй — имя ассета в строковом литерале рядом с чанком,
+ * который его не содержит: ровно та поломка, из-за которой просмотр PDF отдавал
+ * 404, хотя имя ассета было объявлено в манифесте.
+ */
+export async function auditEmittedRuntimeAssetReferences(rendererRoot, manifest) {
+  const aliases = [];
+  const dangling = [];
+  const referenced = new Set();
+  for (const relative of await walk(rendererRoot)) {
+    if (!/\.(?:html|js|css)$/.test(relative)) continue;
+    const target = path.join(rendererRoot, relative);
+    const text = await readFile(target, "utf8");
+    if (text.includes(UPSTREAM_ASSET_ALIAS)) {
+      aliases.push(relative);
+      continue;
+    }
+    for (const asset of manifest.assets) {
+      if (!text.includes(`"${asset.file}"`)) continue;
+      referenced.add(asset.file);
+      const sibling = path.join(path.dirname(target), asset.file);
+      if (!existsSync(sibling)) dangling.push(`${relative} -> ${asset.file}`);
+    }
   }
-  return { copied, missing, artifactRoot: declaredArtifactRoot };
+  if (aliases.length > 0) throw new Error(`Готовый рендерер ссылается на псевдоним ${UPSTREAM_ASSET_ALIAS}: ${aliases.join(", ")}`);
+  if (dangling.length > 0) throw new Error(`Готовый рендерер ссылается на отсутствующие ассеты: ${dangling.join(", ")}`);
+  const unused = manifest.assets.map(asset => asset.file).filter(file => !referenced.has(file));
+  if (unused.length > 0) throw new Error(`Скопированные ассеты рендерера никем не запрошены: ${unused.join(", ")}`);
+  return { referenced: [...referenced].sort(), aliases, dangling };
 }
 
 export async function copyKatexRuntimeAssets(rendererRoot) {
@@ -257,53 +339,6 @@ export async function copyKatexRuntimeAssets(rendererRoot) {
     await writeFile(stylesheet, html);
   }
   return { version: KATEX_VERSION, assets: copied, stylesheet: "assets/katex/katex.css" };
-}
-
-export async function rewritePdfAssetReferences(rendererRoot, { required = true } = {}) {
-  const moduleReference = "/upstream/assets/pdf-WLgSwHwh.js";
-  const workerReference = "/upstream/assets/pdf.worker.min-qwK7q_zL.mjs";
-  const counts = { [moduleReference]: 0, [workerReference]: 0 };
-  for (const relative of await walk(rendererRoot)) {
-    if (!relative.endsWith(".js")) continue;
-    const target = path.join(rendererRoot, relative);
-    const original = await readFile(target, "utf8");
-    let rewritten = original;
-    const moduleOccurrences = rewritten.split(moduleReference).length - 1;
-    if (moduleOccurrences > 0) {
-      counts[moduleReference] += moduleOccurrences;
-      rewritten = rewritten.split(moduleReference).join("./pdf-WLgSwHwh.js");
-    }
-    const workerBinding = rewritten.match(/(?:^|[,;])\s*([A-Za-z_$][\w$]*)=["']pdf\.worker\.min-qwK7q_zL\.mjs["']/);
-    if (workerBinding != null) {
-      const workerVariable = workerBinding[1];
-      const workerPattern = new RegExp("`/upstream/assets/\\$\\{" + workerVariable + "\\}`", "g");
-      const workerOccurrences = rewritten.match(workerPattern)?.length ?? 0;
-      if (workerOccurrences > 0) {
-        counts[workerReference] += workerOccurrences;
-        rewritten = rewritten.replace(workerPattern, "`./${" + workerVariable + "}`");
-      }
-    }
-    if (counts[workerReference] === 0) {
-      if (rewritten.includes("pdf.worker.min-qwK7q_zL.mjs")) counts[workerReference] += 1;
-    }
-    if (rewritten !== original) await writeFile(target, rewritten);
-  }
-  // `/upstream/assets/...` is the recovery frontend's asset alias. A renderer
-  // built straight from `frontend/` resolves pdfjs-dist through normal package
-  // resolution and emits no such reference, so there is nothing to rewrite.
-  // `required: false` records that instead of failing the build; the provenance
-  // states plainly which references were emitted and which were not.
-  const notEmitted = Object.entries(counts).filter(([, count]) => count === 0).map(([reference]) => reference);
-  if (required && notEmitted.length > 0) {
-    throw new Error(`Renderer PDF reference was not emitted: ${notEmitted.join(", ")}`);
-  }
-  return {
-    replacements: {
-      [moduleReference]: { to: "./pdf-WLgSwHwh.js", count: counts[moduleReference] },
-      [workerReference]: { to: "./pdf.worker.min-qwK7q_zL.mjs", count: counts[workerReference] },
-    },
-    notEmitted,
-  };
 }
 
 /**
@@ -367,9 +402,9 @@ export async function buildProductionRenderer({ outputRoot }) {
     },
     logLevel: "silent",
   });
-  const { copied: assets, missing: missingRuntimeAssets, artifactRoot: runtimeAssetRoot } = await copyRuntimeAssets(rendererRoot);
+  const { copied: assets, missing: missingRuntimeAssets, manifest: runtimeAssetManifest } = await copyRuntimeAssets(rendererRoot);
   const katex = await copyKatexRuntimeAssets(rendererRoot);
-  const pdfAssetRewrite = await rewritePdfAssetReferences(rendererRoot, { required: bootstrap.artifactAvailable === true });
+  const runtimeAssetReferences = await auditEmittedRuntimeAssetReferences(rendererRoot, runtimeAssetManifest);
   const viteManifest = normalizeRendererManifestDynamicImports(JSON.parse(await readFile(path.join(rendererRoot, ".vite", "manifest.json"), "utf8")));
   await writeFile(path.join(rendererRoot, ".vite", "manifest.json"), `${JSON.stringify(viteManifest, null, 2)}\n`);
   const emittedLazyEntries = [...(viteManifest["index.html"]?.dynamicImports ?? [])].sort();
@@ -394,13 +429,13 @@ export async function buildProductionRenderer({ outputRoot }) {
       uiSummary: evidence.ui.summary,
       bootstrap,
       emittedLazyEntries,
-      pdfAssetRewrite,
+      runtimeAssetReferences,
     },
     assets,
-    // Names whose bytes live only in the pinned 0.18 LFS payload. They are
-    // listed rather than hidden, so a reader of the provenance can tell an
-    // icon that will 404 at runtime from one that was copied and verified.
-    runtimeAssetRoot,
+    // Имена, байты которых взяты не из стёртого пакета 0.18, а из живого npm-пакета.
+    // Каждый записан в манифесте вместе с версией пакета, размером и sha256.
+    runtimeAssetRoot: runtimeAssetManifest.shippedArtifactRoot,
+    retiredRuntimeAssets: runtimeAssetManifest.retiredAssets ?? [],
     missingRuntimeAssets,
     katex,
     outputs,

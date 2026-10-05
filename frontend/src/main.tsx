@@ -7,6 +7,10 @@ const mount = requireProductionRendererMount(document.getElementById("root"));
 const runtime = acquireProductionRendererRuntime(window);
 mountProductionRenderer(mount, <RootShellErrorBoundary><ProductionRenderer {...runtime} /></RootShellErrorBoundary>);
 
+// Отчёт о состоянии принимает только сервер разработки
+// (`frontend/vite.config.ts`): в упакованном приложении маршрута
+// `/__reconstructed_health` нет, и запрос каждый раз падал с
+// ERR_FILE_NOT_FOUND. В production-сборке запрос не выполняется вовсе.
 const reportHealth = async () => {
   const health = {
     ready: mount.childElementCount > 0,
@@ -21,6 +25,7 @@ const reportHealth = async () => {
     surfaces: ["shell", "account", "sign-in", "conversation", "transcript", "composer", "sidebar", "agents", "settings", "plugins", "updates", "deep-links", "desktop-bridge"],
     evidenceGaps: Object.keys(PRODUCTION_RENDERER_GAPS)
   };
+  if (import.meta.env.DEV !== true) return;
   try {
     await fetch("/__reconstructed_health", {
       method: "POST",
@@ -28,7 +33,7 @@ const reportHealth = async () => {
       body: JSON.stringify(health)
     });
   } catch {
-    // The health endpoint is available only in the reconstruction development host.
+    // Сервер разработки может быть выключен — это не поломка приложения.
   }
 };
 window.requestAnimationFrame(() => void reportHealth());

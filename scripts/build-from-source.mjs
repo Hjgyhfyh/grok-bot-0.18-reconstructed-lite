@@ -642,10 +642,14 @@ export async function buildFromSource({
         impact: "См. dist/native: только анализ shell-команд.",
       },
       {
-        path: "dist/renderer/assets (часть)",
-        status: "missing-by-loss",
-        detail: renderer.provenance.missingRuntimeAssets.join(", "),
-        impact: "Иконки и вспомогательные чанки (compact, messages, iamcal, emojibase, xlsx) вернутся как 404. PDF-ссылка переписана на ./pdf-WLgSwHwh.js, но vite из frontend/ такого чанка не выпускает: чистый фронтенд не импортирует pdfjs-dist, а хранит только строку пути. Открытие PDF не заработает, пока владелец frontend/ не добавит настоящий импорт.",
+        path: "dist/renderer/assets",
+        status: renderer.provenance.missingRuntimeAssets.length === 0 ? "complete" : "missing-by-loss",
+        detail: renderer.provenance.missingRuntimeAssets.length === 0
+          ? "Все ассеты на месте: скрипт сборки копирует их из живых npm-пакетов (pdfjs-dist, katex, emojibase-data) с проверкой версии, размера и sha256."
+          : renderer.provenance.missingRuntimeAssets.join(", "),
+        impact: renderer.provenance.missingRuntimeAssets.length === 0
+          ? "Рендерер не делает ни одного 404."
+          : "Эти ассеты вернутся как 404. Восстановить их нечем: они жили только в LFS-объектах, которых на сервере нет. Либо найди эквивалент в живом npm-пакете и добавь его в copyRuntimeAssets, либо убери ссылку из исходника.",
       },
     ],
     outputs,

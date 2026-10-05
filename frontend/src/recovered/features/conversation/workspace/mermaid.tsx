@@ -1,10 +1,9 @@
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js
-// @evidence src/app/dist/renderer/assets/mermaid.core-CYC_FcEu.js
+// @evidence src/app/dist/renderer/assets/mermaid.core-CYC_FcEu.js (чанк пакета 0.18; байтов нет, см. MERMAID_UNAVAILABLE)
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
-export const MERMAID_CORE_ASSET = "/upstream/assets/mermaid.core-CYC_FcEu.js";
 const MERMAID_CACHE_LIMIT = 64;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 8;
@@ -17,24 +16,23 @@ export interface MermaidRuntime {
   render(id: string, code: string): Promise<{ svg: string }>;
 }
 
-export type MermaidRuntimeLoader = () => Promise<MermaidRuntime>;
+export type MermaidRuntimeLoader = () => Promise<MermaidRuntime | null>;
 
 interface MermaidDiagramResult {
-  kind: "ok" | "invalid";
+  kind: "ok" | "invalid" | "unavailable";
   svg?: string;
   size?: { width: number; height: number };
 }
 
-interface MermaidRuntimeModule {
-  bp?: MermaidRuntime;
-  default?: MermaidRuntime;
-}
+// Чанк `mermaid.core-CYC_FcEu.js` вернуть нечем: пакета `mermaid` нет ни в
+// package.json, ни в package-lock.json, ни в node_modules, а сам файл жил
+// только в стёртом Git LFS-объекте пакета 0.18. Раньше рендерер запрашивал
+// `/upstream/assets/mermaid.core-CYC_FcEu.js` и получал 404. Теперь файл не
+// запрашивается: блок со схемой остаётся обычным блоком кода.
+export const MERMAID_UNAVAILABLE = "Рисование схем недоступно: в сборке нет библиотеки mermaid.";
 
-export async function loadShippedMermaidRuntime(): Promise<MermaidRuntime> {
-  const module = await import(/* @vite-ignore */ MERMAID_CORE_ASSET) as MermaidRuntimeModule;
-  const runtime = module.bp ?? module.default;
-  if (runtime == null) throw new Error("Модуль схем недоступен.");
-  return runtime;
+export async function loadShippedMermaidRuntime(): Promise<MermaidRuntime | null> {
+  return null;
 }
 
 const renderCache = new Map<string, Promise<MermaidDiagramResult>>();
@@ -54,6 +52,7 @@ async function renderMermaid(code: string, theme: "light" | "dark", loadRuntime:
 
   const render = renderQueue.then(async () => {
     const runtime = await loadRuntime();
+    if (runtime == null) return { kind: "unavailable" } as MermaidDiagramResult;
     runtime.initialize({ startOnLoad: false, securityLevel: "strict", theme: theme === "light" ? "default" : "dark", fontFamily: "inherit" });
     if (await runtime.parse(code, { suppressErrors: true }) === false) return { kind: "invalid" } as MermaidDiagramResult;
     try {
@@ -220,6 +219,7 @@ export function MermaidDiagram({ code, fallback, theme, loadRuntime = loadShippe
     return () => { active = false; };
   }, [code, loadRuntime, resolvedTheme]);
   if (result == null || result.kind === "invalid" || result.svg == null || result.size == null) {
+    if (result?.kind === "unavailable") return <><div className="sand-mermaid-error" role="note">{MERMAID_UNAVAILABLE}</div>{fallback}</>;
     return result?.kind === "invalid" ? <><div className="sand-mermaid-error" role="note">Не удалось показать эту схему.</div>{fallback}</> : fallback;
   }
   return <MermaidDiagramFigure size={result.size} svg={result.svg} />;

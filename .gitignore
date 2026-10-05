@@ -30,3 +30,8 @@ node_modules/
 /mermaid.core-*.js
 /xlsx-*.js
 /index.html
+
+# Рабочие артефакты пробников: отчёты запуска и изолированный профиль.
+/.probe-report.txt
+/.tmp-probe-userdata/
+/.tmp-*/

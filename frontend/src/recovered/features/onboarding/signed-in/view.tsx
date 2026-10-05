@@ -14,7 +14,7 @@ import {
 import { avatarTargetFromRect, CHARACTER_TRANSITIONS, isAvatarLandingTransition, scenePlacements, type CharacterPlacement, type OnboardingCharacterState } from "./scene";
 import { flattenSuggestionDescription, selectOnboardingSuggestions, suggestionIdentities, type OnboardingSuggestion, type SuggestionIdentity } from "./suggestions";
 import { TOOL_ASSET_URLS } from "./tool-assets";
-import { rendererRuntimeAssetUrl } from "../../../../production/runtime-assets";
+import { APP_MARK_DATA_URL } from "../../../ui/app-mark";
 import { defaultOnboardingCharacterRenderer } from "./character";
 import "./view.css";
 
@@ -24,8 +24,9 @@ import "./view.css";
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5425495 (signed-in hand-off consumer; 64px image)
 // readiness byte 5,441,790. The expanded mirror is navigation-only.
 
-const WALLPAPER_URL = rendererRuntimeAssetUrl("demo-computer-wallpaper-BO7Ye4dV.jpg");
-const APP_ICON_URL = rendererRuntimeAssetUrl("app-icon-C7NKj2u7.png");
+// Фотография рабочего стола `demo-computer-wallpaper-BO7Ye4dV.jpg` жила только в
+// стёртом Git LFS-объекте пакета 0.18. Вместо запроса файла фон рисует градиент.
+const APP_ICON_URL = APP_MARK_DATA_URL;
 const APP_ICON_SIZE_PX = 64;
 const EMPTY_COMPUTER: OnboardingComputerSnapshot = { isComputerReady: false, computerState: null, pullPercent: null };
 
@@ -111,7 +112,7 @@ export function ComputerDemo({ beat }: { beat: number }) {
   const windowStyle = (shown: boolean, geometry: CSSProperties): CSSProperties => { const transition = prefersReducedMotion() ? "0s linear" : shown ? ".42s cubic-bezier(.1,.9,.2,1)" : ".26s cubic-bezier(.2,0,0,1)"; return { background: "#f2f2f4", border: ".75px solid #1414141a", borderRadius: 8.3, boxShadow: "0 12px 30px #0000001f, 0 4.5px 10.5px #0000000d", opacity: shown ? 1 : 0, position: "absolute", transform: shown ? "scale(1)" : "scale(.86)", transition: `opacity ${transition}, transform ${transition}`, ...geometry }; };
   const divider: CSSProperties = { borderTop: ".75px solid #1414141a", left: 0, position: "absolute", right: 0, top: 25 };
   return <div aria-hidden="true" className="sand-onboarding__demo-card" data-pressed={pressed ?? undefined}>
-    <img alt="" draggable={false} src={WALLPAPER_URL} />
+    <div className="sand-onboarding__demo-wallpaper" />
     <div style={windowStyle(shownA, { height: 183.9, left: 29.6, top: 32.4, width: 300 })}>
       <DemoTile style={{ height: 102.3, left: 13.8, top: 89.8, width: 272.4 }} />
       <DemoTile style={{ height: 44.2, left: 13.8, top: 33.2, width: 59.4 }} />

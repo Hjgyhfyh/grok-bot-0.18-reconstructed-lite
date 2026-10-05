@@ -16,21 +16,13 @@ import {
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=4697585 (file-table viewer lifecycle)
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=4708351 (file-chip/table preview entry)
 // @evidence src/app/dist/renderer/assets/xlsx-CNerDvZX.js#SHA256=88bd58aabec374fbb50e18e1f271a15d6fca247297e8af73db4c368ae0408a9c
-
-export const XLSX_RUNTIME_ASSET = "xlsx-CNerDvZX.js";
-
-export interface SpreadsheetRuntimeModule {
-  readonly read: SpreadsheetRuntime["read"];
-  readonly utils: SpreadsheetRuntime["utils"];
-}
-
-export async function loadShippedSpreadsheetRuntime(): Promise<SpreadsheetRuntime> {
-  const base = import.meta.env?.DEV === true && typeof window !== "undefined"
-    ? new URL("/upstream/assets/", window.location.href)
-    : new URL("./", import.meta.url);
-  const module = await import(/* @vite-ignore */ new URL(XLSX_RUNTIME_ASSET, base).href) as SpreadsheetRuntimeModule;
-  if (typeof module.read !== "function" || typeof module.utils?.sheet_to_json !== "function") throw new Error("Модуль чтения таблиц недоступен.");
-  return module;
+//
+// Раньше рендерер запрашивал файл `xlsx-CNerDvZX.js`, которого в пакете нет, и
+// ломал просмотр даже обычного .csv. Теперь файл не запрашивается вовсе:
+// встроенный разбор текста читает .csv и .tsv сам, а .xlsx и .xls
+// отказывают с объяснением из `SPREADSHEET_VENDOR_UNAVAILABLE`.
+export async function loadShippedSpreadsheetRuntime(): Promise<SpreadsheetRuntime | null> {
+  return null;
 }
 
 export interface SpreadsheetViewerProps {
@@ -40,7 +32,7 @@ export interface SpreadsheetViewerProps {
   readonly onClose: () => void;
   readonly onDownload: () => void | Promise<boolean>;
   readonly readAttachmentBytes: SpreadsheetBytesReader["readAttachmentBytes"];
-  readonly loadRuntime?: () => Promise<SpreadsheetRuntime>;
+  readonly loadRuntime?: () => Promise<SpreadsheetRuntime | null>;
 }
 
 const emptySnapshot = (): SpreadsheetPreviewSnapshot => ({ status: "idle" });
@@ -48,7 +40,7 @@ const emptySnapshot = (): SpreadsheetPreviewSnapshot => ({ status: "idle" });
 function useSpreadsheetSnapshot(
   source: string,
   readAttachmentBytes: SpreadsheetBytesReader["readAttachmentBytes"],
-  loadRuntime: () => Promise<SpreadsheetRuntime>,
+  loadRuntime: () => Promise<SpreadsheetRuntime | null>,
   isOpen: boolean,
 ): SpreadsheetPreviewSnapshot {
   const reader = useMemo<SpreadsheetBytesReader>(() => ({ readAttachmentBytes }), [readAttachmentBytes]);

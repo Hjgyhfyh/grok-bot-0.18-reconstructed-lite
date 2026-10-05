@@ -19,7 +19,7 @@
 .sand-onboarding__cast > div { height: 80px; left: -40px; pointer-events: auto; position: absolute; top: -40px; transition-property: transform, opacity; }
 
 .sand-onboarding__demo-card { background-color: var(--sand-fill-accent-subtle); border: .79px solid var(--sand-border-default); border-radius: 16.59px; box-shadow: 0 15.8px 44.24px #00000038; height: 300px; left: 50%; overflow: hidden; position: absolute; top: 50%; transform: translate(-50%, calc(-50% - 21px)); width: 441px; }
-.sand-onboarding__demo-card > img { height: 100%; inset: 0; object-fit: cover; position: absolute; width: 100%; }
+.sand-onboarding__demo-wallpaper { background-image: linear-gradient(160deg, #dfe7f2 0%, #eef1f6 46%, #e6e2f0 100%); height: 100%; inset: 0; position: absolute; width: 100%; }
 
 .sand-onboarding__job-bubble { align-items: center; background-color: var(--sand-fill-secondary-solid); border-radius: 18px; display: inline-flex; font-size: 17px; font-weight: var(--sand-font-weight-medium); justify-content: center; left: 50%; letter-spacing: -.44px; line-height: 22px; max-width: 276px; padding: 8px 16px; position: absolute; top: 50%; transition: opacity .4s, transform .4s; white-space: nowrap; }
 .sand-onboarding__tools > label { align-items: center; background-color: var(--sand-fill-secondary); border: .5px solid var(--sand-border-weak); border-radius: 9999px; display: flex; gap: 8px; left: 50%; padding: 8px 4px 8px 12px; position: absolute; top: 50%; transform: translate(-50%, -167px); width: 300px; }

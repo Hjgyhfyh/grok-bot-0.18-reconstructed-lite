@@ -7,10 +7,16 @@
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import type { AttachmentBytesResult } from "../../../contracts/desktop-bridge";
+import { rendererRuntimeAssetUrl } from "../../../../production/runtime-assets";
 
-export const PDFJS_ASSET = "/upstream/assets/pdf-WLgSwHwh.js";
+// Оба файла копируются в `assets/` из установленного пакета
+// `pdfjs-dist@5.4.296` и сверяются сборкой по размеру и sha256. Воркер лежит
+// рядом с основным чанком, поэтому адрес берётся от того же URL.
+// Второй аргумент `import()` — время выполнения: так vite оставляет ссылку
+// как есть и не превращает её в собственную границу загрузки.
+export const PDFJS_ASSET = rendererRuntimeAssetUrl("pdf-WLgSwHwh.js");
 export const PDF_WORKER_FILENAME = "pdf.worker.min-qwK7q_zL.mjs";
-export const PDF_WORKER_ASSET = `/upstream/assets/${PDF_WORKER_FILENAME}`;
+export const PDF_WORKER_ASSET = rendererRuntimeAssetUrl(PDF_WORKER_FILENAME);
 export const PDFJS_VERSION = "5.4.296";
 export const PDFJS_BUILD = "f56dc8601";
 export const PDF_PREVIEW_BYTE_CAP = 25 * 1024 * 1024;

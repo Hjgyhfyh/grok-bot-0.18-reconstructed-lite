@@ -8,6 +8,11 @@ export const SPREADSHEET_MAX_ROWS = 2_000;
 export const SPREADSHEET_RENDER_ROWS = 200;
 export const SPREADSHEET_PREVIEW_BYTE_CAP = 25 * 1024 * 1024;
 
+// Чанк SheetJS из пакета 0.18 восстановить нечем: пакета `xlsx` нет ни в
+// package.json, ни в node_modules. Разбор .csv и .tsv встроенный, а для
+// .xlsx и .xls рендерер говорит правду вместо тихой ошибки.
+export const SPREADSHEET_VENDOR_UNAVAILABLE = "Чтение .xlsx и .xls недоступно: в сборке нет библиотеки SheetJS. Откройте файл в Excel или LibreOffice.";
+
 export interface SpreadsheetSheet {
   readonly name: string;
   readonly rows: readonly (readonly string[])[];
@@ -167,10 +172,11 @@ export function projectWorkbook(workbook: SpreadsheetWorkbook, maxRows = SPREADS
 export async function parseSpreadsheetBytes(
   bytes: Uint8Array,
   source: string,
-  runtime: SpreadsheetRuntime,
+  runtime: SpreadsheetRuntime | null,
   maxRows = SPREADSHEET_MAX_ROWS,
 ): Promise<SpreadsheetSheet[]> {
   if (isDelimited(source)) return parseDelimitedSpreadsheet(new TextDecoder("utf-8", { fatal: false }).decode(bytes), source, maxRows);
+  if (runtime == null) throw new Error(SPREADSHEET_VENDOR_UNAVAILABLE);
   return projectWorkbook(runtime.read(bytes, { type: "array" }), maxRows, runtime.utils);
 }
 

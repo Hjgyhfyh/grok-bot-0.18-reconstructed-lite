@@ -1,8 +1,13 @@
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js
 // @evidence src/app/dist/renderer/assets/katex-DHMw6HUq.js
 import { useEffect, useState } from "react";
+import { rendererRuntimeAssetUrl } from "../../../../production/runtime-assets";
 
-export const KATEX_ASSET = "/upstream/assets/katex-DHMw6HUq.js";
+// Чанк берётся из установленного пакета `katex@0.16.45`: сборка копирует
+// `dist/katex.mjs` в `assets/katex-DHMw6HUq.js` и сверяет размер и sha256.
+// Второй аргумент `import()` — время выполнения, а не литерал: так vite не
+// пытается разобрать ссылку и не плодит лишнюю границу загрузки.
+export const KATEX_ASSET = rendererRuntimeAssetUrl("katex-DHMw6HUq.js");
 
 export interface KatexRuntime {
   renderToString(expression: string, options: { displayMode: boolean; throwOnError: boolean; strict?: "ignore" }): string;
