@@ -66,28 +66,28 @@ export function GroupMembersPane({ provider, alert: _alert, agent, accountGenera
   };
 
   return (
-    <section aria-label="Members" className="sand-group-members-section" data-account-generation={snapshot.accountGeneration} data-pending={snapshot.pending?.kind}>
-      <span className="sand-info-pane__section-heading" id={headingId}>Members</span>
+    <section aria-label="Участники" className="sand-group-members-section" data-account-generation={snapshot.accountGeneration} data-pending={snapshot.pending?.kind}>
+      <span className="sand-info-pane__section-heading" id={headingId}>Участники</span>
       <ul aria-labelledby={headingId} className="sand-group-members-list">
         {snapshot.members.map((member) => {
           const nameId = `${headingId}-${member.id}-name`;
           return <li aria-labelledby={nameId} className="sand-group-member-row" key={member.id}>
-            <button aria-label={`Open ${member.name}'s chat`} className="sand-group-member-open" onClick={() => onOpenAgentChat(member.id)} type="button">
+            <button aria-label={`Открыть диалог с ${member.name}`} className="sand-group-member-open" onClick={() => onOpenAgentChat(member.id)} type="button">
               <span className="sand-group-member-name" id={nameId}>{member.name}</span>
             </button>
-            <button aria-label={`Remove ${member.name}`} disabled={!snapshot.canRemove} onClick={() => { void provider.requestRemoveMember(member); }} type="button">Remove</button>
+            <button aria-label={`Убрать из группы: ${member.name}`} disabled={!snapshot.canRemove} onClick={() => { void provider.requestRemoveMember(member); }} type="button">Убрать</button>
           </li>;
         })}
         {snapshot.canAdd ? <li className="sand-group-member-add-row">
           <div ref={menuRef}>
-            <button aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Add Member" className="sand-group-member-add" disabled={snapshot.pending != null} onClick={() => setMenuOpen((open) => !open)} ref={triggerRef} type="button">Add Member</button>
-            {menuOpen ? <div aria-label="Add Member" role="menu">
+            <button aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Добавить участника" className="sand-group-member-add" disabled={snapshot.pending != null} onClick={() => setMenuOpen((open) => !open)} ref={triggerRef} type="button">Добавить участника</button>
+            {menuOpen ? <div aria-label="Добавить участника" role="menu">
               {snapshot.candidates.map((candidate) => <button key={candidate.id} onClick={() => selectMember(candidate)} role="menuitem" type="button">{candidate.name}</button>)}
             </div> : null}
           </div>
         </li> : null}
       </ul>
-      {snapshot.group.memberIds.length >= GROUP_MAX_MEMBERS ? <div className="sand-group-members-footer">{`Groups can have up to ${GROUP_MAX_MEMBERS} members.`}</div> : snapshot.candidates.length === 0 ? <div className="sand-group-members-footer">Create more Bots to add them here.</div> : null}
+      {snapshot.group.memberIds.length >= GROUP_MAX_MEMBERS ? <div className="sand-group-members-footer">{`В группе может быть до ${GROUP_MAX_MEMBERS} участников.`}</div> : snapshot.candidates.length === 0 ? <div className="sand-group-members-footer">Создайте ещё помощников, чтобы добавить их сюда.</div> : null}
     </section>
   );
 }

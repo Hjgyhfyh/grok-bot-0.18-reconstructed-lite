@@ -192,22 +192,22 @@ export interface RootShellNotificationStackProps {
   onDismiss(id: string): void;
 }
 
-const UPGRADE_ACTION_ERROR = "Couldn’t complete the upgrade action — try again";
+const UPGRADE_ACTION_ERROR = "Не получилось выполнить действие. Попробуйте ещё раз.";
 
 export function RootShellNotificationStack({ trays, copiedRequestId, isSandModelExperiment = false, onClear, onAction, onCopyRequestId, onDismiss }: RootShellNotificationStackProps) {
   if (trays.length === 0) return null;
-  return <div aria-label="Notifications" className="sand-tray-stack" role="region">
-    {trays.length > 1 ? <div className="sand-tray-stack__clear-all"><SandButton onClick={onClear} size="sm" variant="secondary">Clear all</SandButton></div> : null}
+  return <div aria-label="Уведомления" className="sand-tray-stack" role="region">
+    {trays.length > 1 ? <div className="sand-tray-stack__clear-all"><SandButton onClick={onClear} size="sm" variant="secondary">Очистить все</SandButton></div> : null}
     {trays.map((tray) => <div className="sand-tray" data-kind="error" key={tray.id} role="alert">
       <div className="sand-tray__leading"><span aria-hidden="true" className="sand-tray__icon" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(0xea6c)}</span></div>
       <div className="sand-tray__body">
-        <div className="sand-tray__title-row"><strong className="sand-tray__title">{tray.title}</strong>{tray.count == null ? null : <strong aria-label={`Occurred ${tray.count} times`} className="sand-tray__count">×{tray.count}</strong>}</div>
-        {tray.detail == null ? null : <p className="sand-tray__detail">{tray.errorKind === "provider_overloaded" && isSandModelExperiment ? "The model provider is under heavy load right now. This is usually temporary — try again shortly." : tray.detail}</p>}
+        <div className="sand-tray__title-row"><strong className="sand-tray__title">{tray.title}</strong>{tray.count == null ? null : <strong aria-label={`Сообщение показано ${tray.count} раз`} className="sand-tray__count">×{tray.count}</strong>}</div>
+        {tray.detail == null ? null : <p className="sand-tray__detail">{tray.errorKind === "provider_overloaded" && isSandModelExperiment ? "Сервис с моделью сейчас перегружен. Обычно это ненадолго — попробуйте через минуту." : tray.detail}</p>}
         {tray.actions == null || tray.actions.length === 0 ? null : <div className="sand-tray__actions">{tray.actions.map((action) => <NotificationActionButton action={action} key={`${action.kind}:${action.label}`} onAction={onAction} />)}</div>}
       </div>
       <div className="sand-tray__controls">
-        {tray.requestId == null ? null : <SandIconButton aria-label="Copy request ID" className="sand-tray__copy" data-copied={copiedRequestId === tray.requestId || undefined} icon="copy" onClick={() => onCopyRequestId(tray.requestId!)} size="sm" />}
-        <SandIconButton aria-label="Dismiss notification" className="sand-tray__dismiss" icon="close" onClick={() => onDismiss(tray.id)} size="sm" />
+        {tray.requestId == null ? null : <SandIconButton aria-label="Скопировать номер запроса" className="sand-tray__copy" data-copied={copiedRequestId === tray.requestId || undefined} icon="copy" onClick={() => onCopyRequestId(tray.requestId!)} size="sm" />}
+        <SandIconButton aria-label="Закрыть уведомление" className="sand-tray__dismiss" icon="close" onClick={() => onDismiss(tray.id)} size="sm" />
       </div>
     </div>)}
   </div>;

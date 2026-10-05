@@ -41,18 +41,18 @@ export function replyPreviewLabel(preview: TranscriptReplyPreview): string {
     case "user-text":
     case "assistant-text": {
       const text = normalizeReplyText(preview.text);
-      if (text.length === 0) return "Thread";
+      if (text.length === 0) return "Диалог";
       if (text.length <= REPLY_TEXT_LABEL_LIMIT) return text;
       return `${text.slice(0, REPLY_TEXT_LABEL_LIMIT - 1).replace(/[\s:;,.!?\u2013\u2014-]+$/gu, "")}…`;
     }
     case "image":
-      return "Photo";
+      return "Картинка";
     case "file":
       return preview.name != null && preview.name.length > 0 ? preview.name : replyAttachmentBasename(preview.url);
     case "link":
       return replyLinkHost(preview.url);
     case "missing":
-      return "Thread";
+      return "Диалог";
   }
 }
 
@@ -61,16 +61,16 @@ export function replyQuoteLabel(preview: TranscriptReplyPreview): string {
     case "user-text":
     case "assistant-text": {
       const text = truncateReplyText(preview.text, REPLY_QUOTE_LIMIT);
-      return text.length > 0 ? text : "(empty)";
+      return text.length > 0 ? text : "(пусто)";
     }
     case "image":
-      return "Photo";
+      return "Картинка";
     case "file":
       return truncateReplyText(replyPreviewLabel(preview), REPLY_QUOTE_LIMIT);
     case "link":
       return truncateReplyText(replyPreviewLabel(preview), REPLY_QUOTE_LIMIT);
     case "missing":
-      return "(deleted)";
+      return "(удалено)";
   }
 }
 
@@ -80,13 +80,13 @@ export function replyComposerPlaceholder(preview: TranscriptReplyPreview): strin
     case "user-text":
     case "assistant-text":
     case "missing":
-      return "Reply…";
+      return "Ответ…";
     case "image":
-      return "Reply to attachment…";
+      return "Ответ на картинку…";
     case "file":
-      return "Reply to file…";
+      return "Ответ на файл…";
     case "link":
-      return "Reply to link…";
+      return "Ответ на ссылку…";
   }
 }
 
@@ -106,7 +106,7 @@ export interface ReplyQuoteProps {
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5097299
 export function ReplyQuote({ targetId, preview, isInScope, onOpen, ariaDescribedBy }: ReplyQuoteProps) {
-  const label = isInScope ? "Jump to replied message" : "Open reply thread";
+  const label = isInScope ? "Перейти к ответу" : "Открыть диалог с ответом";
   return (
     <button
       aria-label={label}
@@ -138,7 +138,7 @@ export function ComposerReplyPill({ target, onClear }: { target: ComposerReplyTa
       <span className="sand-prompt-reply-pill__body sand-3nfvp2 sand-6s0dn4 sand-17d4w8g sand-euugli sand-1iyjqo2 sand-b3r6kr" id={labelId}>
         <span className="sand-reply-quote__label">{replyQuoteLabel(target.preview)}</span>
       </span>
-      <button aria-label="Cancel reply" className="sand-prompt-reply-pill__clear sand-2lah0s sand-3nfvp2 sand-6s0dn4 sand-l56j7k sand-w4jnvo sand-1qx5ct2 sand-exx8yu sand-1xpa7k sand-18d9i69 sand-1uhho1l sand-c342km sand-ng3xce sand-149ho13 sand-jbqb8w sand-1kj6vsg sand-4b2ntj sand-7gh5u8 sand-1ypdohk sand-1ge13bo" onClick={onClear} type="button">
+      <button aria-label="Отменить ответ" className="sand-prompt-reply-pill__clear sand-2lah0s sand-3nfvp2 sand-6s0dn4 sand-l56j7k sand-w4jnvo sand-1qx5ct2 sand-exx8yu sand-1xpa7k sand-18d9i69 sand-1uhho1l sand-c342km sand-ng3xce sand-149ho13 sand-jbqb8w sand-1kj6vsg sand-4b2ntj sand-7gh5u8 sand-1ypdohk sand-1ge13bo" onClick={onClear} type="button">
         <span aria-hidden="true" data-icon-name="close" />
       </button>
     </div>

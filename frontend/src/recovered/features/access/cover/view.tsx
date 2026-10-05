@@ -19,7 +19,7 @@ export function AccessCover({ access, bridge, isVisible }: AccessCoverProps) {
     <div className="sand-access-cover">
       <div className="sand-onboarding__landing">
         <h1 id="sand-access-cover-heading">Grok Bot</h1>
-        <p>Your team of always-on agents that finish the work.</p>
+        <p>Ваша команда помощников, которая всегда на связи и доводит работу до конца.</p>
         <div>
           <div>
             <div><span>{copy.title}</span><span>{copy.body}</span></div>

@@ -5,9 +5,9 @@ export type UpdateTrack = DesktopUpdateTrack;
 export type UpdateTone = "default" | "error" | "ready";
 
 export const UPDATE_TRACK_LABELS: Readonly<Record<UpdateTrack, string>> = {
-  stable: "Stable",
-  nightly: "Nightly",
-  dogfood: "Dogfood"
+  stable: "Обычный",
+  nightly: "Ежедневный",
+  dogfood: "Опытный"
 };
 
 /** Preserved verbatim as configuration evidence from the public 0.18 renderer. */
@@ -55,13 +55,13 @@ export function disabledUpdateMessage(status: UpdateStatus): string {
   if (status.state.type !== "disabled") return "";
   switch (status.state.reason) {
     case "not-packaged":
-      return "Updates are disabled in dev builds";
+      return "В сборках для разработки обновления отключены";
     case "lab-build":
-      return "Grok Bot Lab is a one-off test build and never auto-updates";
+      return "Grok Bot Lab — разовая тестовая сборка, она никогда не обновляется сама";
     case "unsupported-platform":
-      return "Updates aren't available on this platform";
+      return "На этой системе обновления недоступны";
     case "disabled-by-env":
-      return "Updates are disabled by SAND_DISABLE_UPDATES";
+      return "Обновления отключены переменной SAND_DISABLE_UPDATES";
   }
 }
 
@@ -71,25 +71,25 @@ export function updateStatusMessage(status: UpdateStatus): UpdateStatusMessage {
     case "disabled":
       return { text: disabledUpdateMessage(status), tone: "default" };
     case "checking":
-      return { text: "Checking for updates…", tone: "default" };
+      return { text: "Проверяем обновления…", tone: "default" };
     case "available":
-      return { text: `Grok Bot ${state.version} is available`, tone: "default" };
+      return { text: `Доступна версия Grok Bot ${state.version}`, tone: "default" };
     case "downloading": {
       const progress = state.progress != null ? ` (${Math.round(state.progress * 100)}%)` : "";
-      return { text: `Downloading Grok Bot ${state.version}…${progress}`, tone: "default" };
+      return { text: `Скачиваем Grok Bot ${state.version}…${progress}`, tone: "default" };
     }
     case "staging":
-      return { text: `Preparing Grok Bot ${state.version}…`, tone: "default" };
+      return { text: `Готовим Grok Bot ${state.version}…`, tone: "default" };
     case "ready":
       return state.lastCheck?.result === "error"
-        ? { text: `Update check failed: ${state.lastCheck.errorMessage ?? "unknown error"}. Grok Bot ${state.version} is still ready. Restart to apply.`, tone: "error" }
-        : { text: `Grok Bot ${state.version} is ready. Restart to apply.`, tone: "ready" };
+        ? { text: `Проверка обновлений не удалась: ${state.lastCheck.errorMessage ?? "неизвестная ошибка"}. Grok Bot ${state.version} готов. Перезапустите, чтобы обновиться.`, tone: "error" }
+        : { text: `Grok Bot ${state.version} готов. Перезапустите, чтобы обновиться.`, tone: "ready" };
     case "idle":
       return state.lastCheck == null
         ? { text: "", tone: "default" }
         : state.lastCheck.result === "up-to-date"
-          ? { text: "You're up to date", tone: "default" }
-          : { text: `Update check failed: ${state.lastCheck.errorMessage ?? "unknown error"}`, tone: "error" };
+          ? { text: "Обновлений нет", tone: "default" }
+          : { text: `Проверка обновлений не удалась: ${state.lastCheck.errorMessage ?? "неизвестная ошибка"}`, tone: "error" };
   }
 }
 
@@ -98,15 +98,24 @@ export type EgressTunnelStatus =
   | { state: "connecting" }
   | { state: "off" };
 
+/** Русские окончания для числа: 1 соединение, 2 соединения, 5 соединений. */
+function connectionWord(count: number): string {
+  const mod100 = Math.abs(count) % 100, mod10 = mod100 % 10;
+  return mod100 >= 11 && mod100 <= 14 ? "соединений"
+    : mod10 === 1 ? "соединение"
+    : mod10 >= 2 && mod10 <= 4 ? "соединения"
+    : "соединений";
+}
+
 export function egressTunnelStatusDescription(status: EgressTunnelStatus): string {
   switch (status.state) {
     case "connected":
       return status.activeStreams > 0
-        ? `Connected — routing ${status.activeStreams} connection${status.activeStreams === 1 ? "" : "s"} (${status.relayedStreams} total this session).`
-        : `Connected — this desktop is ready to route web traffic from Grok Bot's computer (${status.relayedStreams} routed this session).`;
+        ? `Подключено — через этот компьютер идёт ${status.activeStreams} ${connectionWord(status.activeStreams)}, всего за сеанс ${status.relayedStreams}.`
+        : `Подключено — компьютер готов пропускать интернет-трафик Grok Bot (за сеанс пропущено ${status.relayedStreams}).`;
     case "connecting":
-      return "Connecting to Grok Bot's computer…";
+      return "Подключаемся к компьютеру Grok Bot…";
     case "off":
-      return "Enabled, but not routing yet — waiting for Grok Bot's computer to connect with egress enabled.";
+      return "Включено, но трафик пока не идёт — ждём подключения компьютера Grok Bot.";
   }
 }

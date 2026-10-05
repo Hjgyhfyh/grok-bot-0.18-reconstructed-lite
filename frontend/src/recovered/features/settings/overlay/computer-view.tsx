@@ -4,13 +4,13 @@ import { SandButton } from "../../../ui/sand-kit-primitives";
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L523
 
-const UPDATE_COPY = "Updates the computer your assistants share. Your files and logins stay. All assistants update together.";
-const UP_TO_DATE_COPY = "Your computer is on the latest version";
-const BUSY_COPY = "An agent is working. Updating now will interrupt it.";
-const QUEUED_COPY = "Update queued. It runs as soon as every agent is done.";
-const BLOCKED_COPY = "Further computer updates and resets are disabled for this session. Restart Grok Bot after the computer is available again.";
-const RESET_COPY = "Start fresh if the computer gets stuck. It's rebuilt from your last saved snapshot, so very recent changes may be lost.";
-const RESET_UNAVAILABLE_COPY = "Open an agent to reset the shared computer";
+const UPDATE_COPY = "Обновляет компьютер, на котором работают ваши помощники. Ваши файлы и входы в программы останутся на месте.";
+const UP_TO_DATE_COPY = "Ваш компьютер уже новой версии";
+const BUSY_COPY = "Помощник сейчас работает. Обновление прервёт его работу.";
+const QUEUED_COPY = "Обновление в очереди. Оно начнётся, как только все помощники закончат работу.";
+const BLOCKED_COPY = "Обновление и пересборка компьютера отключены до конца сеанса. Перезапустите Grok Bot, когда компьютер снова будет доступен.";
+const RESET_COPY = "Начните с чистого листа, если компьютер завис. Он соберётся заново из последнего сохранённого состояния, поэтому самые свежие изменения могут пропасть.";
+const RESET_UNAVAILABLE_COPY = "Откройте помощника, чтобы пересобрать общий компьютер";
 
 export function SettingsComputerPanel({ state, actions }: SettingsComputerMount) {
   const phase = settingsComputerPhase(state);
@@ -25,7 +25,7 @@ export function SettingsComputerPanel({ state, actions }: SettingsComputerMount)
   const resetExtraCopy = state.isRebuildBlocked ? BLOCKED_COPY : !state.canResetBox ? RESET_UNAVAILABLE_COPY : null;
 
   return (
-    <SettingsGroup title="Grok Bot's Computer">
+    <SettingsGroup title="Компьютер Grok Bot">
       {phase === "up-to-date" && !state.isRebuildBlocked ? (
         <div className="sand-settings-uptodate-banner" role="status">
           <strong>{UP_TO_DATE_COPY}</strong>
@@ -36,16 +36,16 @@ export function SettingsComputerPanel({ state, actions }: SettingsComputerMount)
         <SettingsComputerRow
           description={UPDATE_COPY}
           extraCopy={updateExtraCopy}
-          label="Update Grok Bot's Computer"
+          label="Обновить компьютер Grok Bot"
           control={<SandButton className="sand-settings-reset" data-confirming={controller.updateConfirming || undefined} disabled={controller.updateDisabled} onClick={controller.requestUpdate} size="md" variant="secondary">{controller.updateLabel}</SandButton>}
         />
       )}
-      {state.isDevBuild ? <SandButton className="sand-settings-force-refresh" disabled={state.isRebuildBlocked || state.isUpdateBoxPending || state.isResetBoxPending} onClick={controller.refreshAnyway} size="md" title="Test the update flow even though the computer is already up to date" variant="secondary">Refresh Anyway</SandButton> : null}
+      {state.isDevBuild ? <SandButton className="sand-settings-force-refresh" disabled={state.isRebuildBlocked || state.isUpdateBoxPending || state.isResetBoxPending} onClick={controller.refreshAnyway} size="md" title="Проверить обновление, хотя компьютер уже новой версии" variant="secondary">Обновить всё равно</SandButton> : null}
       <SettingsComputerRow
         description={RESET_COPY}
         extraCopy={resetExtraCopy}
-        label="Reset Grok Bot's Computer"
-        control={<SandButton className="sand-settings-reset" disabled={!state.canResetBox || state.isRebuildBlocked || state.isUpdateBoxPending || state.isResetBoxPending} onClick={controller.requestReset} sentiment="danger" size="md" variant="primary">{state.isResetBoxPending ? "Resetting…" : "Reset"}</SandButton>}
+        label="Пересобрать компьютер Grok Bot"
+        control={<SandButton className="sand-settings-reset" disabled={!state.canResetBox || state.isRebuildBlocked || state.isUpdateBoxPending || state.isResetBoxPending} onClick={controller.requestReset} sentiment="danger" size="md" variant="primary">{state.isResetBoxPending ? "Пересобираем…" : "Пересобрать"}</SandButton>}
       />
     </SettingsGroup>
   );

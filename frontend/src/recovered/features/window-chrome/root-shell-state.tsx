@@ -10,14 +10,14 @@ import "./root-shell-state.css";
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L132095-L132097
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L131933
 
-const SETUP_LABEL = "Setting up Grok Bot's computer";
-const EMPTY_WORKSPACE_LABEL = "New chat";
-const EMPTY_WORKSPACE_COPY = "No chats yet";
-const ROOT_ERROR_TITLE = "Something went wrong";
-const ROOT_ERROR_DETAIL = "Grok Bot hit an unexpected error while rendering. Reloading usually fixes it.";
-const ROOT_ERROR_RELOAD = "Reload";
-const ROOT_ERROR_COPY = "Copy error";
-const ROOT_ERROR_COPIED = "Copied";
+const SETUP_LABEL = "Подготовка компьютера Grok Bot";
+const EMPTY_WORKSPACE_LABEL = "Новый диалог";
+const EMPTY_WORKSPACE_COPY = "Пока нет диалогов";
+const ROOT_ERROR_TITLE = "Что-то пошло не так";
+const ROOT_ERROR_DETAIL = "Grok Bot не смог показать окно из-за ошибки. Обычно помогает перезагрузка.";
+const ROOT_ERROR_RELOAD = "Перезагрузить";
+const ROOT_ERROR_COPY = "Скопировать ошибку";
+const ROOT_ERROR_COPIED = "Скопировано";
 const ROOT_ERROR_SURFACE_CLASS = "sand-error-boundary--app";
 
 export type RootShellShortcut = "new-agent" | "command-palette" | "focus-search" | "focus-prompt" | "open-settings" | "open-tools" | "navigate-back" | "navigate-forward" | "previous-agent" | "next-agent" | `focus-agent-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`;

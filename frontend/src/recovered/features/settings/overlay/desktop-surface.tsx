@@ -37,7 +37,7 @@ import { SettingsNoticeView, settingsNoticeFromEvent, type SettingsNotice } from
 import { publishSurfaceNotice, type SettingsNoticeEvent } from "../../../contracts/surface-notice";
 import { SandButton } from "../../../ui/sand-kit-primitives";
 
-const SETTINGS_FALLBACK_LABELS = { retry: "Retry" };
+const SETTINGS_FALLBACK_LABELS = { retry: "Повторить" };
 
 export interface SettingsDesktopSurfaceProps {
   bridge: DesktopBridge;
@@ -209,7 +209,7 @@ export function SettingsDesktopSurface({ bridge, coordinatorClient = null, initi
           <div aria-live="polite" role={error == null ? "status" : "alert"}>
             {error == null ? null : <>
               <span>{error}</span>
-              <SandButton aria-label="Retry" onClick={() => setReload((value) => value + 1)} size="sm" variant="secondary">{SETTINGS_FALLBACK_LABELS.retry}</SandButton>
+              <SandButton aria-label="Повторить" onClick={() => setReload((value) => value + 1)} size="sm" variant="secondary">{SETTINGS_FALLBACK_LABELS.retry}</SandButton>
             </>}
           </div>
         );

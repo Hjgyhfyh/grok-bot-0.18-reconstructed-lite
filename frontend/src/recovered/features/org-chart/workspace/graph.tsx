@@ -17,6 +17,15 @@ export interface OrgChartGraphProps {
   onOpenAgent?(agentId: string): void;
 }
 
+function memberCountLabel(count: number): string {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return `${count} участников`;
+  if (last === 1) return `${count} участник`;
+  if (last >= 2 && last <= 4) return `${count} участника`;
+  return `${count} участников`;
+}
+
 export function OrgChartGraph({ agents, width = 760, height = 500, now = Date.now(), selectedAgentId, onSelectAgent, onOpenAgent }: OrgChartGraphProps) {
   const edges = useMemo(() => buildOrgChartEdges(agents), [agents]);
   const positions = useMemo(() => layoutOrgChart({ nodeIds: [...agents].sort((a, b) => Number(b.isGroup) - Number(a.isGroup) || a.id.localeCompare(b.id)).map((agent) => agent.id), edges, width, height }), [agents, edges, width, height]);
@@ -83,14 +92,14 @@ export function OrgChartGraph({ agents, width = 760, height = 500, now = Date.no
 
   if (agents.length === 0) {
     return (
-      <div aria-label="Agent network" className="sand-org-chart-network__empty" role="region">
-        No agents yet. Create a few teammates and the network draws itself.
+      <div aria-label="Сеть помощников" className="sand-org-chart-network__empty" role="region">
+        Пока нет помощников. Создайте нескольких — и схема появится сама.
       </div>
     );
   }
 
   return (
-    <div aria-label="Agent network" className="sand-org-chart-network" role="region" style={{ width, height }}>
+    <div aria-label="Сеть помощников" className="sand-org-chart-network" role="region" style={{ width, height }}>
       <div
         className="sand-org-chart-network__scene"
         onDoubleClick={resetViewport}
@@ -121,7 +130,7 @@ export function OrgChartGraph({ agents, width = 760, height = 500, now = Date.no
         {agents.map((agent) => {
           const point = positions.get(agent.id);
           if (point == null) return null;
-          const caption = agent.awaitingUserResponse != null ? "Waiting for you" : agent.isRunning ? "Working…" : agent.isGroup ? `${agent.memberIds.length} ${agent.memberIds.length === 1 ? "member" : "members"}` : "";
+          const caption = agent.awaitingUserResponse != null ? "Ждёт вашего ответа" : agent.isRunning ? "Работает…" : agent.isGroup ? memberCountLabel(agent.memberIds.length) : "";
           const labelId = `${agent.id}-name`;
           const detailsId = `${agent.id}-details`;
           return (
@@ -143,7 +152,7 @@ export function OrgChartGraph({ agents, width = 760, height = 500, now = Date.no
             >
               <span aria-hidden="true">{agent.isGroup ? "◫" : agent.name.slice(0, 1).toLocaleUpperCase()}</span>
               <strong id={labelId}>{agent.name}</strong>
-              <span hidden id={detailsId}>details</span>
+              <span hidden id={detailsId}>Подробнее</span>
               {caption ? <small>{caption}</small> : null}
             </button>
           );

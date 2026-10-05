@@ -81,6 +81,8 @@ import {
   createSendMessageTool,
   type SendMessageDependencies,
 } from "./send-message-tool.js";
+import { createReportTurnTools } from "./report-turn-tools.js";
+import type { ReportToolsDependencies } from "../../../packages/report-tools/index.js";
 import {
   createSendToAgentTool,
   createCreateAgentTool,
@@ -160,7 +162,9 @@ export const SAND_FORCED_STATIC_TOOL_NAMES = new Set([
 ]);
 
 export const SAND_DYNAMIC_TOOL_HINTS: Readonly<Record<string, string>> = {
-  CLOUD_AGENT: "Launch and manage Cursor cloud coding agents for repository work.",
+  // Подсказки по инструментам, которые заход может объявить динамически.
+  // Облачного агента в DB Bot Lite нет, поэтому подсказки CLOUD_AGENT здесь
+  // не было: она описывала запуск в чужой машине, которой у пользователя нет.
   SEARCH_PLUGINS: "Search installable plugins/connectors when a task needs a service.",
   AUTHENTICATE_MCP_SERVER: "Start authentication for a connector that needs auth.",
   COPY_TO_BOX: "Copy a file from the user's computer onto your box.",
@@ -963,6 +967,7 @@ export interface TurnToolFactories {
   createAgent?(): TurnTool;
   updateAgent?(): TurnTool;
   updateState?(): TurnTool;
+  reportTools?(): readonly TurnTool[];
   externalShell?(): TurnTool | undefined;
   externalRead?(): TurnTool;
   externalAwait?(): TurnTool;
@@ -1085,6 +1090,16 @@ export interface TurnStateToolFactoryInput {
   readonly dependencies: SandStateDependencies;
 }
 
+/**
+ * Пять отчётных инструментов: save_report, fill_sample, report_preview,
+ * skill_list, skill_read. Зависимости приходят снаружи, потому что слой
+ * `source/packages/**` не должен знать, где у хоста корень данных и куда
+ * уходит превью.
+ */
+export interface TurnReportToolFactoryInput {
+  readonly dependencies: ReportToolsDependencies;
+}
+
 export interface TurnSubagentManagementToolFactoryInput {
   readonly controller: SubagentManagementController<unknown>;
 }
@@ -1116,6 +1131,7 @@ export interface TurnToolsetFactoryInputs {
   readonly boxShell?: TurnShellToolFactoryInput;
   readonly boxRead?: TurnReadToolFactoryInput;
   readonly sendMessage?: TurnSendMessageToolFactoryInput;
+  readonly reportTools?: TurnReportToolFactoryInput;
   readonly sendToAgent?: TurnSendToAgentToolFactoryInput;
   readonly reaction?: TurnReactionToolFactoryInput;
   readonly agentManagement?: TurnAgentManagementToolFactoryInput;
@@ -1215,6 +1231,14 @@ export interface TurnToolsetHostFactoryProvider {
     turn: TurnToolsetTurnInput,
     props: TurnToolsetBuildProps,
   ) => TurnStateToolFactoryInput;
+  /**
+   * Отчётные инструменты. Пусто — набор остаётся без них, а не с пятью
+   * инструментами, у которых нет папки для записи.
+   */
+  readonly createReportToolInputs?: (
+    turn: TurnToolsetTurnInput,
+    props: TurnToolsetBuildProps,
+  ) => TurnReportToolFactoryInput;
   readonly createSubagentManagementToolInputs?: (
     turn: TurnToolsetTurnInput,
     props: TurnToolsetBuildProps,
@@ -1461,6 +1485,17 @@ export function createTurnStateToolFactory(
   return () => asTurnTool(createSandStateTool(input.dependencies));
 }
 
+/**
+ * Собирает пять отчётных инструментов из уже реализованного пакета
+ * `source/packages/report-tools/`. Ничего не переписывает: меняется только
+ * форма (TurnTool вместо ReportTool) и язык описаний.
+ */
+export function createTurnReportToolFactory(
+  input: TurnReportToolFactoryInput,
+): () => readonly TurnTool[] {
+  return () => createReportTurnTools(input.dependencies).map(asTurnTool);
+}
+
 export function createTurnSubagentManagementToolFactory(
   input: TurnSubagentManagementToolFactoryInput,
 ): () => readonly TurnTool[] {
@@ -1495,6 +1530,7 @@ export function createTurnToolsetFactories(
   | "fileTransfer" | "requestBoxHelp" | "generateImage" | "webSearch" | "webFetch" | "externalAwait"
   | "boxAwait" | "externalShell" | "externalRead" | "boxShell" | "boxRead"
   | "sendMessage" | "sendToAgent" | "reaction" | "createAgent" | "updateAgent" | "updateState"
+  | "reportTools"
   | "subagentManagement"
   | "mcpManagement"
 > {
@@ -1568,6 +1604,9 @@ export function createTurnToolsetFactories(
     ...(input.state === undefined
       ? {}
       : { updateState: createTurnStateToolFactory(input.state) }),
+    ...(input.reportTools === undefined
+      ? {}
+      : { reportTools: createTurnReportToolFactory(input.reportTools) }),
     ...(input.subagentManagement === undefined
       ? {}
       : {
@@ -1659,6 +1698,9 @@ export function createTurnToolsetFactoriesForTurn(
     ...(provider.createStateToolInputs === undefined
       ? {}
       : { state: provider.createStateToolInputs(turn, props) }),
+    ...(provider.createReportToolInputs === undefined
+      ? {}
+      : { reportTools: provider.createReportToolInputs(turn, props) }),
     ...(provider.createSubagentManagementToolInputs === undefined
       ? {}
       : {
@@ -1834,6 +1876,16 @@ export function buildTurnTools(
       const updateState = factories.updateState?.();
       if (updateState !== undefined) tools.push(updateState);
     }
+  }
+
+  // Пять отчётных инструментов: save_report, fill_sample, report_preview,
+  // skill_list, skill_read. Только главному помощнику — у помощника с
+  // отдельной задачей нет ни папки отчётов, ни доступа к экрану пользователя.
+  // `report_preview` сам по себе ответом не считается: он обновляет экран, а
+  // `DELIVERY_TOOL_NAMES` в `turn-shape.ts` остаётся без него.
+  if (!host.isSubagentRunner && !host.isBoxScopedSubagent) {
+    const reportTools = factories.reportTools?.();
+    if (reportTools !== undefined) tools.push(...reportTools);
   }
 
   const agentId = host.getConversationId();

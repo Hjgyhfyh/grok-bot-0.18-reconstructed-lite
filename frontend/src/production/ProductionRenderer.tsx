@@ -309,8 +309,8 @@ function computerActionResult(value: unknown): { status: string; reason?: string
   };
 }
 
-const COMPUTER_UPDATE_UNTRACKABLE_COPY = "The computer update started, but Grok Bot can't track its progress. Restart Grok Bot after the computer is available again.";
-const COMPUTER_RESET_UNTRACKABLE_COPY = "The computer reset started, but Grok Bot can't track its progress. Restart Grok Bot after the computer is available again.";
+const COMPUTER_UPDATE_UNTRACKABLE_COPY = "Обновление компьютера запущено, но Grok Bot не может показать его ход. Перезапустите Grok Bot, когда компьютер снова будет доступен.";
+const COMPUTER_RESET_UNTRACKABLE_COPY = "Сброс компьютера запущен, но Grok Bot не может показать его ход. Перезапустите Grok Bot, когда компьютер снова будет доступен.";
 
 function optimisticAcknowledgementEntries(nonce: string, attachments: readonly { path: string; name: string }[]) {
   return [
@@ -352,7 +352,7 @@ const OVERLAY_FRAME_STYLE = {
 const INFO_PANE_TOP_CLASS = "sand-info-pane__top sand-1n2onr6 sand-78zum5 sand-6s0dn4 sand-1qughib sand-167g77z sand-1c4vz4f sand-2lah0s sand-dl72j9 sand-lvsv26 sand-xlogw sand-14kp3v7 sand-exx8yu sand-j9b1aj sand-18d9i69 sand-f18ygs";
 const INFO_PANE_ACTIONS_CLASS = "sand-info-pane__actions sand-3nfvp2 sand-6s0dn4 sand-195vfkc sand-lvsv26";
 
-function RootInfoPaneHeader({ children, onClose, closeLabel = "Close details" }: { readonly children?: ReactNode; readonly onClose: () => void; readonly closeLabel?: string }) {
+function RootInfoPaneHeader({ children, onClose, closeLabel = "Закрыть" }: { readonly children?: ReactNode; readonly onClose: () => void; readonly closeLabel?: string }) {
   return <header className={INFO_PANE_TOP_CLASS}>
     {children == null ? <span aria-hidden="true" /> : children}
     <span className={INFO_PANE_ACTIONS_CLASS}>
@@ -361,35 +361,35 @@ function RootInfoPaneHeader({ children, onClose, closeLabel = "Close details" }:
   </header>;
 }
 const FEEDBACK_ERRORS: Record<FeedbackCode, string> = {
-  "access-denied": "Grok Bot isn't available for this account.",
-  "invalid-feedback": "Write between 1 and 10,000 characters.",
-  "not-signed-in": ["Sign in to ", UI_TEXT.title, " before sending feedback."].join(""),
-  "rate-limited": "You've sent several reports. Try again in a few minutes.",
-  "subscription-required": "Upgrade to Ultra before sending feedback.",
-  unavailable: "We couldn't deliver this report. Try again."
+  "access-denied": "Grok Bot недоступен для этой учётной записи.",
+  "invalid-feedback": "Напишите от 1 до 10 000 знаков.",
+  "not-signed-in": ["Войдите в ", UI_TEXT.title, ", чтобы отправить отзыв."].join(""),
+  "rate-limited": "Вы отправили много отзывов. Повторите через несколько минут.",
+  "subscription-required": "Перейдите на тариф Ultra, чтобы отправить отзыв.",
+  unavailable: "Не удалось отправить отзыв. Попробуйте ещё раз."
 };
 const UPDATE_REQUIRED_LABELS = {
-  descriptionPrefix: "This version of Grok Bot (",
-  descriptionSuffix: ") is no longer supported. Update to keep using Grok Bot — your agents keep running the whole time.",
-  downloading: "Downloading update…",
-  error: "Couldn't download the update. Check your connection and try again.",
-  preparing: "Preparing update…",
-  restart: "Restart to update",
-  restarting: "Restarting…",
-  retry: "Try again",
-  title: "Update required",
-  update: "Update"
+  descriptionPrefix: "Эта версия Grok Bot (",
+  descriptionSuffix: ") больше не поддерживается. Обновите программу, чтобы продолжить работу. Помощники всё это время остаются включёнными.",
+  downloading: "Скачиваем обновление…",
+  error: "Не удалось скачать обновление. Проверьте подключение и повторите.",
+  preparing: "Готовим обновление…",
+  restart: "Перезапустить и обновить",
+  restarting: "Перезапускаем…",
+  retry: "Повторить",
+  title: "Нужно обновление",
+  update: "Обновить"
 } as const;
 const UPDATE_PILL_LABELS = {
-  available: "A new version of the app is available",
-  downloading: "Downloading update…",
-  restarting: "Restarting…",
-  update: "Update"
+  available: "Доступна новая версия программы",
+  downloading: "Скачиваем обновление…",
+  restarting: "Перезапускаем…",
+  update: "Обновить"
 } as const;
 const SETTINGS_COMMANDS: readonly { id: SettingsSectionId; label: string; keywords: readonly string[] }[] = [
-  { id: "general", label: "General", keywords: ["account", "model", "notifications", "preferences", "appearance", "theme", "mode", "security", "yubikey", "webauthn"] },
-  { id: "usage", label: "Usage & Billing", keywords: ["usage", "billing", "spend", "limit", "on-demand", "plan", "quota"] },
-  { id: "beta", label: "Updates", keywords: ["beta", "updates", "release", "track", "danger"] }
+  { id: "general", label: "Основное", keywords: ["account", "model", "notifications", "preferences", "appearance", "theme", "mode", "security", "yubikey", "webauthn"] },
+  { id: "usage", label: "Расходы и оплата", keywords: ["usage", "billing", "spend", "limit", "on-demand", "plan", "quota"] },
+  { id: "beta", label: "Обновления", keywords: ["beta", "updates", "release", "track", "danger"] }
 ];
 const THEME_COMMANDS: readonly { preference: ThemePreference; label: string; keywords: readonly string[] }[] = [
   { preference: "light-white", label: "Тема: Белый", keywords: ["appearance", "white", "bright", "day"] },
@@ -457,7 +457,7 @@ function createAutoReviewInstructionsResource(bridge: DesktopBridge): AutoReview
 
 function listenerConnectUrl(value: unknown): { url: string } {
   if (typeof value === "object" && value != null && !Array.isArray(value) && "url" in value && typeof value.url === "string") return { url: value.url };
-  throw new Error("Invalid listener connect response");
+  throw new Error("Программа прислала неверный адрес подключения");
 }
 
 function accountName(status: CursorAuthStatus | null): string {
@@ -555,9 +555,9 @@ function callCoordinatorWithAbort(
   args: unknown,
   signalValue?: unknown
 ): Promise<unknown> {
-  if (client == null) return Promise.reject(new Error(`coordinator is unavailable for ${method}`));
+  if (client == null) return Promise.reject(new Error(`Нет связи с программой: ${method}`));
   const signal = signalValue as AbortSignalLike | undefined;
-  if (signal?.aborted === true) return Promise.reject(new Error(`${method} was cancelled`));
+  if (signal?.aborted === true) return Promise.reject(new Error(`${method}: запрос отменён`));
   const request = client.call(method, args);
   if (signal?.addEventListener == null || signal.removeEventListener == null) return request;
   const addAbortListener = signal.addEventListener;
@@ -567,7 +567,7 @@ function callCoordinatorWithAbort(
     const onAbort = () => {
       if (settled) return;
       settled = true;
-      reject(new Error(`${method} was cancelled`));
+      reject(new Error(`${method}: запрос отменён`));
     };
     addAbortListener("abort", onAbort, { once: true });
     request.then((value) => {
@@ -623,7 +623,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   const [conversationOutlineProvider] = useState(() => createConversationOutlineProvider({
     coordinator: {
       getConversationOutline: (args) => client == null
-        ? Promise.reject(new Error("coordinator is unavailable for getConversationOutline"))
+        ? Promise.reject(new Error("Нет связи с программой: getConversationOutline"))
         : client.call("getConversationOutline", args)
     },
     events: {
@@ -666,7 +666,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     scope: { accountSlot: null, agentId: null },
     transport: createWidgetInteractionTransport({
       call: (method, args) => client == null
-        ? Promise.reject(new Error(`coordinator is unavailable for ${method}`))
+        ? Promise.reject(new Error(`Нет связи с программой: ${method}`))
         : client.call(method, args)
     })
   }));
@@ -674,7 +674,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     scope: { accountSlot: null, agentId: null },
     source: createCloudAgentInfoSource({
       call: (method, args) => client == null
-        ? Promise.reject(new Error(`coordinator is unavailable for ${method}`))
+        ? Promise.reject(new Error(`Нет связи с программой: ${method}`))
         : client.call(method, args)
     }),
     opener: { openCloudAgent: (bcId) => bridge.openCloudAgent(bcId) }
@@ -708,12 +708,12 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     listAllAutomations: () => client.call("listAllAutomations")
   }));
   const [routinesController] = useState(() => createRoutinesController({
-    getAgentAutomations: (args) => client == null ? Promise.reject(new Error("coordinator is unavailable for getAgentAutomations")) : client.call("getAgentAutomations", args),
-    createAgentAutomation: (args) => client == null ? Promise.reject(new Error("coordinator is unavailable for createAgentAutomation")) : client.call("createAgentAutomation", args),
-    setAgentAutomationEnabled: (args) => client == null ? Promise.reject(new Error("coordinator is unavailable for setAgentAutomationEnabled")) : client.call("setAgentAutomationEnabled", args),
-    updateAgentAutomation: (args) => client == null ? Promise.reject(new Error("coordinator is unavailable for updateAgentAutomation")) : client.call("updateAgentAutomation", args),
-    deleteAgentAutomation: (args) => client == null ? Promise.reject(new Error("coordinator is unavailable for deleteAgentAutomation")) : client.call("deleteAgentAutomation", args),
-    runAgentAutomationNow: (args) => client == null ? Promise.reject(new Error("coordinator is unavailable for runAgentAutomationNow")) : client.call("runAgentAutomationNow", args)
+    getAgentAutomations: (args) => client == null ? Promise.reject(new Error("Нет связи с программой: getAgentAutomations")) : client.call("getAgentAutomations", args),
+    createAgentAutomation: (args) => client == null ? Promise.reject(new Error("Нет связи с программой: createAgentAutomation")) : client.call("createAgentAutomation", args),
+    setAgentAutomationEnabled: (args) => client == null ? Promise.reject(new Error("Нет связи с программой: setAgentAutomationEnabled")) : client.call("setAgentAutomationEnabled", args),
+    updateAgentAutomation: (args) => client == null ? Promise.reject(new Error("Нет связи с программой: updateAgentAutomation")) : client.call("updateAgentAutomation", args),
+    deleteAgentAutomation: (args) => client == null ? Promise.reject(new Error("Нет связи с программой: deleteAgentAutomation")) : client.call("deleteAgentAutomation", args),
+    runAgentAutomationNow: (args) => client == null ? Promise.reject(new Error("Нет связи с программой: runAgentAutomationNow")) : client.call("runAgentAutomationNow", args)
   }));
   const routineSnapshot = useSyncExternalStore(
     routineProvider?.subscribe ?? emptyRoutineSubscribe,
@@ -761,13 +761,13 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   const [pluginAuthAdapter] = useState(() => createPluginAuthProductionAdapter({
     coordinator: {
       getPluginSyncStatus: () => client == null
-        ? Promise.reject(new Error("coordinator is unavailable for getPluginSyncStatus"))
+        ? Promise.reject(new Error("Нет связи с программой: getPluginSyncStatus"))
         : client.call("getPluginSyncStatus"),
       createAgent: (args) => client == null
-        ? Promise.reject(new Error("coordinator is unavailable for createAgent"))
+        ? Promise.reject(new Error("Нет связи с программой: createAgent"))
         : client.call("createAgent", args),
       sendPrompt: (args) => client == null
-        ? Promise.reject(new Error("coordinator is unavailable for sendPrompt"))
+        ? Promise.reject(new Error("Нет связи с программой: sendPrompt"))
         : client.call("sendPrompt", args)
     },
     selectAgent: (agentId) => { void openAgentRef.current(agentId); }
@@ -952,7 +952,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
 
   const [hiddenChatsMutationController] = useState(() => createHiddenChatsMutationController({
     call: (input) => client == null
-      ? Promise.reject(new Error("coordinator is unavailable for setAgentHiddenFromSidebar"))
+      ? Promise.reject(new Error("Нет связи с программой: setAgentHiddenFromSidebar"))
       : client.call("setAgentHiddenFromSidebar", input),
     readAgent: (agentId) => {
       const agent = agentsRef.current.find((candidate) => candidate.id === agentId);
@@ -974,7 +974,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
 
   const [transcriptPaginationController] = useState(() => createTranscriptPaginationController({
     fetchPage: async ({ id, limit, beforeSeq }) => {
-      if (client == null) throw new Error("coordinator is unavailable for getAgentTranscriptTail");
+      if (client == null) throw new Error("Нет связи с программой: getAgentTranscriptTail");
       const agentName = agentsRef.current.find((agent) => agent.id === id)?.name ?? UI_TEXT.title;
       return projectTranscriptPageResult(await client.call("getAgentTranscriptTail", { id, limit, beforeSeq }), agentName, id);
     }
@@ -988,7 +988,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   useStrictModeSafeDisposal(hiddenChatsMutationController);
 
   const sendComposerPrompt = async (submission: ComposerSubmission): Promise<void> => {
-    if (client == null) throw new Error("coordinator is unavailable for sendPrompt");
+    if (client == null) throw new Error("Нет связи с программой: sendPrompt");
     const draftAttachments = submission.attachments.map((attachment) => ({ path: attachment.path, name: attachment.name }));
     const attachments = bridge == null ? draftAttachments : await commitComposerAttachments(bridge, draftAttachments);
     for (const attachment of draftAttachments) stagedPaths.current.delete(attachment.path);
@@ -1027,7 +1027,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
       sendPrompt: sendComposerPrompt,
       resendFailed: async (input: ComposerResendJournalInput) => {
         const queue = composerSubmissionQueueRef.current;
-        if (queue == null) throw new Error("composer submission queue is unavailable");
+        if (queue == null) throw new Error("Очередь отправки сообщений недоступна");
         resendSubmissionNoncesRef.current.add(input.submission.nonce);
         try {
           const result = queue.submit(input.submission);
@@ -1145,7 +1145,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   }), [activeAgentId, transcriptAccountSlot]);
   const reactionScopeGenerationRef = useRef(0);
   const reactionLifecycleGenerationRef = useRef(0);
-  const resolveReactionReactorName = useCallback((reactor: string) => agentsRef.current.find((agent) => agent.id === reactor)?.name ?? "the agent", []);
+  const resolveReactionReactorName = useCallback((reactor: string) => agentsRef.current.find((agent) => agent.id === reactor)?.name ?? "Помощник", []);
   const renderReactionPills = useCallback((props: TranscriptMessageReactionPillsProps) => {
     if (reactionRoot == null || !props.isDeliveryActionable || (props.entry.kind !== "message" && props.entry.kind !== "send-message" && props.entry.kind !== "user-attachment")) return null;
     const reactions = "reactions" in props.entry && Array.isArray(props.entry.reactions) ? props.entry.reactions : [];
@@ -1289,8 +1289,8 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     });
     if (initialAgent == null) return null;
     return createAgentSettingsController({
-      updateAgent: (args) => client == null ? Promise.reject(new Error("coordinator is unavailable for updateAgent")) : client.call("updateAgent", args),
-      setAgentNotifyOnUpdates: (args) => client == null ? Promise.reject(new Error("coordinator is unavailable for setAgentNotifyOnUpdates")) : client.call("setAgentNotifyOnUpdates", args),
+      updateAgent: (args) => client == null ? Promise.reject(new Error("Нет связи с программой: updateAgent")) : client.call("updateAgent", args),
+      setAgentNotifyOnUpdates: (args) => client == null ? Promise.reject(new Error("Нет связи с программой: setAgentNotifyOnUpdates")) : client.call("setAgentNotifyOnUpdates", args),
       subscribe: (listener) => {
         if (client == null) return { dispose() {} };
         const stopAgents = client.subscribe("agents", (value) => listener.agents?.(value));
@@ -1676,7 +1676,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
       const previousRole = chip.getAttribute("role");
       const previousTabIndex = chip.getAttribute("tabindex");
       const previousLabel = chip.getAttribute("aria-label");
-      chip.setAttribute("aria-label", `Open ${projection.name}`);
+      chip.setAttribute("aria-label", `Открыть «${projection.name}»`);
       chip.setAttribute("role", "button");
       chip.tabIndex = 0;
       const open = () => {
@@ -1787,7 +1787,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     isEscapeTarget={true}
     request={pendingLocalToolPermission}
     resolveLocalToolPermission={(input) => client == null
-      ? Promise.reject(new Error("coordinator is unavailable for resolveLocalToolPermission"))
+      ? Promise.reject(new Error("Нет связи с программой: resolveLocalToolPermission"))
       : client.call("resolveLocalToolPermission", input)}
     store={localToolPermissionStore}
     transportState={transport === "down" ? "down" : "connected"}
@@ -2812,7 +2812,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     if (client == null) return;
     setBusy(true);
     try {
-      const result = await client.call("createAgent", { name: "New chat", description: "", origin: "user", isKickstartRequested: false, clientNonce: makeClientNonce() });
+      const result = await client.call("createAgent", { name: "Новый диалог", description: "", origin: "user", isKickstartRequested: false, clientNonce: makeClientNonce() });
       const created = result && typeof result === "object" && "agent" in result ? (result as { agent: unknown }).agent : result;
       const projected = projectRendererAgent(created);
       await refreshRoster();
@@ -3129,7 +3129,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   };
 
   const deleteAgentById = async (agentId: string) => {
-    if (client == null) throw new Error("Coordinator unavailable");
+    if (client == null) throw new Error("Нет связи с программой");
     await client.call("deleteAgents", { ids: [agentId] });
     const remaining = agentsRef.current.filter((agent) => agent.id !== agentId);
     setAgents(remaining);
@@ -3219,16 +3219,16 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     const readyVersion = updateStatus?.state.type === "ready" ? updateStatus.state.version : null;
     if (readyVersion == null) return;
     void groupMembersRoot.alert.alert({
-      title: "Update ready",
-      description: `Restart to finish installing Grok Bot ${readyVersion}. Your agents and work will be right where you left them.`,
-      confirmLabel: "Restart to update",
+      title: "Обновление готово",
+      description: `Перезапустите программу, чтобы установить Grok Bot ${readyVersion}. Помощники и ваши данные останутся на месте.`,
+      confirmLabel: "Перезапустить и обновить",
       confirmLeadingIcon: "cloud-download",
-      pendingLabel: "Restarting…",
-      cancelLabel: "Not now",
+      pendingLabel: "Перезапускаем…",
+      cancelLabel: "Не сейчас",
       perform: async () => {
         const current = await settingsUpdateController.refresh();
         const currentVersion = current?.state.type === "ready" ? current.state.version : null;
-        if (currentVersion !== readyVersion) return `Grok Bot ${readyVersion} is no longer staged. Grok Bot will offer the next build when it is ready.`;
+        if (currentVersion !== readyVersion) return `Grok Bot ${readyVersion} больше не подготовлен. Новая версия появится, когда будет готова.`;
         await settingsUpdateController.install();
         return null;
       }
@@ -3315,25 +3315,25 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
       openComputerUpdateConfirm
     });
     if (orgChartIsAvailable) commands.push({
-      id: "view:org-chart", label: "Org Chart", keywords: ["open", "organization", "network", "graph"], detail: "Views",
+      id: "view:org-chart", label: "Схема помощников", keywords: ["open", "organization", "network", "graph"], detail: "Просмотр",
       run: () => { setOverlay(null); setWorkspaceRoute("org-chart"); }
     });
     if (hiddenAgents.length > 0) commands.push({
-      id: "open-hidden-chats", label: "Open Hidden Bots", keywords: ["hidden", "unhide", "hide", "sidebar", "bots"], detail: "Sidebar",
+      id: "open-hidden-chats", label: "Показать скрытых помощников", keywords: ["hidden", "unhide", "hide", "sidebar", "bots"], detail: "Боковая панель",
       run: () => setOverlay("hidden-chats")
     });
     commands.push(...rootCommands.filter((command) => command.id !== "update:computer"));
     if (bridge != null) {
       for (const section of SETTINGS_COMMANDS) commands.push({
-        id: `settings:${section.id}`, label: `Settings: ${section.label}`, keywords: section.keywords, detail: "Settings",
+        id: `settings:${section.id}`, label: `Настройки: ${section.label}`, keywords: section.keywords, detail: "Настройки",
         run: () => { setSettingsSection(section.id); setManageSharedRoomId(null); setOverlay("settings"); }
       });
       commands.push({
-        id: "overlay:plugins", label: "Plugins", keywords: ["plugins", "marketplace", "tools", "skills", "mcp", "connectors", "customize"],
+        id: "overlay:plugins", label: "Расширения", keywords: ["plugins", "marketplace", "tools", "skills", "mcp", "connectors", "customize"],
         run: () => { setPluginQuery(""); setOverlay("plugins"); }
       });
       for (const theme of THEME_COMMANDS) commands.push({
-        id: `theme:${theme.preference}`, label: theme.label, keywords: theme.keywords, detail: "Settings · Appearance", isActive: themePreference === theme.preference,
+        id: `theme:${theme.preference}`, label: theme.label, keywords: theme.keywords, detail: "Настройки · Внешний вид", isActive: themePreference === theme.preference,
         run: () => { void bridge.theme.set(theme.preference).then((state) => {
           setThemePreference(state.preference);
           setResolvedTheme(state.resolved);
@@ -3449,7 +3449,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
             {connectionController == null ? null : <CoordinatorConnectionHost controller={connectionController} />}
             <ConversationSidebar activeAgentId={activeAgentId} agents={visibleAgents} isHostReachable={transport === "connected"} sections={projectedSidebarSections} sidebarLayout={renderedSidebarLayout} onResize={resizeSidebar} onResizeEnd={finishSidebarResize} onToggleSectionCollapsed={(sectionId, collapsed) => sidebarCollapseStore.setSectionCollapsed(sectionId, collapsed)} listStatus={rosterListStatus} pinnedAgentIds={pinnedAgentIds} onCopyAgentId={copyAgentId} onDuplicateAgent={(agentId) => void duplicateAgent(agentId)} onHideAgent={(agentId) => void hideAgent(agentId)} onNewChat={() => void createAgent()} onOpenAgent={(agentId) => void openAgent(agentId)} onOpenNetwork={agentNetworkTrigger} onOpenProfile={sidebarProfileAction.onSelect} onShowAsyncTasks={account?.kind === "logged-in" && account.isAnysphereUser === true ? openAsyncTasks : undefined} onShowFullConversation={openConversationOutline} onOpenSearch={sidebarSearchTrigger} onRenameAgent={(agentId, name) => void renameAgent(agentId, name)} onReorderPinnedAgents={reorderPinnedAgents} onRequestDeleteAgent={(agent) => setDeleteAgent({ id: agent.id, name: agent.name, isGroup: agent.isGroup })} onRenameSection={renameSection} onRequestDeleteSection={requestDeleteSection} onMoveSection={moveSection} onMoveAgentToSection={moveAgentsToSection} onMoveAgentToNewSection={moveAgentsToNewSection} onSetAgentUnread={(agentId, isUnread) => void setAgentUnread(agentId, isUnread)} onTogglePin={toggleAgentPin} />
           </div>
-          {hiddenAgents.length > 0 && visibleAgents.length > 0 ? <SandButton aria-haspopup="dialog" onClick={() => setOverlay("hidden-chats")} size="sm" variant="secondary"><span>{UI_TEXT.hiddenBots}</span><SandBadge aria-label={`${hiddenAgents.length} hidden bots`}>{hiddenAgents.length}</SandBadge></SandButton> : null}
+          {hiddenAgents.length > 0 && visibleAgents.length > 0 ? <SandButton aria-haspopup="dialog" onClick={() => setOverlay("hidden-chats")} size="sm" variant="secondary"><span>{UI_TEXT.hiddenBots}</span><SandBadge aria-label={`Скрытых помощников: ${hiddenAgents.length}`}>{hiddenAgents.length}</SandBadge></SandButton> : null}
           {/* @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2602084 (s0n Plugins footer button/icon/text composition) */}
           <div className="sand-agents-sidebar__plugins-entry"><SandButton className="sand-agents-sidebar__plugins" leadingIcon="plug" onClick={() => { setPluginQuery(""); setOverlay("plugins"); }} shape="pill" size="md" variant="secondary">{UI_TEXT.plugins}</SandButton></div>
           <AccountMenu
@@ -3459,7 +3459,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
             displayName={accountName(account)}
             experimentsSnapshot={bridge.experiments.initialSnapshot}
             isOpen={accountMenuOpen}
-            labels={{ about: UI_TEXT.about, changeLimit: "Change limit", helpCenter: UI_TEXT.helpCenter, included: "Included", ios: "Get Grok Bot for iOS", logOut: UI_TEXT.logOut, onDemand: "On-demand", sendFeedback: UI_TEXT.sendFeedback, settings: UI_TEXT.settings, signIn: UI_TEXT.signIn, spendThisCycle: "Spend this cycle", weeklyUsage: "Weekly usage" }}
+            labels={{ about: UI_TEXT.about, changeLimit: "Изменить лимит", helpCenter: UI_TEXT.helpCenter, included: "Входит в тариф", ios: "Grok Bot для iPhone", logOut: UI_TEXT.logOut, onDemand: "По требованию", sendFeedback: UI_TEXT.sendFeedback, settings: UI_TEXT.settings, signIn: UI_TEXT.signIn, spendThisCycle: "Расход за месяц", weeklyUsage: "Расход за неделю" }}
             onError={setNotice}
             onOpenAbout={() => setOverlay("about")}
             onOpenChange={setAccountMenuOpen}
@@ -3489,7 +3489,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
             onToggleSettings={activeAgent.isGroup
               ? groupInfoPaneRoute == null ? undefined : () => { setAgentSettingsOpen(false); setRoutinesInfoPaneOpen(false); setChannelsInfoPaneOpen(false); setComputerInfoOpen(false); setManageSharedRoomId(null); setGroupInfoPaneOpen((open) => !open); }
               : bridge == null ? undefined : () => { setGroupInfoPaneOpen(false); setRoutinesInfoPaneOpen(false); setChannelsInfoPaneOpen(false); setComputerInfoOpen(false); setManageSharedRoomId(null); setAgentSettingsOpen(true); }}
-            trailing={activeAgent.isGroup || bridge == null || agentChannelsController == null ? null : <SandButton aria-controls="sand-conversation-details" aria-expanded={channelsInfoPaneOpen} aria-label="Channels" data-info-row="channels" onClick={() => { setGroupInfoPaneOpen(false); setAgentSettingsOpen(false); setRoutinesInfoPaneOpen(false); setComputerInfoOpen(false); setManageSharedRoomId(null); setChannelsInfoPaneOpen((open) => !open); }} size="sm" variant="secondary"><SandIcon name="chat-bubbles" size="sm" />Channels</SandButton>}
+            trailing={activeAgent.isGroup || bridge == null || agentChannelsController == null ? null : <SandButton aria-controls="sand-conversation-details" aria-expanded={channelsInfoPaneOpen} aria-label="Каналы" data-info-row="channels" onClick={() => { setGroupInfoPaneOpen(false); setAgentSettingsOpen(false); setRoutinesInfoPaneOpen(false); setComputerInfoOpen(false); setManageSharedRoomId(null); setChannelsInfoPaneOpen((open) => !open); }} size="sm" variant="secondary"><SandIcon name="chat-bubbles" size="sm" />Каналы</SandButton>}
           />
           {findInChatOpen ? <FindInChatBar controller={findInChatController} focusNonce={findInChatFocusNonce} onClose={closeFindInChat} transcriptContainer={findTranscriptContainer} transcriptHandleRef={transcriptHandleRef} /> : null}
           {showTranscriptLoadError
@@ -3526,7 +3526,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
           </main>
           <div className="sand-chat-input-dock">
             {localToolPermissionDock}
-            <ConversationComposer acceptedSendGeneration={composerClearGeneration} disabled={busy || client == null} draft={draft} editorProviders={editorProviders} notice={notice} onChange={(value) => composerDraftStore.setDraft(activeAgent.id, value)} onClearReplyTarget={clearReplyTarget} onRemoveAttachment={removeAttachment} onStageFiles={stageFiles} onSubmit={submit} placeholder={`Message ${activeAgent.name}`} replyTarget={replyTarget} scopeKey={`${transcriptAccountSlot ?? "signed-out"}:${activeAgent.id}`} transcribeAudio={transcribeAudio} />
+            <ConversationComposer acceptedSendGeneration={composerClearGeneration} disabled={busy || client == null} draft={draft} editorProviders={editorProviders} notice={notice} onChange={(value) => composerDraftStore.setDraft(activeAgent.id, value)} onClearReplyTarget={clearReplyTarget} onRemoveAttachment={removeAttachment} onStageFiles={stageFiles} onSubmit={submit} placeholder={`Написать: ${activeAgent.name}`} replyTarget={replyTarget} scopeKey={`${transcriptAccountSlot ?? "signed-out"}:${activeAgent.id}`} transcribeAudio={transcribeAudio} />
           </div>
         </div>}
       </div>
@@ -3548,7 +3548,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
       {/* @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2772350 */}
       {/* @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2727500 */}
       {bridge == null || activeAgent == null || activeAgent.isGroup || !agentSettingsOpen || agentSettingsController == null || agentSettingsSnapshot == null ? null : <aside
-        aria-label="Conversation details"
+        aria-label="Сведения о диалоге"
         className="sand-info-pane"
         data-open="true"
       >
@@ -3557,12 +3557,12 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
         {/* @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2750022 (Edit agent avatar trigger/editor region) */}
         {avatarEditorReady ? <SandButton
           aria-expanded={avatarEditorOpen}
-          aria-label="Edit agent avatar"
+          aria-label="Изменить картинку помощника"
           onClick={() => setAvatarEditorOpen((open) => !open)}
           ref={avatarEditorTriggerRef}
           size="sm"
           variant="secondary"
-        >Edit agent avatar</SandButton> : null}
+        >Изменить картинку</SandButton> : null}
         {avatarEditorOpen && avatarEditorSnapshot.status === "ready" && avatarEditorSnapshot.controller != null ? <AvatarEditorView
           agentIsGroup={activeAgent.isGroup}
           controller={avatarEditorSnapshot.controller}
@@ -3589,7 +3589,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
         />
       </aside>}
       {bridge == null || activeAgent == null || activeAgent.isGroup || agentSettingsOpen || !routinesInfoPaneOpen ? null : <aside
-        aria-label="Conversation details"
+        aria-label="Сведения о диалоге"
         className="sand-info-pane"
         data-open="true"
       >{mountRoutinesInfoPane({
@@ -3602,12 +3602,12 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
         disposeOnUnmount: false
       })}</aside>}
       {bridge == null || activeAgent == null || activeAgent.isGroup || agentSettingsController == null || agentChannelsController == null || !channelsInfoPaneOpen ? null : <aside
-        aria-label="Conversation details"
+        aria-label="Сведения о диалоге"
         className="sand-info-pane"
         data-open="true"
         id="sand-conversation-details"
       >
-        <RootInfoPaneHeader onClose={() => setChannelsInfoPaneOpen(false)}><h2>Channels</h2></RootInfoPaneHeader>
+        <RootInfoPaneHeader onClose={() => setChannelsInfoPaneOpen(false)}><h2>Каналы</h2></RootInfoPaneHeader>
         {mountAgentInfoChannels({ agentId: activeAgent.id, labelledBy: "sand-conversation-heading", controller: agentChannelsController })}
       </aside>}
       {sharedRoomDialogOpen && sharedRoomProvider != null && sharedRoomContext != null ? <SharedRoomDialog
@@ -3643,13 +3643,13 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
         errorMessages={FEEDBACK_ERRORS}
         labels={{
           cancel: UI_TEXT.cancel,
-          done: "Done",
+          done: "Готово",
           includeConversationId: UI_TEXT.includeConversationId,
           introduction: UI_TEXT.feedbackIntroduction,
           placeholder: UI_TEXT.feedbackPlaceholder,
           send: UI_TEXT.sendFeedback,
-          sending: "Sending…",
-          sent: "Sent. Thank you!",
+          sending: "Отправляем…",
+          sent: "Отправлено. Спасибо!",
           title: UI_TEXT.sendFeedback
         }}
         onClose={() => setOverlay(null)}

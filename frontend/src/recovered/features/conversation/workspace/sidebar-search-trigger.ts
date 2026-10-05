@@ -22,10 +22,10 @@ export interface SidebarSearchKeyEvent {
 }
 
 export const SIDEBAR_SEARCH_TRIGGER = {
-  ariaLabel: "Search",
+  ariaLabel: "Поиск",
   className: "sand-agents-sidebar__search",
   icon: "search",
-  label: "Search",
+  label: "Поиск",
 } as const;
 
 export interface SidebarSearchTrigger {

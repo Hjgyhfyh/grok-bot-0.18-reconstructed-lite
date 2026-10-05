@@ -292,6 +292,28 @@ function bundleBanner(label) {
   return [
     'const __cleanImportMetaUrl = require("node:url").pathToFileURL(__filename).href;',
     `// Deterministic from-source bundle: ${label}`,
+    "// Баннер идёт ДО всех require, которые esbuild ставит в начало бандла.",
+    "// В упакованном Electron на Windows process.stderr — заглушка: ошибка загрузки",
+    "// модуля исчезает без следа, и снаружи это выглядит как «процесс жив, окна нет».",
+    "const __dbBotFatal = (kind) => (error) => {",
+    "  try {",
+    "    const fs = require(\"node:fs\");",
+    "    const nodePath = require(\"node:path\");",
+    "    const detail = String((error && (error.stack || error.message)) || error);",
+    "    const root = process.env.SAND_DATA_ROOT || process.env.APPDATA || process.cwd();",
+    "    const file = nodePath.join(root, \"db-bot-start-error.log\");",
+    "    fs.mkdirSync(root, { recursive: true });",
+    "    fs.appendFileSync(file, `[${new Date().toISOString()}] ${kind}: ${detail}\\n`);",
+    "    try {",
+    "      require(\"electron\").dialog.showErrorBox(",
+    "        \"DB Bot не запустился\",",
+    "        `Не удалось запустить программу.\\n\\n${String((error && error.message) || error)}\\n\\nПодробности записаны в файл: ${file}`,",
+    "      );",
+    "    } catch {}",
+    "  } catch {}",
+    "};",
+    "process.on(\"uncaughtException\", __dbBotFatal(\"uncaughtException\"));",
+    "process.on(\"unhandledRejection\", __dbBotFatal(\"unhandledRejection\"));",
   ].join("\n");
 }
 
@@ -338,18 +360,54 @@ function runtimePackageSpecifiers(externals) {
  * Копирует в сцену ровно те пакеты, чьи версии и целостность зафиксированы в
  * `package-lock.json`. Произвольный список «на всякий случай» здесь означал бы
  * сцену на сотни мегабайт, из которой рантайм читает три пакета.
+ *
+ * Кладётся не только то, что бандл импортирует напрямую, но и всё транзитивное
+ * замыкание этих пакетов. Иначе `require("undici")` на верхнем уровне падает с
+ * `Cannot find module '@fastify/busboy'`: приложение стартует, ошибка уходит в
+ * process.stderr, а в упакованном Electron на Windows stderr — заглушка, и
+ * симптом выглядит как «процесс жив, а окна нет».
  */
-async function stageRuntimePackages(stageRoot, packageNames) {
+export async function stageRuntimePackages(stageRoot, packageNames) {
   const lock = JSON.parse(await readFile(path.join(repoRoot, "package-lock.json"), "utf8"));
-  const staged = [];
-  for (const name of [...packageNames].sort()) {
-    const lockPath = `node_modules/${name}`;
-    const record = lock.packages?.[lockPath];
-    if (record?.version == null) {
-      throw new Error(`Runtime package ${name} is not in package-lock.json; refusing to stage an unpinned copy`);
+  const lockPackages = lock.packages ?? {};
+
+  /** Ищет lock-путь для `name`, видимого из пакета, лежащего в `fromPath`. */
+  const resolveLockPath = (fromPath, name) => {
+    for (let scope = fromPath; ; scope = path.posix.dirname(scope)) {
+      if (scope === "node_modules" || scope === "." || scope === "") break;
+      const candidate = `${scope}/node_modules/${name}`;
+      if (lockPackages[candidate] != null) return candidate;
     }
+    const top = `node_modules/${name}`;
+    return lockPackages[top] != null ? top : null;
+  };
+
+  const wanted = new Map();
+  const queue = [];
+  for (const name of packageNames) {
+    const lockPath = resolveLockPath("", name);
+    if (lockPath != null) queue.push(lockPath);
+  }
+  while (queue.length > 0) {
+    const lockPath = queue.shift();
+    if (wanted.has(lockPath)) continue;
+    const record = lockPackages[lockPath];
+    if (record?.version == null) continue;
+    wanted.set(lockPath, record);
+    for (const field of ["dependencies", "optionalDependencies", "peerDependencies"]) {
+      for (const dependency of Object.keys(record[field] ?? {})) {
+        const dependencyPath = resolveLockPath(lockPath, dependency);
+        if (dependencyPath != null && !wanted.has(dependencyPath)) queue.push(dependencyPath);
+      }
+    }
+  }
+
+  const staged = [];
+  for (const [lockPath, record] of [...wanted].sort(([a], [b]) => a.localeCompare(b))) {
+    const name = lockPath.slice(lockPath.lastIndexOf("node_modules/") + "node_modules/".length);
     const source = path.join(repoRoot, lockPath);
     if (!existsSync(source)) {
+      if (record.optional === true) continue;
       throw new Error(`Runtime package ${name} is in the lockfile but not installed; run npm ci first`);
     }
     const destination = path.join(stageRoot, lockPath);

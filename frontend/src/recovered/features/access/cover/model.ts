@@ -66,45 +66,45 @@ export function accessNoticeCopy(access: SandAccess): AccessCoverCopy | null {
   if (access.state === "checking" || access.state === "unknown" || access.state === "granted") return null;
   if (access.reason === "teamPrivacyMode") {
     return {
-      title: "Your team's privacy mode blocks Grok Bot",
-      body: "Grok Bot can't run under Privacy Mode (Legacy). Ask a team admin to move the team off it.",
-      action: "See Details"
+      title: "Режим приватности команды запрещает Grok Bot",
+      body: "Grok Bot не работает в режиме приватности (Legacy). Попросите администратора команды отключить его.",
+      action: "Подробнее"
     };
   }
   if (access.reason === "teamSetupRequired") {
     return {
-      title: "Your team hasn't set up Grok Bot yet",
-      body: "A team admin has to finish Grok Bot setup before members can send messages.",
-      action: "See Details"
+      title: "Команда ещё не настроила Grok Bot",
+      body: "Администратор команды должен закончить настройку Grok Bot, потом участники смогут писать сообщения.",
+      action: "Подробнее"
     };
   }
   if (access.reason === "teamAccessRequired") {
     return {
-      title: "Your team hasn't given this account Grok Bot",
-      body: "Your team's settings withhold Grok Bot. A team admin can grant it.",
-      action: "Request Access"
+      title: "Команда не открыла Grok Bot для этой учётной записи",
+      body: "В настройках команды Grok Bot закрыт. Открыть его может администратор команды.",
+      action: "Запросить доступ"
     };
   }
   if (access.reason === "notOffered") {
-    return { title: "Grok Bot is not available for this account", body: "There's nothing to set up or purchase here.", action: null };
+    return { title: "Grok Bot недоступен для этой учётной записи", body: "Здесь нечего настраивать и покупать.", action: null };
   }
   if (access.reason === "freeTrialAvailable") {
-    return { title: "Start a Grok Bot trial to send messages", body: "This account can try Grok Bot now.", action: "Start Trial" };
+    return { title: "Чтобы писать сообщения, включите пробный период Grok Bot", body: "Эта учётная запись может попробовать Grok Bot.", action: "Начать пробный период" };
   }
   if (access.reason === "paywallIndividual") {
-    return { title: "Grok Bot needs an Ultra plan", body: "Upgrade to Ultra to send messages with Grok Bot.", action: "Get Ultra" };
+    return { title: "Для Grok Bot нужен тариф Ultra", body: "Перейдите на тариф Ultra, чтобы писать сообщения в Grok Bot.", action: "Перейти на Ultra" };
   }
   if (access.reason === "paywallTeamMember") {
-    return { title: "Grok Bot needs a Premium seat", body: "Ask a team admin to move this account to a Premium seat.", action: "Request Access" };
+    return { title: "Для Grok Bot нужно место Premium", body: "Попросите администратора команды перевести эту учётную запись на место Premium.", action: "Запросить доступ" };
   }
   if (access.reason === "paywallTeamAdmin") {
-    return { title: "Grok Bot needs a Premium seat", body: "Move this account to a Premium seat to send messages.", action: "Manage Seats" };
+    return { title: "Для Grok Bot нужно место Premium", body: "Переведите эту учётную запись на место Premium, чтобы писать сообщения.", action: "Управлять местами" };
   }
   if (access.state === "unavailable") {
-    return { title: "Grok Bot is not available for this account", body: "Sending is off until this account is given access. Check what it needs on the web.", action: "Check Access" };
+    return { title: "Grok Bot недоступен для этой учётной записи", body: "Отправка выключена, пока у этой учётной записи нет доступа. Проверьте условия на сайте.", action: "Проверить доступ" };
   }
   if (access.state === "paymentRequired") {
-    return { title: "Grok Bot is not included in this plan", body: "Sending is off until this account has Grok Bot. Check the options on the web.", action: "Check Access" };
+    return { title: "Grok Bot не входит в этот тариф", body: "Отправка выключена, пока у учётной записи нет Grok Bot. Посмотрите варианты на сайте.", action: "Проверить доступ" };
   }
   return null;
 }
@@ -112,9 +112,9 @@ export function accessNoticeCopy(access: SandAccess): AccessCoverCopy | null {
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5544115
 export function accessCoverCopy(access: SandAccess): AccessCoverCopy {
   return accessNoticeCopy(access) ?? {
-    title: "Grok Bot isn’t available on this account yet",
-    body: "Check what this account needs on the web.",
-    action: "Check Access"
+    title: "Grok Bot пока недоступен для этой учётной записи",
+    body: "Проверьте на сайте, что нужно этой учётной записи.",
+    action: "Проверить доступ"
   };
 }
 

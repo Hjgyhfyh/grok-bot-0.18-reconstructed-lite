@@ -15,5 +15,5 @@ export function deepLinkRoute(link: DeepLinkInfo): string {
 }
 
 export function deepLinkSourceLabel(source: DeepLinkSource): string {
-  return source === "protocol" ? "Custom protocol (sand://)" : "HTTPS link";
+  return source === "protocol" ? "Своя ссылка (sand://)" : "Ссылка https";
 }

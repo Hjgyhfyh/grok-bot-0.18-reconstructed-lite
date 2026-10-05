@@ -2,44 +2,44 @@
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L50271
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L51965
 
-export const AGENT_ROW_ACTIONS_LABEL = "Agent actions";
+export const AGENT_ROW_ACTIONS_LABEL = "Действия с помощником";
 
 export interface AgentRowAction {
   id: "pin-agent" | "unpin-agent" | "hide-from-sidebar" | "delete-agent" | "copy-conversation-id" | "duplicate-agent" | "mark-read" | "mark-unread";
-  label: "Pin" | "Unpin" | "Hide from sidebar" | "Delete" | "Copy conversation ID" | "Duplicate" | "Mark as Read" | "Mark as Unread";
+  label: "Закрепить" | "Открепить" | "Скрыть из боковой панели" | "Удалить" | "Копировать номер диалога" | "Создать копию" | "Отметить прочитанным" | "Отметить непрочитанным";
 }
 
 const PIN_AGENT_ACTION: AgentRowAction = {
   id: "pin-agent",
-  label: "Pin"
+  label: "Закрепить"
 };
 const UNPIN_AGENT_ACTION: AgentRowAction = {
   id: "unpin-agent",
-  label: "Unpin"
+  label: "Открепить"
 };
 const HIDE_FROM_SIDEBAR_ACTION: AgentRowAction = {
   id: "hide-from-sidebar",
-  label: "Hide from sidebar"
+  label: "Скрыть из боковой панели"
 };
 const DELETE_AGENT_ACTION: AgentRowAction = {
   id: "delete-agent",
-  label: "Delete"
+  label: "Удалить"
 };
 const COPY_CONVERSATION_ID_ACTION: AgentRowAction = {
   id: "copy-conversation-id",
-  label: "Copy conversation ID"
+  label: "Копировать номер диалога"
 };
 const DUPLICATE_AGENT_ACTION: AgentRowAction = {
   id: "duplicate-agent",
-  label: "Duplicate"
+  label: "Создать копию"
 };
 const MARK_READ_ACTION: AgentRowAction = {
   id: "mark-read",
-  label: "Mark as Read"
+  label: "Отметить прочитанным"
 };
 const MARK_UNREAD_ACTION: AgentRowAction = {
   id: "mark-unread",
-  label: "Mark as Unread"
+  label: "Отметить непрочитанным"
 };
 
 export function agentRowActions({ isHidden, isPinned = false, hasUnread = false, includeCopy = false, includeDelete = false, includeDuplicate = false, includeMarkUnread = false, includePin = false }: { isHidden: boolean; isPinned?: boolean; hasUnread?: boolean; includeCopy?: boolean; includeDelete?: boolean; includeDuplicate?: boolean; includeMarkUnread?: boolean; includePin?: boolean }): readonly AgentRowAction[] {

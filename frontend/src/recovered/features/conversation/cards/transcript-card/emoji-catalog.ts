@@ -287,7 +287,7 @@ export function createEmojiCatalogStore(options: EmojiCatalogStoreOptions = {}):
   };
 
   const load = (): Promise<EmojiCatalog> => {
-    if (disposed) return Promise.reject(new Error("Emoji catalog store is disposed."));
+    if (disposed) return Promise.reject(new Error("Список значков уже закрыт."));
     if (snapshot.status === "ready") return Promise.resolve(snapshot.catalog);
     if (pending != null) return pending;
     const current = ++generation;

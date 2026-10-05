@@ -150,7 +150,7 @@ function textCell(value: unknown): string {
 export function parseDelimitedSpreadsheet(text: string, source: string, maxRows = SPREADSHEET_MAX_ROWS): SpreadsheetSheet[] {
   const rows = parseDelimitedRows(text, delimiterFor(source), maxRows);
   const totalRows = rows.length < maxRows ? rows.length : countDelimitedRows(text);
-  return [{ name: "Sheet 1", rows, totalRows }];
+  return [{ name: "Лист 1", rows, totalRows }];
 }
 
 /** Projects the vendor parser's array-of-arrays result without copying the vendor implementation. */

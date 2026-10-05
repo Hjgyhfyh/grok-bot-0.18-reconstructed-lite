@@ -32,13 +32,13 @@ export function commandPaletteUpdateCommand({ status, isStatusLoading, actions }
   const base = {
     id: "update:app",
     keywords: UPDATE_COMMAND_KEYWORDS,
-    detail: "Updates"
+    detail: "Обновления"
   } as const;
 
   if (status == null || status.state.type === "idle") {
     return {
       ...base,
-      label: "Check for Updates",
+      label: "Проверить обновления",
       run: () => {
         void actions.check();
         actions.openSettings();
@@ -48,13 +48,13 @@ export function commandPaletteUpdateCommand({ status, isStatusLoading, actions }
 
   switch (status.state.type) {
     case "checking":
-      return { ...base, label: "Checking for Updates…", run: actions.openSettings };
+      return { ...base, label: "Проверяем обновления…", run: actions.openSettings };
     case "available":
     case "downloading":
-      return { ...base, label: "Downloading Update…", run: actions.openSettings };
+      return { ...base, label: "Скачиваем обновление…", run: actions.openSettings };
     case "staging":
-      return { ...base, label: "Preparing Update…", run: actions.openSettings };
+      return { ...base, label: "Готовим обновление…", run: actions.openSettings };
     case "ready":
-      return { ...base, label: "Restart to Update", run: actions.openRestartConfirm };
+      return { ...base, label: "Перезапустить и обновить", run: actions.openRestartConfirm };
   }
 }

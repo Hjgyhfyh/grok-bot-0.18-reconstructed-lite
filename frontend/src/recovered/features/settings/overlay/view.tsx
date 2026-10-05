@@ -17,10 +17,10 @@ export interface SettingsSection {
 
 /** Exact registry recovered from main renderer binding wDn. */
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
-  { id: "general", label: "General", icon: "settings-gear" },
-  { id: "router", label: "Router", icon: "git-branch" },
-  { id: "usage", label: "Usage & Billing", icon: "chart-bars" },
-  { id: "beta", label: "Updates", icon: "cloud-download" }
+  { id: "general", label: "Общие", icon: "settings-gear" },
+  { id: "router", label: "Провайдер", icon: "git-branch" },
+  { id: "usage", label: "Расход", icon: "chart-bars" },
+  { id: "beta", label: "Обновления", icon: "cloud-download" }
 ];
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5468252
@@ -83,13 +83,13 @@ export function SettingsModalShell({
       className="sand-settings-dialog"
       closeOnBackdrop={closeOnBackdrop}
       closeOnEscape={closeOnEscape}
-      label="Grok Bot settings"
+      label="Настройки Grok Bot"
       onClose={onClose}
       open={isOpen}
       trapFocus={trapFocus}
     >
       <div className="sand-settings-layout">
-        <nav aria-label="Settings sections" className="sand-settings-nav">
+        <nav aria-label="Разделы настроек" className="sand-settings-nav">
           {visibleSections.map((section) => {
             const selected = section.id === active.id;
             return (
@@ -110,7 +110,7 @@ export function SettingsModalShell({
         </nav>
 
         <section aria-labelledby={headingId} className="sand-settings-panel" id={panelId}>
-          <SandIconButton aria-label="Close" className="sand-settings-panel__close" icon="close" label="Close" onClick={onClose} size="sm" />
+          <SandIconButton aria-label="Закрыть" className="sand-settings-panel__close" icon="close" label="Закрыть" onClick={onClose} size="sm" />
           <h2 id={headingId}>{active.label}</h2>
           <div className="sand-settings-panel__body">{renderSection(active.id)}</div>
         </section>

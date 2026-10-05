@@ -43,8 +43,8 @@ export const ONBOARDING_JOB_BUBBLE_Y_OFFSET = 50;
 export const ONBOARDING_BOX_PROBE_MS = 2_500;
 export const ONBOARDING_BOX_WAIT_TIMEOUT_MS = 60_000;
 
-export const MEET_WELCOME_TEXT = "Welcome to Grok Bot";
-export const MEET_TYPED_TEXT = "Hand off any task to your team of agents";
+export const MEET_WELCOME_TEXT = "Добро пожаловать в Grok Bot";
+export const MEET_TYPED_TEXT = "Передайте любую задачу своей команде помощников";
 
 export const COMPUTER_DEMO_FRAMES = [
   { cursor: { x: -78.3, y: -62.3 }, pressed: null },
@@ -58,9 +58,9 @@ export const COMPUTER_DEMO_FRAMES = [
 ] as const;
 
 export const ONBOARDING_JOBS = [
-  { id: "invoice-chaser", label: "Invoice Chaser", x: 0, y: -112 },
-  { id: "weekly-standup", label: "Weekly Standup", x: -132, y: 27 },
-  { id: "sales-forecast", label: "Sales Forecast", x: 138, y: 7 },
+  { id: "invoice-chaser", label: "Проверка счетов", x: 0, y: -112 },
+  { id: "weekly-standup", label: "Планёрка", x: -132, y: 27 },
+  { id: "sales-forecast", label: "Прогноз продаж", x: 138, y: 7 },
 ] as const;
 
 export const DAILY_TOOLS = [
@@ -90,18 +90,26 @@ export const DAILY_TOOLS = [
 ] as const;
 
 export const CHARACTER_COLORS = [
-  { id: "brown", label: "Brown", value: "#936439" },
-  { id: "red", label: "Red", value: "#FF263C" },
-  { id: "orange", label: "Orange", value: "#FF6700" },
-  { id: "yellow", label: "Yellow", value: "#FF9800" },
-  { id: "green", label: "Green", value: "#00C972" },
-  { id: "cyan", label: "Cyan", value: "#00BCA6" },
-  { id: "blue", label: "Blue", value: "#1084FE" },
-  { id: "violet", label: "Violet", value: "#9159FE" },
-  { id: "magenta", label: "Magenta", value: "#FF309B" },
-  { id: "gray", label: "Gray", value: "#777777" },
+  { id: "brown", label: "Коричневый", value: "#936439" },
+  { id: "red", label: "Красный", value: "#FF263C" },
+  { id: "orange", label: "Оранжевый", value: "#FF6700" },
+  { id: "yellow", label: "Жёлтый", value: "#FF9800" },
+  { id: "green", label: "Зелёный", value: "#00C972" },
+  { id: "cyan", label: "Бирюзовый", value: "#00BCA6" },
+  { id: "blue", label: "Синий", value: "#1084FE" },
+  { id: "violet", label: "Фиолетовый", value: "#9159FE" },
+  { id: "magenta", label: "Розовый", value: "#FF309B" },
+  { id: "gray", label: "Серый", value: "#777777" },
 ] as const;
 export const CHARACTER_SHAPES = ["blob", "pebble", "squircle", "tablet", "wedge", "hex", "cloud", "teardrop"] as const;
+// Идентификаторы фигур остаются английскими, показывать нужно русские подписи.
+const CHARACTER_SHAPE_LABELS: Readonly<Record<string, string>> = {
+  blob: "Капля", pebble: "Камушек", squircle: "Квадрат", tablet: "Плитка",
+  wedge: "Треугольник", hex: "Шестиугольник", cloud: "Облако", teardrop: "Слёзка",
+};
+export function characterShapeLabel(shape: string): string {
+  return CHARACTER_SHAPE_LABELS[shape] ?? shape;
+}
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5435957
 // The shipped hand-off dwell is a cancellable delay, not an unowned window timer.
@@ -245,7 +253,7 @@ export function computerDemoFrame(beat: number): { cursor: { x: number; y: numbe
 
 export function descriptionWithDailyTools(description: string, dailyTools: readonly string[]): string {
   if (dailyTools.length === 0) return description;
-  return `${description} The user works with ${dailyTools.join(", ")} every day — start with those tools when suggesting connectors or taking on work.`;
+  return `${description} Пользователь каждый день работает с программами: ${dailyTools.join(", ")}. Начни с них, когда предлагаешь подключения или берёшься за дело.`;
 }
 
 export function makeOnboardingCreateRequest(draft: OnboardingDraft, dailyTools: readonly string[]) {
@@ -265,15 +273,15 @@ export function makeOnboardingCreateRequest(draft: OnboardingDraft, dailyTools: 
 // recoverable, user-facing connection message instead of exposing its code.
 export function onboardingCreateErrorMessage(reason: unknown): string {
   if (typeof reason === "object" && reason !== null && "code" in reason && reason.code === "source/transport-failure") {
-    return "Can't reach your computer right now. Check your connection and try again.";
+    return "Не удаётся связаться с компьютером. Проверьте подключение и попробуйте снова.";
   }
   if (reason instanceof Error) return reason.message;
   return String(reason);
 }
 
 export function handOffStatus(input: { isComputerReady: boolean; pullPercent: number | null; computerState: string | null }): string {
-  if (input.isComputerReady) return "Getting your team ready…";
-  if (input.pullPercent != null) return `Setting up your Grok Bot… ${Math.round(input.pullPercent)}%`;
-  if (input.computerState === "hibernated") return "Waking your computer…";
-  return "Setting up your Grok Bot…";
+  if (input.isComputerReady) return "Готовим вашу команду…";
+  if (input.pullPercent != null) return `Настраиваем Grok Bot… ${Math.round(input.pullPercent)}%`;
+  if (input.computerState === "hibernated") return "Будим ваш компьютер…";
+  return "Настраиваем Grok Bot…";
 }

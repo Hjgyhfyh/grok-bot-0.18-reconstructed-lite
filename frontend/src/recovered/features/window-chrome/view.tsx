@@ -47,9 +47,9 @@ export function WindowChrome({ bridge, isFullscreen, isMaximized, isOverlayTone 
 
   return <>{dragRegion}<div className={`sand-window-controls ${OUTER_CLASS_NAME}`}>
     <div className={INNER_CLASS_NAME}>
-      <button aria-label="Minimize" className={CONTROL_CLASS_NAME} onClick={() => void bridge.windowControls.minimize().catch(() => undefined)} title="Minimize" type="button"><WindowIcon name="minus" /></button>
-      <button aria-label={isMaximized ? "Restore" : "Maximize"} className={CONTROL_CLASS_NAME} onClick={() => void bridge.windowControls.toggleMaximize().catch(() => undefined)} title={isMaximized ? "Restore" : "Maximize"} type="button"><WindowIcon name={isMaximized ? "copy" : "square"} /></button>
-      <button aria-label="Close" className={CLOSE_CONTROL_CLASS_NAME} onClick={() => void bridge.windowControls.close().catch(() => undefined)} title="Close" type="button"><WindowIcon name="close" /></button>
+      <button aria-label="Свернуть" className={CONTROL_CLASS_NAME} onClick={() => void bridge.windowControls.minimize().catch(() => undefined)} title="Свернуть" type="button"><WindowIcon name="minus" /></button>
+      <button aria-label={isMaximized ? "Восстановить" : "Развернуть"} className={CONTROL_CLASS_NAME} onClick={() => void bridge.windowControls.toggleMaximize().catch(() => undefined)} title={isMaximized ? "Восстановить" : "Развернуть"} type="button"><WindowIcon name={isMaximized ? "copy" : "square"} /></button>
+      <button aria-label="Закрыть" className={CLOSE_CONTROL_CLASS_NAME} onClick={() => void bridge.windowControls.close().catch(() => undefined)} title="Закрыть" type="button"><WindowIcon name="close" /></button>
     </div>
   </div></>;
 }

@@ -74,7 +74,7 @@ export function formatReferencedMessageTime(timestampMs: number | null | undefin
   const date = new Date(timestamp);
   const dayDistance = Math.round((startOfLocalDay(now) - startOfLocalDay(date)) / DAY_MS);
   if (dayDistance <= 0) return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  if (dayDistance === 1) return "Yesterday";
+  if (dayDistance === 1) return "Вчера";
   if (dayDistance < 7) return date.toLocaleDateString([], { weekday: "long" });
   return date.getFullYear() === now.getFullYear()
     ? date.toLocaleDateString([], { month: "numeric", day: "numeric" })
@@ -134,7 +134,7 @@ function QuoteContent({ preview }: { preview: TranscriptReplyPreview }) {
           <span aria-hidden="true" className="sand-reply-quote__thumb sand-3nfvp2 sand-2lah0s sand-12oqio5 sand-b3r6kr sand-cq4si4" style={{ height: 16, width: 16 }}>
             <img alt="" aria-hidden="true" draggable={false} src={preview.url} />
           </span>
-          <QuoteLabel>Photo</QuoteLabel>
+          <QuoteLabel>Картинка</QuoteLabel>
         </>
       );
     case "file":
@@ -246,7 +246,7 @@ export function ReferencedMessagePreviewTrigger({ ownerId, targetId, isInScope, 
       />
       {open ? (
         <div
-          aria-label="Referenced message preview"
+          aria-label="Предпросмотр сообщения"
           id={tooltipId}
           role="tooltip"
           style={{ left: 0, position: "absolute", top: "100%", width: 248, zIndex: 3100 }}

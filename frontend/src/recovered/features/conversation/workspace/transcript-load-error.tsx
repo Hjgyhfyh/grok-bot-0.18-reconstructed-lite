@@ -2,9 +2,9 @@
 // @evidence recovered/frontend/app/assets/index-UbX-y3il.js#sha256=80464803b50f478598080bdc1b91da3996c6b74168e2351ea26f620f2ec62ba5#byteOffset=6685348-6685912
 
 export const TRANSCRIPT_LOAD_ERROR_COPY = {
-  title: "Couldn't load conversation",
-  detail: "Couldn't load this conversation. Check your connection and try again.",
-  retry: "Retry",
+  title: "Диалог не загрузился",
+  detail: "Не получилось загрузить диалог. Проверьте подключение и попробуйте снова.",
+  retry: "Повторить",
   titleId: "sand-transcript-error-title",
   detailId: "sand-transcript-error-detail"
 } as const;

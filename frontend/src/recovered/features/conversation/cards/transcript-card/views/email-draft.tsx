@@ -13,7 +13,7 @@ function parseRecipients(value: string): string[] {
 }
 
 function EmailSent({ draft, titleId }: { draft: EmailDraft; titleId: string }) {
-  return <section aria-labelledby={titleId} className="sand-email-composer" role="region"><div><span aria-hidden="true" /> <span id={titleId}>New email</span><span>Sent</span></div><span>Sent to {draft.to[0] ?? ""} — “{draft.subject}”</span></section>;
+  return <section aria-labelledby={titleId} className="sand-email-composer" role="region"><div><span aria-hidden="true" /> <span id={titleId}>Новое письмо</span><span>Отправлено</span></div><span>Отправлено на {draft.to[0] ?? ""} — «{draft.subject}»</span></section>;
 }
 
 export function EmailDraftTranscriptCard(props: TranscriptCardLeafProps) {
@@ -34,13 +34,13 @@ export function EmailDraftTranscriptCard(props: TranscriptCardLeafProps) {
   const submit = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
   if (status === "sent") return <EmailSent draft={draft} titleId={titleId} />;
   return <form aria-labelledby={titleId} className="sand-email-composer" onSubmit={submit}>
-    <div><h3 id={titleId}>New email</h3>{status === "sending" ? <span role="status">Sending…</span> : <span role="status">Ready to send</span>}</div>
-    {draft.from == null ? null : <div><span>From</span><span>{draft.from}</span></div>}
-    <label><span>To</span><input autoComplete="off" className="sand-email-composer__input" disabled={disabled} onChange={(event) => setRecipientsValue(event.currentTarget.value)} placeholder="name@example.com" spellCheck={false} type="text" value={recipientsValue} /></label>
-    <label><span>Subject</span><input autoComplete="off" className="sand-email-composer__input" disabled={disabled} onChange={(event) => setSubject(event.currentTarget.value)} placeholder="Subject" spellCheck type="text" value={subject} /></label>
-    <div>{collapsed ? <><p>{body}</p><span aria-hidden="true" /></> : <textarea aria-label="Message" autoComplete="off" className="sand-email-composer__body" disabled={disabled} onChange={(event) => setBody(event.currentTarget.value)} placeholder="Write a message" rows={4} spellCheck value={body} />}</div>
-    {status === "editable" && visualLineCount(body) > 8 ? <button onClick={() => setExpanded((value) => !value)} type="button">{expanded ? "Show less" : "Show more"}<span aria-hidden="true">⌄</span></button> : null}
-    <div><button disabled={!valid} type="submit">Send email</button><button disabled={disabled} onClick={(event) => event.preventDefault()} type="button">Discard</button></div>
+    <div><h3 id={titleId}>Новое письмо</h3>{status === "sending" ? <span role="status">Отправляется…</span> : <span role="status">Готово к отправке</span>}</div>
+    {draft.from == null ? null : <div><span>От кого</span><span>{draft.from}</span></div>}
+    <label><span>Кому</span><input autoComplete="off" className="sand-email-composer__input" disabled={disabled} onChange={(event) => setRecipientsValue(event.currentTarget.value)} placeholder="name@example.com" spellCheck={false} type="text" value={recipientsValue} /></label>
+    <label><span>Тема</span><input autoComplete="off" className="sand-email-composer__input" disabled={disabled} onChange={(event) => setSubject(event.currentTarget.value)} placeholder="Тема письма" spellCheck type="text" value={subject} /></label>
+    <div>{collapsed ? <><p>{body}</p><span aria-hidden="true" /></> : <textarea aria-label="Текст письма" autoComplete="off" className="sand-email-composer__body" disabled={disabled} onChange={(event) => setBody(event.currentTarget.value)} placeholder="Напишите письмо" rows={4} spellCheck value={body} />}</div>
+    {status === "editable" && visualLineCount(body) > 8 ? <button onClick={() => setExpanded((value) => !value)} type="button">{expanded ? "Свернуть" : "Показать всё"}<span aria-hidden="true">⌄</span></button> : null}
+    <div><button disabled={!valid} type="submit">Отправить</button><button disabled={disabled} onClick={(event) => event.preventDefault()} type="button">Отменить</button></div>
   </form>;
 }
 

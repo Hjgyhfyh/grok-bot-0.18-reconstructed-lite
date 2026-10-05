@@ -3,8 +3,8 @@ import type { RawPortCoordinatorSource } from "../../../runtime/coordinator-sour
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#byteOffset=24286 (plugin-auth purpose and exact setup prompt)
 // @evidence recovered/frontend/app/assets/view-B5Ug8wEm.js#byteOffset=30233 (Windows plugin-auth purpose and exact setup prompt)
 
-export const PLUGIN_AUTH_AGENT_NAME = "Plugin Setup";
-export const PLUGIN_AUTH_AGENT_DESCRIPTION = "Sets up git credentials on Grok Bot's computer so installed plugins can be fetched.";
+export const PLUGIN_AUTH_AGENT_NAME = "Настройка плагинов";
+export const PLUGIN_AUTH_AGENT_DESCRIPTION = "Настраивает вход в git на компьютере Grok Bot, чтобы установленные плагины можно было загрузить.";
 export const PLUGIN_AUTH_AGENT_PURPOSE = "plugin-auth" as const;
 export const PLUGIN_AUTH_PROMPT = [
   "Some of my installed plugins can't be fetched.",
@@ -46,11 +46,15 @@ export function pluginAuthBlocksFromSyncStatus(value: unknown): PluginAuthBlock[
 // @evidence recovered/frontend/app/assets/view-B5Ug8wEm.js#byteOffset=30233 (Windows ni)
 export function pluginAuthBlockedDetail(blocks: readonly PluginAuthBlock[]): string {
   const names = blocks.map((block) => block.pluginName).filter((name) => name.length > 0);
+  const reason = "компьютер Grok Bot не может прочитать папку с кодом.";
   if (names.length === 0 || names.length > 3) {
     const count = blocks.length;
-    return `${count} installed ${count === 1 ? "plugin" : "plugins"} can't be fetched until Grok Bot's computer can read their source repository.`;
+    const word = count % 10 === 1 && count % 100 !== 11 ? "плагин"
+      : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20) ? "плагина"
+      : "плагинов";
+    return `${count} ${word} не загружается: ${reason}`;
   }
-  return `${names.join(", ")} ${names.length === 1 ? "is" : "are"} installed, but their content can't be fetched until Grok Bot's computer can read the source repository.`;
+  return `${names.join(", ")} ${names.length === 1 ? "установлен" : "установлены"}, но не загружается: ${reason}`;
 }
 
 export interface PluginAuthRosterAgent {
@@ -155,7 +159,7 @@ export function createPluginAuthController(source: PluginAuthSource): PluginAuth
         isIntroductionSuppressed: true
       });
       const agentId = createdAgentId(result);
-      if (agentId == null) throw new Error("Plugin auth agent creation returned a malformed agent reply");
+      if (agentId == null) throw new Error("Помощник для настройки не создан: неверный ответ");
       if (!isCurrent(scope, request)) return false;
       source.roster.selectAgent(agentId);
       await source.coordinator.sendPrompt({ agentId, prompt: PLUGIN_AUTH_PROMPT });

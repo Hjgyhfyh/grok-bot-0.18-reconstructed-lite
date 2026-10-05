@@ -112,19 +112,19 @@ function messageRole(entry: TranscriptCardActionEntry): "user" | "assistant" {
 }
 
 function messageAuthor(entry: TranscriptCardActionEntry): string {
-  if (entry.kind === "message") return entry.role === "user" ? "your message" : entry.author;
-  return entry.kind === "user-attachment" ? "your message" : "Agent";
+  if (entry.kind === "message") return entry.role === "user" ? "ваше сообщение" : entry.author;
+  return entry.kind === "user-attachment" ? "ваше сообщение" : "Помощник";
 }
 
 export function transcriptMessageActionsLabel(entry: TranscriptCardActionEntry): string {
-  return `Message actions for ${messageAuthor(entry)} (${entry.id})`;
+  return `Действия с сообщением: ${messageAuthor(entry)} (${entry.id})`;
 }
 
 export function transcriptReplyActionLabel(entry: TranscriptCardActionEntry): string {
-  if (messageRole(entry) === "user") return "Reply to your message";
+  if (messageRole(entry) === "user") return "Ответить на ваше сообщение";
   const author = messageAuthor(entry).replace(/\s+/gu, " ").trim();
   const bounded = author.length > 60 ? `${author.slice(0, 59).trimEnd()}…` : author;
-  return `Reply to ${bounded.length > 0 ? bounded : "Agent"} message`;
+  return `Ответить на сообщение: ${bounded.length > 0 ? bounded : "Помощник"}`;
 }
 
 export function isMessageContextTargetExcluded(target: EventTarget | null): boolean {
@@ -270,12 +270,12 @@ export function TranscriptCardActionAnchor({ entry, children, onCopy, isReadOnly
     <div aria-label={transcriptMessageActionsLabel(entry)} className="sand-message-hover-actions" role="toolbar">
       {reactionActions}
       {isThreadActionVisible ? <button aria-label={transcriptReplyActionLabel(entry)} className="sand-message-hover-actions__button" onClick={() => context.onReply(entry.id)} type="button"><span aria-hidden="true" data-icon-name={messageRole(entry) === "user" ? "arrow-u-up-right" : "arrow-u-up-left"} /></button> : null}
-      {context == null ? null : <button aria-expanded={menuOpen} aria-haspopup="menu" aria-label="More message actions" className="sand-message-hover-actions__button" onClick={() => { rememberFocus(document.activeElement); setReactionMenuOpen(false); setMenuOpen((open) => !open); }} type="button">
+      {context == null ? null : <button aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Другие действия с сообщением" className="sand-message-hover-actions__button" onClick={() => { rememberFocus(document.activeElement); setReactionMenuOpen(false); setMenuOpen((open) => !open); }} type="button">
         <span aria-hidden="true" data-icon-name="dots-3-horizontal" />
       </button>}
-      {menuOpen && context != null ? <div aria-label="More message actions" role="menu">
-        {isThreadActionVisible ? <button className="sand-message-hover-actions__button" onClick={() => { context.onThread(entry.id); setMenuOpen(false); }} role="menuitem" type="button"><span aria-hidden="true" data-icon-name="chat-bubbles" />Start a thread</button> : null}
-        {effectiveOnCopy == null ? null : <button className="sand-message-hover-actions__button" onClick={copy} role="menuitem" type="button"><span aria-hidden="true" data-icon-name="copy" />Copy</button>}
+      {menuOpen && context != null ? <div aria-label="Другие действия с сообщением" role="menu">
+        {isThreadActionVisible ? <button className="sand-message-hover-actions__button" onClick={() => { context.onThread(entry.id); setMenuOpen(false); }} role="menuitem" type="button"><span aria-hidden="true" data-icon-name="chat-bubbles" />Отдельный диалог</button> : null}
+        {effectiveOnCopy == null ? null : <button className="sand-message-hover-actions__button" onClick={copy} role="menuitem" type="button"><span aria-hidden="true" data-icon-name="copy" />Копировать</button>}
       </div> : null}
     </div>
   );

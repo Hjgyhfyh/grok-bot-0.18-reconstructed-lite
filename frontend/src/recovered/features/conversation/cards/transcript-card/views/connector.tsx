@@ -26,9 +26,9 @@ function findMessageServer(
   return findConnectorServer({ servers }, connector);
 }
 
-function actionLabel(server: ConnectorServer | null, catalog: ReturnType<typeof findConnectorCatalogEntry>): "Add" | "Authorize" | null {
-  if (server != null && (server.status === "needsAuth" || server.status === "disconnected" || server.status === "error")) return "Authorize";
-  if (server == null && catalog != null) return "Add";
+function actionLabel(server: ConnectorServer | null, catalog: ReturnType<typeof findConnectorCatalogEntry>): "Добавить" | "Войти" | null {
+  if (server != null && (server.status === "needsAuth" || server.status === "disconnected" || server.status === "error")) return "Войти";
+  if (server == null && catalog != null) return "Добавить";
   return null;
 }
 
@@ -77,7 +77,7 @@ function ConnectorCardBody({
 
   const connect = () => {
     if (provider == null || isStale || disabledByPolicy || busy) return;
-    if (server != null && label === "Authorize") void provider.authenticate(server.id, server.accountKey, connector);
+    if (server != null && label === "Войти") void provider.authenticate(server.id, server.accountKey, connector);
     else if (label != null) void provider.connect(connector, accountKey);
   };
   const retry = () => {
@@ -98,14 +98,14 @@ function ConnectorCardBody({
       <div className="sand-2lah0s sand-78zum5"><span aria-hidden="true" data-connector={connector} /></div>
       <div className="sand-connector-card__text">
         <h3>{displayName}</h3>
-        {server?.isTeamServer === true ? <span className="sand-connector-card__team">Team</span> : null}
+        {server?.isTeamServer === true ? <span className="sand-connector-card__team">Команда</span> : null}
         {description == null ? null : <p>{description}</p>}
-        {server == null || server.toolCount === 0 ? null : <span>{server.toolCount === 1 ? "1 tool" : `${server.toolCount} tools`}</span>}
+        {server == null || server.toolCount === 0 ? null : <span>{server.toolCount === 1 ? "1 инструмент" : server.toolCount < 5 ? `${server.toolCount} инструмента` : `${server.toolCount} инструментов`}</span>}
       </div>
-      {connected ? <span className="sand-connector-card__status sand-3nfvp2 sand-6s0dn4 sand-2lah0s sand-1jnr06f sand-1yrsyyn sand-nuq7ks sand-10b6aqq sand-f18ygs sand-149ho13 sand-1buh4up sand-1w5rjie" role="status" title="Connected"><span aria-hidden="true" data-icon-name="check" />Added</span>
+      {connected ? <span className="sand-connector-card__status sand-3nfvp2 sand-6s0dn4 sand-2lah0s sand-1jnr06f sand-1yrsyyn sand-nuq7ks sand-10b6aqq sand-f18ygs sand-149ho13 sand-1buh4up sand-1w5rjie" role="status" title="Подключено"><span aria-hidden="true" data-icon-name="check" />Добавлено</span>
         : disabledByPolicy ? null
-          : waiting ? <div className="sand-connector-card__handoff"><span>Waiting for {displayName} authorization…</span><button disabled={isStale} onClick={reopen} type="button">Reopen</button></div>
-            : failed ? <div className="sand-connector-card__handoff"><span>{displayName} authorization didn't finish.</span><button disabled={isStale} onClick={retry} type="button">Retry</button></div>
+          : waiting ? <div className="sand-connector-card__handoff"><span>Ждём вход в {displayName}…</span><button disabled={isStale} onClick={reopen} type="button">Открыть снова</button></div>
+            : failed ? <div className="sand-connector-card__handoff"><span>Вход в {displayName} не завершился.</span><button disabled={isStale} onClick={retry} type="button">Повторить</button></div>
               : label == null ? null : <button className="sand-2lah0s" disabled={busy || isStale} onClick={connect} type="button">{label}</button>}
     </div>
     {suggestions.length === 0 ? null : <ul className="sand-connector-card__discovery">

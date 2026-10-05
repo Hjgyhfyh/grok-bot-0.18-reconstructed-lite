@@ -12,25 +12,25 @@ export interface DeepLinkInfoDialogProps {
 
 export function DeepLinkInfoDialog({ link, onClose }: DeepLinkInfoDialogProps) {
   if (link == null) return null;
-  return <OverlayDialog className="sand-deep-link-info" label="Deep Links" onClose={onClose} open>
+  return <OverlayDialog className="sand-deep-link-info" label="Ссылки приложения" onClose={onClose} open>
     <header>
       <div>
-        <h2>Deep Links</h2>
-        <p>Grok Bot deep links are working</p>
+        <h2>Ссылки приложения</h2>
+        <p>Ссылки вида sand:// работают</p>
       </div>
-      <SandIconButton aria-label="Close" icon="close" label="Close" onClick={onClose} size="sm" type="button" />
+      <SandIconButton aria-label="Закрыть" icon="close" label="Закрыть" onClick={onClose} size="sm" type="button" />
     </header>
     <div>
       <div>
-        <p>Route</p>
+        <p>Куда ведёт</p>
         <code>{deepLinkRoute(link)}</code>
       </div>
       <div>
-        <p>Source</p>
+        <p>Откуда</p>
         <code>{deepLinkSourceLabel(link.source)}</code>
       </div>
     </div>
-    <footer><SandButton onClick={onClose} size="md" type="button">Done</SandButton></footer>
+    <footer><SandButton onClick={onClose} size="md" type="button">Готово</SandButton></footer>
   </OverlayDialog>;
 }
 

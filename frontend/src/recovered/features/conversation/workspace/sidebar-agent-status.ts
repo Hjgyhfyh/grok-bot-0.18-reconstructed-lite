@@ -58,7 +58,7 @@ export interface SidebarAgentStatusInput {
 
 export interface SidebarAgentStatusProjection {
   readonly marker: SidebarAgentStatusMarker;
-  readonly markerLabel: "Needs attention" | "Unread activity" | undefined;
+  readonly markerLabel: "Нужен ваш ответ" | "Есть новые записи" | undefined;
   readonly isWorking: boolean;
   readonly corner: SidebarAgentStatusCorner;
   readonly trailing: "marker" | null;
@@ -87,7 +87,7 @@ export function projectSidebarAgentStatus({ layout = "expanded", waitingReason, 
   const marker: SidebarAgentStatusMarker = waitingReason != null ? "blocked" : hasUnread ? "unread" : null;
   const isWorking = waitingReason == null && isRunning;
   const runningState: Exclude<SidebarAgentStatusCorner, "marker" | null> | null = isWorking ? (isActivityNamed ? "ring" : "running") : null;
-  const markerLabel = marker === "blocked" ? "Needs attention" : marker === "unread" ? "Unread activity" : undefined;
+  const markerLabel = marker === "blocked" ? "Нужен ваш ответ" : marker === "unread" ? "Есть новые записи" : undefined;
 
   const markerCorner: SidebarAgentStatusCorner = marker == null ? null : "marker";
   return {

@@ -36,8 +36,8 @@ function InviteLink({ result }: { result: { readonly shareUrl: string } }): Reac
     }
   };
   return <div>
-    <input aria-label="Room link" onFocus={(event) => event.currentTarget.select()} readOnly spellCheck={false} value={result.shareUrl} />
-    <button onClick={() => { void copy(); }} type="button">{status === "copied" ? "Copied" : status === "error" ? "Try again" : "Copy link"}</button>
+    <input aria-label="Ссылка на комнату" onFocus={(event) => event.currentTarget.select()} readOnly spellCheck={false} value={result.shareUrl} />
+    <button onClick={() => { void copy(); }} type="button">{status === "copied" ? "Скопировано" : status === "error" ? "Попробовать снова" : "Копировать ссылку"}</button>
   </div>;
 }
 
@@ -76,33 +76,33 @@ export function SharedRoomDialog({ provider, roomId, agentId, accountGeneration,
   return <div aria-label={room.name} aria-modal="true" className="sand-shared-room-dialog" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }} ref={dialogRef} role="dialog" tabIndex={-1}>
     <header><h2>{room.name}</h2></header>
     {snapshot.isHost ? <section>
-      <p>Invite people</p>
-      {snapshot.invite?.status === "ok" ? <InviteLink result={snapshot.invite} /> : snapshot.invite?.status === "error" ? <p role="alert">{snapshot.invite.message}</p> : <button disabled={snapshot.pendingAction === "invite"} onClick={() => { void provider.createRoomInvite(); }} type="button">Copy link</button>}
-      <p>They paste this link into Grok Bot via Cmd-K, then "Join shared room". Each request waits for your approval.</p>
+      <p>Пригласить людей</p>
+      {snapshot.invite?.status === "ok" ? <InviteLink result={snapshot.invite} /> : snapshot.invite?.status === "error" ? <p role="alert">{snapshot.invite.message}</p> : <button disabled={snapshot.pendingAction === "invite"} onClick={() => { void provider.createRoomInvite(); }} type="button">Копировать ссылку</button>}
+      <p>Человек вставляет ссылку в Grok Bot через Cmd-K и выбирает «Присоединиться к общей комнате». Каждая заявка ждёт вашего согласия.</p>
     </section> : null}
     {snapshot.requests.length > 0 ? <section>
-      <h3>Pending requests</h3>
+      <h3>Заявки на вход</h3>
       {snapshot.requests.map((request) => <div key={request.requestId}>
         <span>{request.requesterName}</span>
-        <button aria-label={`Deny ${request.requesterName}`} disabled={snapshot.pending.has(`request:${request.requestId}`)} onClick={() => { void provider.respondToRoomJoinRequest(request.requestId, false); }} type="button">Deny</button>
-        <button aria-label={`Approve ${request.requesterName}`} disabled={snapshot.pending.has(`request:${request.requestId}`)} onClick={() => { void provider.respondToRoomJoinRequest(request.requestId, true); }} type="button">Approve</button>
+        <button aria-label={`Отклонить заявку: ${request.requesterName}`} disabled={snapshot.pending.has(`request:${request.requestId}`)} onClick={() => { void provider.respondToRoomJoinRequest(request.requestId, false); }} type="button">Отклонить</button>
+        <button aria-label={`Одобрить заявку: ${request.requesterName}`} disabled={snapshot.pending.has(`request:${request.requestId}`)} onClick={() => { void provider.respondToRoomJoinRequest(request.requestId, true); }} type="button">Одобрить</button>
       </div>)}
     </section> : null}
     <section>
-      <h3>People</h3>
+      <h3>Люди</h3>
       {humanMembers.map((member) => <div key={member.authId}>
         <span>{member.displayName}</span>
-        {member.authId === room.hostAuthId ? <span>Host</span> : snapshot.isHost ? <button aria-label={`Remove ${member.displayName}`} onClick={() => { void provider.leaveSharedRoom(member.authId); }} type="button">Remove</button> : null}
+        {member.authId === room.hostAuthId ? <span>Хозяин комнаты</span> : snapshot.isHost ? <button aria-label={`Убрать из комнаты: ${member.displayName}`} onClick={() => { void provider.leaveSharedRoom(member.authId); }} type="button">Убрать</button> : null}
       </div>)}
     </section>
     <section>
-      <h3>Your agents</h3>
+      <h3>Ваши помощники</h3>
       {snapshot.context?.agents.filter((agent) => !agent.isGroup && agent.remoteRoom == null && agent.isSharedRoom !== true).map((agent) => {
         const isSelf = snapshot.selfAgentIds.includes(agent.id);
-        return <div key={agent.id}><span>{agent.name}</span><button aria-label={`${isSelf ? "Remove" : "Add"} ${agent.name}`} disabled={snapshot.pending.has(`agent:${agent.id}`)} onClick={() => { void (isSelf ? provider.removeOwnAgent(agent.id) : provider.addOwnAgent(agent)); }} type="button">{isSelf ? "Remove" : "Add"}</button></div>;
+        return <div key={agent.id}><span>{agent.name}</span><button aria-label={`${isSelf ? "Убрать" : "Добавить"} ${agent.name}`} disabled={snapshot.pending.has(`agent:${agent.id}`)} onClick={() => { void (isSelf ? provider.removeOwnAgent(agent.id) : provider.addOwnAgent(agent)); }} type="button">{isSelf ? "Убрать" : "Добавить"}</button></div>;
       })}
     </section>
-    <footer><button onClick={onClose} type="button">Done</button></footer>
+    <footer><button onClick={onClose} type="button">Готово</button></footer>
     <span hidden>{selfAuthId}</span>
   </div>;
 }

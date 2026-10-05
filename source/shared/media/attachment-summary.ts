@@ -3,21 +3,24 @@ import { getFilePreviewKind } from "./file-preview-kind.js";
 import type { SandAttachmentKind } from "./attachments.js";
 
 const JSON_EXTENSIONS = new Set(["json", "jsonc", "json5", "ndjson"]);
-const ARCHIVE_EXTENSIONS = new Set(["zip", "tar", "gz", "tgz", "bz2", "tbz2", "xz", "txz", "zst", "7z", "rar"]);
-const TABLE_MIME_TYPES = new Set([
-  "text/csv",
-  "text/tab-separated-values",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-]);
+const ARCHIVE_EXTENSIONS = new Set(["zip", "tar", "gz", "tgz", "bz2", "tbz2", "xz", "txz", "zst", "7z", "rar", "br", "cab"]);
 const DOCUMENT_MIME_TYPES = new Set([
   "application/msword",
+  "application/vnd.ms-excel",
+  "application/vnd.ms-powerpoint",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.presentation",
+  "application/rtf",
+  "text/rtf",
 ]);
 const ARCHIVE_MIME_TYPES = new Set([
   "application/zip", "application/x-zip-compressed", "application/gzip", "application/x-tar",
   "application/x-bzip2", "application/x-xz", "application/zstd", "application/x-7z-compressed",
-  "application/x-rar-compressed", "application/vnd.rar",
+  "application/x-rar-compressed", "application/vnd.rar", "application/x-cab-compressed", "application/x-brotli",
 ]);
 
 export function classifyMimeType(rawMimeType: string): Exclude<SandAttachmentKind, "file"> | null {
@@ -27,7 +30,7 @@ export function classifyMimeType(rawMimeType: string): Exclude<SandAttachmentKin
   if (mime.startsWith("audio/")) return "audio";
   if (mime === "application/pdf") return "pdf";
   if (mime === "text/markdown") return "markdown";
-  if (TABLE_MIME_TYPES.has(mime)) return "table";
+  if (mime === "text/csv" || mime === "text/tab-separated-values") return "table";
   if (mime === "application/json" || mime.endsWith("+json")) return "json";
   if (DOCUMENT_MIME_TYPES.has(mime)) return "document";
   if (ARCHIVE_MIME_TYPES.has(mime)) return "archive";
@@ -62,6 +65,10 @@ export function classifyPathLike(source: string): Exclude<SandAttachmentKind, "f
       return previewKind;
     case "docx":
       return "document";
+    case "document":
+      return "document";
+    case "archive":
+      return "archive";
     case "json":
       return "json";
     case "text": {

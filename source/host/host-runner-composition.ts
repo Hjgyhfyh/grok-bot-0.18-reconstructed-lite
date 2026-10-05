@@ -65,6 +65,8 @@ import {
   SAND_EXTERNAL_READ_TOOL_NAME,
 } from "./sand-activity.js";
 import { connectorCardEmissionToMessage } from "./runner/tools/box-help-tool.js";
+import { resolveReportSkillsDir } from "./runner/tools/report-turn-tools.js";
+import { getSandRootDir } from "./host-paths.js";
 import { createAgentPromptSession } from "./extensions/inference/extension.js";
 import { CONNECTOR_MANIFESTS } from "../shared/channels.js";
 import { parseStoredTrigger } from "./automations/automation-trigger.js";
@@ -2317,6 +2319,35 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
       }),
       createAgentManagementToolInputs: () => ({
         dependencies: dependencies.agentManagement,
+      }),
+      // Пять отчётных инструментов. Корень данных — тот же, что у всего
+      // приложения, поэтому отчёты лежат в «Отчёты» рядом с остальным.
+      // Превью уходит тем же событием `send-message`, что и настоящий
+      // SendMessage, поэтому строка переписки несёт автора, а `fromAgent`
+      // и `channel` (признаки строки с чужой машины) не появляются.
+      // `ackToken` сюда не передаётся: превью не отвечает пользователю и не
+      // должно закрывать его ожидание ответа.
+      createReportToolInputs: turn => ({
+        dependencies: {
+          dataRoot: getSandRootDir(),
+          skillsDir: resolveReportSkillsDir(getSandRootDir()),
+          ...(turn.emitUpdate === undefined
+            ? {}
+            : {
+                emitPreview: (update) => {
+                  // Событие собирается здесь, а не пробрасывается объектом
+                  // `ReportPreviewUpdate`: `ForwardedUpdate` требует строковый
+                  // индекс, а у интерфейса из пакета его нет. Заодно видно
+                  // точно, что на экран уходит тот же `send-message`, что и
+                  // от настоящего SendMessage.
+                  turn.emitUpdate?.({
+                    type: "send-message",
+                    message: { type: "text", content: update.message.content },
+                    timestampMs: update.timestampMs,
+                  });
+                },
+              }),
+        },
       }),
       createBoxAwaitToolInputs: (turn, _props): TurnAwaitToolFactoryInput => ({
         resourceAccessor: (() => {

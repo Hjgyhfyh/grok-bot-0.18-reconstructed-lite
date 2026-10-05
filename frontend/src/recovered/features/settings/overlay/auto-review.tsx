@@ -79,73 +79,73 @@ export function AutoReviewRulesPanel({ disabled = false, settings, onChange }: A
       <SandSwitch
         checked={settings.isEnabled}
         disabled={isDisabled}
-        label={<span><strong>Auto-review</strong><small>Grok Bot checks each action before it runs and asks you first when needed. Add rules to customize what it can do automatically.</small></span>}
+        label={<span><strong>Проверка перед запуском</strong><small>Grok Bot спрашивает вас перед каждым опасным действием. Правила ниже задают, что можно делать без спроса.</small></span>}
         onCheckedChange={(checked) => commitSettings({ ...settings, isEnabled: checked })}
       />
 
       {settings.isEnabled ? (
         <div>
           <div>
-            <h3>Auto-review Rules</h3>
+            <h3>Правила проверки</h3>
             {/* @evidence recovered/frontend/app/assets/index-BlqerJhg.js#L291-L295 */}
-            <p>Write one short, natural-language rule for each action. &quot;Ask first&quot; takes priority if rules conflict.</p>
+            <p>На каждое действие напишите одно короткое правило обычными словами. Правило «сначала спросить» важнее остальных.</p>
           </div>
 
           <div>
             <SandTextField
-              aria-label="Auto-review rule draft"
+              aria-label="Новое правило"
               disabled={isDisabled || editing != null}
               maxLength={1000}
               onChange={(event) => setDraft(event.currentTarget.value.slice(0, 1000))}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) addRule();
               }}
-              placeholder="e.g. reply to emails for me"
+              placeholder="например: отвечать на письма без вопроса"
               value={draft}
             />
-            <SandSelect ariaLabel="Rule behavior" className="ui-select-trigger" disabled={isDisabled || editing != null} onValueChange={setBehavior} options={[{ value: "allow" as const, label: "Allow automatically" }, { value: "ask" as const, label: "Ask first" }]} placement="bottom-end" value={behavior} />
-            <SandButton disabled={!canAdd} onClick={addRule} size="sm" variant="primary">Add Rule</SandButton>
+            <SandSelect ariaLabel="Что делать с действием" className="ui-select-trigger" disabled={isDisabled || editing != null} onValueChange={setBehavior} options={[{ value: "allow" as const, label: "Делать без спроса" }, { value: "ask" as const, label: "Сначала спросить" }]} placement="bottom-end" value={behavior} />
+            <SandButton disabled={!canAdd} onClick={addRule} size="sm" variant="primary">Добавить правило</SandButton>
           </div>
-          {activeList.length >= MAX_INSTRUCTIONS_PER_BEHAVIOR ? <small>max {MAX_INSTRUCTIONS_PER_BEHAVIOR} rules</small> : null}
+          {activeList.length >= MAX_INSTRUCTIONS_PER_BEHAVIOR ? <small>Не больше {MAX_INSTRUCTIONS_PER_BEHAVIOR} правил</small> : null}
 
           {rows.length > 0 ? (
-            <div aria-label="Auto-review rules" className="sand-auto-review-rules-table" role="table">
+            <div aria-label="Правила проверки" className="sand-auto-review-rules-table" role="table">
               <div className="sand-auto-review-rule" role="row">
-                <span role="columnheader">Action</span>
-                <span role="columnheader">Behavior</span>
+                <span role="columnheader">Действие</span>
+                <span role="columnheader">Как выполнять</span>
                 <span aria-hidden="true" />
               </div>
               <div role="rowgroup">
                 {rows.map((row, index) => editing != null && editing.behavior === row.behavior && editing.listIndex === row.listIndex && editing.text === row.text ? (
                   <div className="sand-auto-review-rule" key={`${row.behavior}:${row.listIndex}:${row.text}`} role="row">
-                    <SandTextarea aria-label={`Edit action for rule ${index + 1}`} autoFocus autoResize={false} disabled={isDisabled} maxLength={1000} minRows={1} onChange={(event) => setEditingText(event.currentTarget.value.slice(0, 1000))} rows={1} value={editingText} />
-                    <SandSelect ariaLabel={`Behavior for rule ${index + 1}`} className="ui-select-trigger" disabled={isDisabled} onValueChange={setEditingBehavior} options={[{ value: "allow" as const, label: "Allow automatically" }, { value: "ask" as const, label: "Ask first" }]} placement="bottom-end" value={editingBehavior} />
+                    <SandTextarea aria-label={`Изменить действие в правиле ${index + 1}`} autoFocus autoResize={false} disabled={isDisabled} maxLength={1000} minRows={1} onChange={(event) => setEditingText(event.currentTarget.value.slice(0, 1000))} rows={1} value={editingText} />
+                    <SandSelect ariaLabel={`Как выполнять правило ${index + 1}`} className="ui-select-trigger" disabled={isDisabled} onValueChange={setEditingBehavior} options={[{ value: "allow" as const, label: "Делать без спроса" }, { value: "ask" as const, label: "Сначала спросить" }]} placement="bottom-end" value={editingBehavior} />
                     <span>
-                      <SandButton aria-label={`Cancel editing rule ${index + 1}`} disabled={isDisabled} onClick={cancelEdit} size="sm" variant="secondary">Cancel</SandButton>
-                      <SandButton aria-label={`Save rule ${index + 1}`} disabled={isDisabled || editingText.trim().length === 0} onClick={saveEdit} size="sm" variant="primary">Save Rule</SandButton>
+                      <SandButton aria-label={`Отменить изменение правила ${index + 1}`} disabled={isDisabled} onClick={cancelEdit} size="sm" variant="secondary">Отмена</SandButton>
+                      <SandButton aria-label={`Сохранить правило ${index + 1}`} disabled={isDisabled || editingText.trim().length === 0} onClick={saveEdit} size="sm" variant="primary">Сохранить правило</SandButton>
                     </span>
                   </div>
                 ) : (
                   <div className="sand-auto-review-rule" key={`${row.behavior}:${row.listIndex}:${row.text}`} role="row">
                     <span role="cell" title={row.text}>{row.text}</span>
-                    <span role="cell">{row.behavior === "allow" ? "Allow automatically" : "Ask first"}</span>
+                    <span role="cell">{row.behavior === "allow" ? "Делать без спроса" : "Сначала спросить"}</span>
                     <span role="cell">
-                      <SandButton aria-label={`Edit rule ${index + 1}`} disabled={isDisabled || editing != null} onClick={() => beginEdit(row)} size="sm" variant="secondary">Edit</SandButton>
+                      <SandButton aria-label={`Изменить правило ${index + 1}`} disabled={isDisabled || editing != null} onClick={() => beginEdit(row)} size="sm" variant="secondary">Изменить</SandButton>
                       <SandButton
-                        aria-label={`Delete rule ${index + 1}`}
+                        aria-label={`Удалить правило ${index + 1}`}
                         disabled={isDisabled}
                         onClick={() => commitSettings({ ...settings, ...removeInstruction(instructions, row) })}
                         sentiment="danger"
                         size="sm"
                         variant="secondary"
-                      >Delete</SandButton>
+                      >Удалить</SandButton>
                     </span>
                   </div>
                 ))}
               </div>
             </div>
           ) : null}
-          <small>These rules apply only to you. Built-in safety checks always apply.</small>
+          <small>Эти правила действуют только для вас. Встроенные проверки безопасности работают всегда.</small>
         </div>
       ) : null}
     </section>

@@ -33,7 +33,7 @@ interface MermaidRuntimeModule {
 export async function loadShippedMermaidRuntime(): Promise<MermaidRuntime> {
   const module = await import(/* @vite-ignore */ MERMAID_CORE_ASSET) as MermaidRuntimeModule;
   const runtime = module.bp ?? module.default;
-  if (runtime == null) throw new Error("Shipped Mermaid runtime is unavailable.");
+  if (runtime == null) throw new Error("Модуль схем недоступен.");
   return runtime;
 }
 
@@ -181,15 +181,15 @@ function MermaidViewer({ svg, size, onClose }: { svg: string; size: { width: num
   if (typeof document === "undefined") return null;
   const scaled = { transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`, visibility: viewport.width > 0 && viewport.height > 0 ? "visible" : "hidden", cursor: dragging ? "grabbing" : "grab" } as const;
   return createPortal(
-    <div aria-label="Diagram preview" aria-modal="true" className="sand-mermaid-viewer" onClick={(event) => event.stopPropagation()} onPointerCancel={onPointerUp} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} role="dialog">
+    <div aria-label="Просмотр схемы" aria-modal="true" className="sand-mermaid-viewer" onClick={(event) => event.stopPropagation()} onPointerCancel={onPointerUp} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} role="dialog">
       <div className="sand-mermaid-viewer__content" onDoubleClick={fit} ref={canvasRef}>
         <div className="sand-mermaid-viewer__canvas" dangerouslySetInnerHTML={{ __html: svg }} style={{ ...scaled, width: size.width, height: size.height }} />
       </div>
-      <button aria-label="Close diagram preview" className="sand-mermaid-viewer__close" data-icon-name="close" onClick={onClose} type="button"><span aria-hidden="true">×</span></button>
+      <button aria-label="Закрыть схему" className="sand-mermaid-viewer__close" data-icon-name="close" onClick={onClose} type="button"><span aria-hidden="true">×</span></button>
       <div className="sand-mermaid-viewer__toolbar" onClick={(event) => event.stopPropagation()}>
-        <button aria-label="Zoom out" className="sand-mermaid-viewer__zoom-out" data-icon-name="zoom-out" onClick={() => zoom(1 / ZOOM_STEP)} type="button"><span aria-hidden="true">−</span></button>
-        <button aria-label="Zoom in" className="sand-mermaid-viewer__zoom-in" data-icon-name="zoom-in" onClick={() => zoom(ZOOM_STEP)} type="button"><span aria-hidden="true">+</span></button>
-        <button aria-label="Fit to screen" className="sand-mermaid-viewer__fit" data-icon-name="corners-in" onClick={fit} type="button"><span aria-hidden="true">⛶</span></button>
+        <button aria-label="Уменьшить" className="sand-mermaid-viewer__zoom-out" data-icon-name="zoom-out" onClick={() => zoom(1 / ZOOM_STEP)} type="button"><span aria-hidden="true">−</span></button>
+        <button aria-label="Увеличить" className="sand-mermaid-viewer__zoom-in" data-icon-name="zoom-in" onClick={() => zoom(ZOOM_STEP)} type="button"><span aria-hidden="true">+</span></button>
+        <button aria-label="Вписать в экран" className="sand-mermaid-viewer__fit" data-icon-name="corners-in" onClick={fit} type="button"><span aria-hidden="true">⛶</span></button>
       </div>
     </div>,
     document.body,
@@ -202,8 +202,8 @@ export function MermaidDiagramFigure({ svg, size, onOpen }: { svg: string; size:
   const show = onOpen ?? openViewer;
   const closeViewer = useCallback(() => setOpen(false), []);
   return <div className="sand-mermaid-figure">
-    <div aria-label="Open diagram full screen" className="sand-mermaid" dangerouslySetInnerHTML={{ __html: svg }} onClick={show} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); show(); } }} role="button" tabIndex={0} />
-    <button aria-label="Open diagram full screen" className="sand-mermaid-expand" data-icon-name="corners-out" onClick={show} type="button"><span aria-hidden="true">⛶</span></button>
+    <div aria-label="Открыть схему целиком" className="sand-mermaid" dangerouslySetInnerHTML={{ __html: svg }} onClick={show} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); show(); } }} role="button" tabIndex={0} />
+    <button aria-label="Открыть схему целиком" className="sand-mermaid-expand" data-icon-name="corners-out" onClick={show} type="button"><span aria-hidden="true">⛶</span></button>
     {open ? <MermaidViewer onClose={closeViewer} size={size} svg={svg} /> : null}
   </div>;
 }
@@ -220,7 +220,7 @@ export function MermaidDiagram({ code, fallback, theme, loadRuntime = loadShippe
     return () => { active = false; };
   }, [code, loadRuntime, resolvedTheme]);
   if (result == null || result.kind === "invalid" || result.svg == null || result.size == null) {
-    return result?.kind === "invalid" ? <><div className="sand-mermaid-error" role="note">Couldn't render this diagram.</div>{fallback}</> : fallback;
+    return result?.kind === "invalid" ? <><div className="sand-mermaid-error" role="note">Не удалось показать эту схему.</div>{fallback}</> : fallback;
   }
   return <MermaidDiagramFigure size={result.size} svg={result.svg} />;
 }

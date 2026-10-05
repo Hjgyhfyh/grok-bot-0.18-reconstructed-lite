@@ -85,11 +85,11 @@ interface ActiveRecording {
 
 const IDLE_STATE: VoiceSessionState = { status: "idle" };
 const DEFAULT_ERROR_MESSAGES: Record<VoiceErrorCode, string> = {
-  MICROPHONE_PERMISSION_DENIED: "Microphone access denied. Please enable microphone permissions in your system settings.",
-  AUDIO_DEVICE_UNAVAILABLE: "No microphone found. Please connect a microphone and try again.",
-  NETWORK_CONNECTION_FAILED: "Network connection failed. Please check your internet connection.",
-  RECORDING_ERROR: "Recording interrupted. Please try again.",
-  UNKNOWN: "An error occurred with voice input. Please try again."
+  MICROPHONE_PERMISSION_DENIED: "Нет доступа к микрофону. Разрешите доступ в настройках Windows.",
+  AUDIO_DEVICE_UNAVAILABLE: "Микрофон не найден. Подключите микрофон и попробуйте снова.",
+  NETWORK_CONNECTION_FAILED: "Нет связи с интернетом. Проверьте подключение.",
+  RECORDING_ERROR: "Запись прервалась. Попробуйте снова.",
+  UNKNOWN: "Ошибка голосового ввода. Попробуйте снова."
 };
 
 function asError(value: unknown): Error {
@@ -148,7 +148,7 @@ export class VoiceSessionController {
   private readonly recordingCeiling: VoiceRecordingCeilingFactory | null;
 
   constructor(options: VoiceSessionControllerOptions = {}) {
-    this.transcribe = options.transcribe ?? (() => Promise.reject(new Error("Voice transcription source is unavailable.")));
+    this.transcribe = options.transcribe ?? (() => Promise.reject(new Error("Голосовой ввод недоступен.")));
     this.language = options.language;
     this.mediaDevices = options.mediaDevices ?? browserMediaDevices();
     this.recorderConstructor = options.recorderConstructor ?? browserRecorderConstructor();
@@ -184,7 +184,7 @@ export class VoiceSessionController {
     const requestId = ++this.startRequestId;
     this.setState({ status: "requesting_permission", error: undefined });
     try {
-      if (this.mediaDevices == null) throw new Error("Microphone access is unavailable.");
+      if (this.mediaDevices == null) throw new Error("Микрофон недоступен.");
       const stream = await this.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
       if (requestId !== this.startRequestId) {
         stream.getTracks().forEach((track) => track.stop());
@@ -216,7 +216,7 @@ export class VoiceSessionController {
   private startRecording(stream: MediaStream): void {
     if (this.recorderConstructor == null) {
       stream.getTracks().forEach((track) => track.stop());
-      throw new Error("MediaRecorder is unavailable.");
+      throw new Error("Запись недоступна.");
     }
     const mimeType = preferredMimeType(this.recorderConstructor);
     let recorder: VoiceRecorder;
@@ -237,7 +237,7 @@ export class VoiceSessionController {
     recorder.onerror = () => {
       if (this.activeRecording !== active) return;
       this.cleanupRecorder();
-      this.setState({ status: "error", error: { code: "RECORDING_ERROR", message: "Recording interrupted. Please try again.", recoverable: true } });
+      this.setState({ status: "error", error: { code: "RECORDING_ERROR", message: "Запись прервалась. Попробуйте снова.", recoverable: true } });
     };
     try {
       recorder.start(VOICE_RECORDER_TIMESLICE_MS);

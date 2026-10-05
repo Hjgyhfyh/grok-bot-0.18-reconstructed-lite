@@ -92,6 +92,6 @@ export async function commitComposerAttachments(
     attachments.map((attachment) => attachment.path),
     attachments.map((attachment) => attachment.name)
   );
-  if (committed == null || committed.length !== attachments.length) throw new Error("The desktop bridge could not commit the staged attachments.");
+  if (committed == null || committed.length !== attachments.length) throw new Error("Мост не смог сохранить подготовленные вложения.");
   return attachments.map((attachment, index) => ({ ...attachment, path: committed[index] ?? attachment.path }));
 }

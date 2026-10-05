@@ -82,7 +82,7 @@ export async function loadShippedPdfRuntime(): Promise<PdfRuntime> {
   const module = await import(/* @vite-ignore */ PDFJS_ASSET) as PdfRuntimeModule;
   const runtime = module.default?.getDocument == null ? module : module.default;
   if (runtime.getDocument == null || runtime.GlobalWorkerOptions == null || runtime.TextLayer == null) {
-    throw new Error("Shipped PDF runtime is unavailable.");
+    throw new Error("Модуль просмотра PDF недоступен.");
   }
   if (!workerConfigured) {
     runtime.GlobalWorkerOptions.workerSrc = resolvePdfWorkerUrl(PDFJS_ASSET, import.meta.url);
@@ -374,16 +374,16 @@ function OpenPdfAttachmentViewer({ source, name, onClose, readBytes, onDownload,
   }, [currentPage]);
   const pages = documentState.status === "ready" ? documentState.doc.numPages : 0;
   const content = bytes.status === "too-large"
-    ? <div className="sand-file-viewer__body" role="alert"><strong>PDF too large to preview</strong><span>This PDF is too large to preview here. Download it to open in your PDF reader.</span><button onClick={() => { void onDownload(); }} type="button">Download</button></div>
+    ? <div className="sand-file-viewer__body" role="alert"><strong>PDF слишком большой для просмотра</strong><span>Этот PDF слишком большой, чтобы показать его здесь. Скачайте файл и откройте в программе для чтения PDF.</span><button onClick={() => { void onDownload(); }} type="button">Скачать</button></div>
     : bytes.status === "missing" || documentState.status === "error"
-      ? <div className="sand-file-viewer__body" role="alert"><strong>{bytes.status === "missing" ? "File unavailable" : "Couldn't render this PDF"}</strong>{documentState.status === "error" ? <button onClick={() => { void onDownload(); }} type="button">Download</button> : null}</div>
+      ? <div className="sand-file-viewer__body" role="alert"><strong>{bytes.status === "missing" ? "Файл недоступен" : "Не удалось показать этот PDF"}</strong>{documentState.status === "error" ? <button onClick={() => { void onDownload(); }} type="button">Скачать</button> : null}</div>
       : documentState.status !== "ready"
-        ? <div aria-live="polite" className="sand-file-viewer__body" role="status">Loading PDF…</div>
+        ? <div aria-live="polite" className="sand-file-viewer__body" role="status">PDF загружается…</div>
         : <PdfDocumentPages documentState={documentState} onPage={setCurrentPage} viewportRef={setViewportRef} zoom={zoom} />;
   const titleId = useId();
   return createPortal(<div aria-labelledby={titleId} aria-modal="true" className="sand-file-viewer" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }} role="dialog">
     <section className="sand-file-viewer__panel">
-      <header className="sand-file-viewer__header"><div><h2 id={titleId}>{name}</h2>{pages > 0 ? <span>{pages} {pages === 1 ? "page" : "pages"}</span> : null}</div><div className="sand-file-viewer__toolbar"><button aria-label="Zoom out" onClick={() => setZoom((value) => clamp(value - 0.25, 0.5, 4))} type="button">−</button><span aria-label={`Page ${currentPage} of ${pages}`}>{pages > 0 ? `${currentPage} / ${pages}` : ""}</span><button aria-label="Zoom in" onClick={() => setZoom((value) => clamp(value + 0.25, 0.5, 4))} type="button">+</button></div><div className="sand-file-viewer__actions"><button aria-label="Download file" onClick={() => { void onDownload(); }} type="button">⇩</button><button aria-label="Close preview" onClick={onClose} type="button">×</button></div></header>
+      <header className="sand-file-viewer__header"><div><h2 id={titleId}>{name}</h2>{pages > 0 ? <span>{pages} {pages === 1 ? "страница" : pages < 5 ? "страницы" : "страниц"}</span> : null}</div><div className="sand-file-viewer__toolbar"><button aria-label="Уменьшить" onClick={() => setZoom((value) => clamp(value - 0.25, 0.5, 4))} type="button">−</button><span aria-label={`Страница ${currentPage} из ${pages}`}>{pages > 0 ? `${currentPage} / ${pages}` : ""}</span><button aria-label="Увеличить" onClick={() => setZoom((value) => clamp(value + 0.25, 0.5, 4))} type="button">+</button></div><div className="sand-file-viewer__actions"><button aria-label="Скачать файл" onClick={() => { void onDownload(); }} type="button">⇩</button><button aria-label="Закрыть просмотр" onClick={onClose} type="button">×</button></div></header>
       {content}
     </section>
   </div>, document.body);

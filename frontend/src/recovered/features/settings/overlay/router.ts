@@ -61,6 +61,6 @@ export async function loadRouterProvider(persistence: RouterProviderPersistence)
 }
 
 export async function saveRouterProvider(persistence: RouterProviderPersistence, provider: RouterProviderId): Promise<void> {
-  if (!isRouterProviderId(provider)) throw new Error("Unknown router provider.");
+  if (!isRouterProviderId(provider)) throw new Error("Неизвестный провайдер.");
   await persistence.write(ROUTER_PROVIDER_PERSISTENCE_KEY, JSON.stringify({ schemaVersion: 1, provider }));
 }

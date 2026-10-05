@@ -38,8 +38,8 @@ export interface PluginsDialogShellProps extends PluginsBrowserProps {
 export function PluginsDialogShell({ isOpen, onClose, ...browserProps }: PluginsDialogShellProps) {
   if (!isOpen) return null;
   return (
-    <div aria-label="Plugins" aria-modal="true" className="sand-plugins-dialog" role="dialog">
-      <button aria-label="Close" className="sand-plugins-dialog__close" onClick={onClose} type="button">×</button>
+    <div aria-label="Плагины" aria-modal="true" className="sand-plugins-dialog" role="dialog">
+      <button aria-label="Закрыть" className="sand-plugins-dialog__close" onClick={onClose} type="button">×</button>
       <PluginsBrowser {...browserProps} />
     </div>
   );

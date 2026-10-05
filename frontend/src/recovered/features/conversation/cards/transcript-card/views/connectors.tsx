@@ -11,8 +11,8 @@ function actionKey(connector: string, accountKey?: string): string {
 }
 
 function actionLabel(server: ReturnType<typeof findConnectorServer>, catalog: ReturnType<typeof findConnectorCatalogEntry>): string | null {
-  if (server != null && (server.status === "needsAuth" || server.status === "disconnected" || server.status === "error")) return "Authorize";
-  if (catalog != null) return "Add";
+  if (server != null && (server.status === "needsAuth" || server.status === "disconnected" || server.status === "error")) return "Войти";
+  if (catalog != null) return "Добавить";
   return null;
 }
 
@@ -47,8 +47,8 @@ function ConnectorRow({ connector }: { connector: string }) {
     void provider.reopen(connector, action.accountKey);
   };
   return <article aria-busy={busy || undefined} aria-label={displayName} className="sand-connector-card">
-    <div className="sand-connector-card__header"><div className="sand-2lah0s sand-78zum5"><span aria-hidden="true" data-connector={connector} /></div><div className="sand-connector-card__text"><h3>{displayName}</h3>{server?.isTeamServer === true ? <span className="sand-connector-card__team">Team</span> : null}{catalog?.description == null ? null : <p>{catalog.description}</p>}{server == null && catalog == null ? null : <span>{server?.toolCount === 1 ? "1 tool" : server == null || server.toolCount === 0 ? null : `${server.toolCount} tools`}</span>}</div>
-      {connected ? <span className="sand-connector-card__status sand-3nfvp2 sand-6s0dn4 sand-2lah0s sand-1jnr06f sand-1yrsyyn sand-nuq7ks sand-10b6aqq sand-f18ygs sand-149ho13 sand-1buh4up sand-1w5rjie" role="status"><span aria-hidden="true" data-icon-name="check" />Added</span> : policyDisabled ? null : waiting ? <div className="sand-connector-card__handoff"><span>Waiting for {displayName} authorization…</span><button onClick={reopen} type="button">Reopen</button></div> : failed ? <div className="sand-connector-card__handoff"><span>Authorization didn't finish.</span><button onClick={retry} type="button">Retry</button></div> : label == null ? null : <button className="sand-2lah0s" disabled={busy} onClick={connect} type="button">{busy ? "" : label}</button>}
+    <div className="sand-connector-card__header"><div className="sand-2lah0s sand-78zum5"><span aria-hidden="true" data-connector={connector} /></div><div className="sand-connector-card__text"><h3>{displayName}</h3>{server?.isTeamServer === true ? <span className="sand-connector-card__team">Команда</span> : null}{catalog?.description == null ? null : <p>{catalog.description}</p>}{server == null && catalog == null ? null : <span>{server?.toolCount === 1 ? "1 инструмент" : server == null || server.toolCount === 0 ? null : server.toolCount < 5 ? `${server.toolCount} инструмента` : `${server.toolCount} инструментов`}</span>}</div>
+      {connected ? <span className="sand-connector-card__status sand-3nfvp2 sand-6s0dn4 sand-2lah0s sand-1jnr06f sand-1yrsyyn sand-nuq7ks sand-10b6aqq sand-f18ygs sand-149ho13 sand-1buh4up sand-1w5rjie" role="status"><span aria-hidden="true" data-icon-name="check" />Добавлено</span> : policyDisabled ? null : waiting ? <div className="sand-connector-card__handoff"><span>Ждём вход в {displayName}…</span><button onClick={reopen} type="button">Открыть снова</button></div> : failed ? <div className="sand-connector-card__handoff"><span>Вход не завершился.</span><button onClick={retry} type="button">Повторить</button></div> : label == null ? null : <button className="sand-2lah0s" disabled={busy} onClick={connect} type="button">{busy ? "" : label}</button>}
     </div>
   </article>;
 }

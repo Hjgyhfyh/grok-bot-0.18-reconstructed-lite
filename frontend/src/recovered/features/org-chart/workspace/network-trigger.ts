@@ -14,7 +14,7 @@ export interface AgentNetworkTriggerActions {
 }
 
 export const AGENT_NETWORK_TRIGGER = {
-  ariaLabel: "Agent network",
+  ariaLabel: "Сеть помощников",
   className: "sand-agents-sidebar__network",
   icon: "cube-nodes",
 } as const;

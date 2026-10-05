@@ -29,7 +29,7 @@ export async function loadShippedSpreadsheetRuntime(): Promise<SpreadsheetRuntim
     ? new URL("/upstream/assets/", window.location.href)
     : new URL("./", import.meta.url);
   const module = await import(/* @vite-ignore */ new URL(XLSX_RUNTIME_ASSET, base).href) as SpreadsheetRuntimeModule;
-  if (typeof module.read !== "function" || typeof module.utils?.sheet_to_json !== "function") throw new Error("The shipped spreadsheet parser is unavailable.");
+  if (typeof module.read !== "function" || typeof module.utils?.sheet_to_json !== "function") throw new Error("Модуль чтения таблиц недоступен.");
   return module;
 }
 
@@ -83,7 +83,7 @@ function SpreadsheetTable({ sheet }: { sheet: SpreadsheetSheet }) {
   const header = sheet.rows[0] ?? [];
   const rowValues = sheet.rows.slice(1, SPREADSHEET_RENDER_ROWS + 1);
   const columnCount = Math.min(SPREADSHEET_RENDER_ROWS, sheet.rows.reduce((count, row) => Math.max(count, row.length), 0));
-  if (rowValues.length === 0) return <FileViewerState title="This sheet is empty" />;
+  if (rowValues.length === 0) return <FileViewerState title="Лист пустой" />;
 
   const selectCell = (row: number, column: number) => {
     if (cellAt(sheet, row, column).length === 0) {
@@ -93,7 +93,7 @@ function SpreadsheetTable({ sheet }: { sheet: SpreadsheetSheet }) {
     setSelected((current) => current?.row === row && current.column === column ? null : { row, column });
   };
   const selectedText = selected == null ? null : cellAt(sheet, selected.row, selected.column);
-  const selectedLabel = selected == null ? "" : `${header[selected.column] || `Column ${selected.column + 1}`} · ${selected.row === -1 ? "header" : `row ${selected.row + 1}`}`;
+  const selectedLabel = selected == null ? "" : `${header[selected.column] || `Столбец ${selected.column + 1}`} · ${selected.row === -1 ? "заголовок" : `строка ${selected.row + 1}`}`;
   return <>
     <div className="sand-1iyjqo2 sand-2lwn1j">
       <div className="sand-c7ga6q sand-13qp9f6">
@@ -115,7 +115,7 @@ function SpreadsheetTable({ sheet }: { sheet: SpreadsheetSheet }) {
     {selectedText == null ? null : <div className="sand-10l6tqk sand-pnmzw7 sand-lftelb sand-n0vg7t sand-zkaem6 sand-78zum5 sand-dt5ytf sand-12yisup sand-1q4ynmn sand-mkeg23 sand-1y0btm7 sand-cq4si4 sand-lb921d sand-b3r6kr">
       <div className="sand-78zum5 sand-6s0dn4 sand-1qughib sand-167g77z sand-2lah0s sand-1yrsyyn sand-10b6aqq sand-f18ygs sand-y13l1i sand-so031l sand-1q0q8m5 sand-17fyfba">
         <span>{selectedLabel}</span>
-        <button aria-label="Close cell detail" onClick={() => setSelected(null)} type="button">×</button>
+        <button aria-label="Закрыть ячейку" onClick={() => setSelected(null)} type="button">×</button>
       </div>
       <div className="sand-1iyjqo2 sand-2lwn1j"><div className="sand-1ghz6dp sand-889kno sand-sag5q8 sand-zjhap9 sand-19tmk5i sand-126k92a sand-j0a0fe sand-1ct8sxb sand-1evy7pa sand-ss6m8b sand-1wd3ewq">{selectedText}</div></div>
     </div>}
@@ -130,13 +130,13 @@ function SpreadsheetBody({ snapshot, onDownload, source, downloadName, selectedS
   readonly selectedSheet: number;
   readonly setSelectedSheet: (index: number) => void;
 }) {
-  if (snapshot.status === "loading" || snapshot.status === "idle") return <div aria-live="polite" className="sand-file-viewer__body" role="status">Loading spreadsheet…</div>;
-  if (snapshot.status === "too-large") return <div className="sand-file-viewer__body"><FileViewerState action={<a download={downloadName} href={source} onClick={() => { void onDownload(); }}>Download</a>} detail="This spreadsheet is too large to preview here. Download it to open it in full." title="Spreadsheet too large to preview" /></div>;
-  if (snapshot.status === "missing") return <div className="sand-file-viewer__body"><FileViewerState title="File unavailable" /></div>;
-  if (snapshot.status === "error") return <div className="sand-file-viewer__body"><FileViewerState title="Couldn't read this spreadsheet" /></div>;
+  if (snapshot.status === "loading" || snapshot.status === "idle") return <div aria-live="polite" className="sand-file-viewer__body" role="status">Таблица загружается…</div>;
+  if (snapshot.status === "too-large") return <div className="sand-file-viewer__body"><FileViewerState action={<a download={downloadName} href={source} onClick={() => { void onDownload(); }}>Скачать</a>} detail="Эта таблица слишком большая, чтобы показать её здесь. Скачайте файл, чтобы открыть целиком." title="Таблица слишком большая для просмотра" /></div>;
+  if (snapshot.status === "missing") return <div className="sand-file-viewer__body"><FileViewerState title="Файл недоступен" /></div>;
+  if (snapshot.status === "error") return <div className="sand-file-viewer__body"><FileViewerState title="Не удалось прочитать таблицу" /></div>;
   const sheet = snapshot.sheets[selectedSheet] ?? null;
   return <div className="sand-file-viewer__body">
-    {sheet == null ? <FileViewerState title="File unavailable" /> : <SpreadsheetTable sheet={sheet} />}
+    {sheet == null ? <FileViewerState title="Файл недоступен" /> : <SpreadsheetTable sheet={sheet} />}
   </div>;
 }
 
@@ -167,9 +167,9 @@ export function SpreadsheetViewer({ source, name, isOpen, onClose, onDownload, r
   return createPortal(<div aria-labelledby={titleId} aria-modal="true" className="sand-file-viewer" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }} role="dialog">
     <section className="sand-file-viewer__panel">
       <header className="sand-file-viewer__header">
-        <div><h2 id={titleId}>{name}</h2>{rowCount == null ? null : <span>{rowCount.toLocaleString()} {rowCount === 1 ? "row" : "rows"}</span>}</div>
+        <div><h2 id={titleId}>{name}</h2>{rowCount == null ? null : <span>{rowCount.toLocaleString()} {rowCount % 10 === 1 && rowCount % 100 !== 11 ? "строка" : rowCount % 10 >= 2 && rowCount % 10 <= 4 && (rowCount % 100 < 12 || rowCount % 100 > 14) ? "строки" : "строк"}</span>}</div>
         {sheets.length > 1 ? <div className="sand-file-viewer__toolbar">{sheets.map((sheet, index) => <button aria-pressed={index === selectedSheet} key={`${sheet.name}-${index}`} onClick={() => setSelectedSheet(index)} type="button">{sheet.name}</button>)}</div> : null}
-        <div className="sand-file-viewer__actions"><a aria-label="Download file" download={name} href={source} onClick={() => { void onDownload(); }}>⇩</a><button aria-label="Close preview" onClick={onClose} type="button">×</button></div>
+        <div className="sand-file-viewer__actions"><a aria-label="Скачать файл" download={name} href={source} onClick={() => { void onDownload(); }}>⇩</a><button aria-label="Закрыть просмотр" onClick={onClose} type="button">×</button></div>
       </header>
       <SpreadsheetBody downloadName={name} onDownload={onDownload} selectedSheet={selectedSheet} setSelectedSheet={setSelectedSheet} snapshot={snapshot} source={source} />
     </section>

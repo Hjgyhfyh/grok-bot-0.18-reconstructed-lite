@@ -83,7 +83,7 @@ function WidgetQuestion({ entry, isKeyboardTarget, isStale }: TranscriptCardLeaf
         <p className="sand-widget__title sand-10im51j sand-rxpjvj sand-euugli sand-1wd3ewq sand-j0a0fe" id={titleId}>{widget.prompt}</p>
         {widget.helpText == null ? null : <p className="sand-widget__subtitle sand-10im51j sand-rxpjvj sand-19aaqeu sand-j0a0fe">{widget.helpText}</p>}
       </div>
-      <SandIconButton aria-label="Dismiss question" className="sand-widget__dismiss" disabled={!canAct} icon="close" onClick={dismiss} size="sm" title="Dismiss without answering" type="button" variant="ghost" />
+      <SandIconButton aria-label="Пропустить вопрос" className="sand-widget__dismiss" disabled={!canAct} icon="close" onClick={dismiss} size="sm" title="Пропустить без ответа" type="button" variant="ghost" />
     </div>
     <div className="sand-widget__options sand-78zum5 sand-dt5ytf sand-h8yej3 sand-euugli sand-qjedn3 sand-1y0btm7 sand-q03nf1 sand-ur7f20 sand-b3r6kr sand-13l7odt">
       {widget.options.map((option, index) => <button aria-keyshortcuts={isKeyboardTarget ? letter(index).toLowerCase() : undefined} className="sand-widget-option sand-78zum5 sand-1iyjqo2 sand-s83m0k sand-dt5ytf sand-1cy8zhl sand-euugli" disabled={!canAct} key={`${optionValue(option)}-${index}`} onClick={() => submit(optionValue(option))} type="button">
@@ -92,8 +92,8 @@ function WidgetQuestion({ entry, isKeyboardTarget, isStale }: TranscriptCardLeaf
       </button>)}
     </div>
     {widget.allowCustom !== true ? null : <div className="sand-widget__custom-row sand-78zum5 sand-1cy8zhl sand-167g77z sand-h8yej3 sand-euugli">
-      <div className="sand-widget__custom-field sand-1iyjqo2 sand-s83m0k sand-1r8uery sand-euugli sand-1lliihq sand-5f5z56 sand-9f619 sand-126k92a sand-j0a0fe sand-tt52l0 sand-10wlt62 sand-123j3cw sand-cicffo sand-s9asl8 sand-1lqa7cf sand-ng3xce sand-ur7f20 sand-jbqb8w sand-1wd3ewq sand-jb2p0i sand-if65rj sand-1fc57z9 sand-12oo3zp sand-1t137rt sand-1h7ufjq"><textarea aria-label="Custom answer" autoComplete="off" className="sand-widget__custom-input" disabled={!canAct} onChange={(event) => setCustomValue(event.currentTarget.value)} onKeyDown={handleCustomKeyDown} placeholder="Type your own answer" rows={1} spellCheck={false} value={customValue} /></div>
-      {customValue.trim().length === 0 ? null : <SandButton className="sand-widget__custom-submit" disabled={!canAct} size="sm" type="submit" variant="secondary">Submit</SandButton>}
+      <div className="sand-widget__custom-field sand-1iyjqo2 sand-s83m0k sand-1r8uery sand-euugli sand-1lliihq sand-5f5z56 sand-9f619 sand-126k92a sand-j0a0fe sand-tt52l0 sand-10wlt62 sand-123j3cw sand-cicffo sand-s9asl8 sand-1lqa7cf sand-ng3xce sand-ur7f20 sand-jbqb8w sand-1wd3ewq sand-jb2p0i sand-if65rj sand-1fc57z9 sand-12oo3zp sand-1t137rt sand-1h7ufjq"><textarea aria-label="Свой ответ" autoComplete="off" className="sand-widget__custom-input" disabled={!canAct} onChange={(event) => setCustomValue(event.currentTarget.value)} onKeyDown={handleCustomKeyDown} placeholder="Напишите свой ответ" rows={1} spellCheck={false} value={customValue} /></div>
+      {customValue.trim().length === 0 ? null : <SandButton className="sand-widget__custom-submit" disabled={!canAct} size="sm" type="submit" variant="secondary">Отправить</SandButton>}
     </div>}
   </form>;
 }
@@ -101,16 +101,16 @@ function WidgetQuestion({ entry, isKeyboardTarget, isStale }: TranscriptCardLeaf
 function WidgetResolved({ entry, answer }: { entry: WidgetEntry; answer: string }) {
   const options = entry.message.widget.options;
   const selectedIndex = options.findIndex((option) => optionValue(option) === answer);
-  return <div aria-label="Your answer" className="sand-widget sand-widget--resolved sand-dt5ytf sand-h8yej3 sand-euugli sand-qjedn3 sand-1y0btm7 sand-q03nf1 sand-ur7f20 sand-b3r6kr" role="group">
+  return <div aria-label="Ваш ответ" className="sand-widget sand-widget--resolved sand-dt5ytf sand-h8yej3 sand-euugli sand-qjedn3 sand-1y0btm7 sand-q03nf1 sand-ur7f20 sand-b3r6kr" role="group">
     <p className="sand-widget__title sand-10im51j sand-rxpjvj sand-euugli sand-1wd3ewq sand-j0a0fe">{entry.message.widget.prompt}</p>
     <div className="sand-widget__options" role="group">
-      <div className="sand-widget-option sand-widget-option--selected sand-78zum5 sand-6s0dn4 sand-167g77z sand-h8yej3 sand-euugli sand-e8ttls">{selectedIndex >= 0 ? <WidgetKey settled value={letter(selectedIndex)} /> : null}<span className="sand-widget-option__body"><span className="sand-widget-option__label sand-euugli sand-eaf4i8 sand-j0a0fe sand-dpxx8g sand-1ybxsvs">{optionLabel(options, answer)}</span></span><span title="Selected">✓</span></div>
+      <div className="sand-widget-option sand-widget-option--selected sand-78zum5 sand-6s0dn4 sand-167g77z sand-h8yej3 sand-euugli sand-e8ttls">{selectedIndex >= 0 ? <WidgetKey settled value={letter(selectedIndex)} /> : null}<span className="sand-widget-option__body"><span className="sand-widget-option__label sand-euugli sand-eaf4i8 sand-j0a0fe sand-dpxx8g sand-1ybxsvs">{optionLabel(options, answer)}</span></span><span title="Выбрано">✓</span></div>
     </div>
   </div>;
 }
 
 function WidgetDismissed({ entry }: { entry: WidgetEntry }) {
-  return <div className="sand-widget sand-widget--dismissed sand-3nfvp2 sand-6s0dn4 sand-17d4w8g sand-2lah0s sand-1nn3v0j sand-y13l1i sand-1120s5i sand-163pfp sand-149ho13 sand-19aaqeu sand-1ciwos8" data-dismissed="true" role="group"><p className="sand-widget__title sand-1iyjqo2 sand-s83m0k sand-euugli sand-10im51j sand-rxpjvj sand-19aaqeu sand-j0a0fe">{entry.message.widget.prompt}</p><span className="sand-widget__dismissed-pill sand-1v4s8kt sand-ols6we sand-149ho13 sand-2lah0s sand-xa9ouo">Dismissed</span></div>;
+  return <div className="sand-widget sand-widget--dismissed sand-3nfvp2 sand-6s0dn4 sand-17d4w8g sand-2lah0s sand-1nn3v0j sand-y13l1i sand-1120s5i sand-163pfp sand-149ho13 sand-19aaqeu sand-1ciwos8" data-dismissed="true" role="group"><p className="sand-widget__title sand-1iyjqo2 sand-s83m0k sand-euugli sand-10im51j sand-rxpjvj sand-19aaqeu sand-j0a0fe">{entry.message.widget.prompt}</p><span className="sand-widget__dismissed-pill sand-1v4s8kt sand-ols6we sand-149ho13 sand-2lah0s sand-xa9ouo">Пропущено</span></div>;
 }
 
 export function WidgetTranscriptCard(props: TranscriptCardLeafProps) {

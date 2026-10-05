@@ -15,17 +15,17 @@ export const AVATAR_MAX_ZOOM = 5;
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=22574 (PQ character palette; SHA256 ef4e9831b65d39633f09c9ad0c083b98b7ebf52e3bb558182aee5bde31f876fa)
 // @evidence recovered/frontend/app/assets/index-UbX-y3il.js#byteOffset=22574 (PQ character palette; SHA256 80464803b50f478598080bdc1b91da3996c6b74168e2351ea26f620f2ec62ba5)
 export const AVATAR_COLORS = [
-  { id: "black", label: "Black", value: "#000" },
-  { id: "brown", label: "Brown", value: "#936439" },
-  { id: "red", label: "Red", value: "#FF263C" },
-  { id: "orange", label: "Orange", value: "#FF6700" },
-  { id: "yellow", label: "Yellow", value: "#FF9800" },
-  { id: "green", label: "Green", value: "#00C972" },
-  { id: "cyan", label: "Cyan", value: "#00BCA6" },
-  { id: "blue", label: "Blue", value: "#1084FE" },
-  { id: "violet", label: "Violet", value: "#9159FE" },
-  { id: "magenta", label: "Magenta", value: "#FF309B" },
-  { id: "gray", label: "Gray", value: "#777777" },
+  { id: "black", label: "Чёрный", value: "#000" },
+  { id: "brown", label: "Коричневый", value: "#936439" },
+  { id: "red", label: "Красный", value: "#FF263C" },
+  { id: "orange", label: "Оранжевый", value: "#FF6700" },
+  { id: "yellow", label: "Жёлтый", value: "#FF9800" },
+  { id: "green", label: "Зелёный", value: "#00C972" },
+  { id: "cyan", label: "Бирюзовый", value: "#00BCA6" },
+  { id: "blue", label: "Синий", value: "#1084FE" },
+  { id: "violet", label: "Фиолетовый", value: "#9159FE" },
+  { id: "magenta", label: "Розовый", value: "#FF309B" },
+  { id: "gray", label: "Серый", value: "#777777" },
 ] as const;
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=22691 (Ij character shapes; SHA256 ef4e9831b65d39633f09c9ad0c083b98b7ebf52e3bb558182aee5bde31f876fa)
@@ -96,13 +96,13 @@ export function avatarCropRect(source: AvatarImage, crop: AvatarCrop): { readonl
 function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
-    image.onload = () => image.naturalWidth > 0 && image.naturalHeight > 0 ? resolve(image) : reject(new Error("That image could not be loaded."));
-    image.onerror = () => reject(new Error("That image could not be loaded."));
+    image.onload = () => image.naturalWidth > 0 && image.naturalHeight > 0 ? resolve(image) : reject(new Error("Не удалось загрузить картинку."));
+    image.onerror = () => reject(new Error("Не удалось загрузить картинку."));
     image.src = dataUrl;
   });
 }
 
-function canvasContext(canvas: HTMLCanvasElement, message = "Could not export the avatar."): CanvasRenderingContext2D {
+function canvasContext(canvas: HTMLCanvasElement, message = "Не удалось сохранить картинку."): CanvasRenderingContext2D {
   const context = canvas.getContext("2d");
   if (context == null) throw new Error(message);
   context.imageSmoothingEnabled = true;
@@ -120,16 +120,16 @@ async function normalizeDataUrl(dataUrl: string): Promise<AvatarImage> {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  canvasContext(canvas, "That image could not be loaded.").drawImage(image, 0, 0, width, height);
+  canvasContext(canvas, "Не удалось загрузить картинку.").drawImage(image, 0, 0, width, height);
   return { dataUrl: canvas.toDataURL("image/png"), width, height };
 }
 
 function readFile(file: File): Promise<string> {
-  if (file.size > AVATAR_SOURCE_MAX_BYTES) return Promise.reject(new Error("Choose an image smaller than 25 MB."));
+  if (file.size > AVATAR_SOURCE_MAX_BYTES) return Promise.reject(new Error("Выберите картинку меньше 25 МБ."));
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("That file could not be read."));
-    reader.onerror = () => reject(new Error("That file could not be read."));
+    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Не удалось прочитать файл."));
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл."));
     reader.readAsDataURL(file);
   });
 }
@@ -144,7 +144,7 @@ async function encodePng(source: AvatarImage, crop: AvatarCrop): Promise<string>
   const dataUrl = canvas.toDataURL("image/png");
   const comma = dataUrl.indexOf(",");
   const base64 = comma < 0 ? "" : dataUrl.slice(comma + 1);
-  if (base64.length === 0) throw new Error("Could not export the avatar.");
+  if (base64.length === 0) throw new Error("Не удалось сохранить картинку.");
   return base64;
 }
 

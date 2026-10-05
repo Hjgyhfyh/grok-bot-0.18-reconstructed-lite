@@ -13,16 +13,16 @@ export function PluginGitHubAuthBanner({ authBlocked, isLaunching, onFix }: Plug
   if (authBlocked.length === 0) return null;
   return (
     <section
-      aria-label="Plugin content needs GitHub authentication"
+      aria-label="Нужен вход в GitHub, чтобы загрузить плагины"
       className="sand-9f619 sand-78zum5 sand-6s0dn4 sand-ou54vl sand-2lah0s sand-889kno sand-cicffo sand-1a8lsjc sand-f18ygs sand-1q4ynmn sand-1xv9fit sand-1o5m0de"
       role="status"
     >
       <span className="sand-78zum5 sand-dt5ytf sand-195vfkc sand-1iyjqo2 sand-s83m0k sand-euugli">
-        <span className="sand-vak8d5">Complete GitHub auth to sync installed plugins</span>
+        <span className="sand-vak8d5">Войдите в GitHub, чтобы обновить установленные плагины</span>
         <span className="sand-19aaqeu">{pluginAuthBlockedDetail(authBlocked)}</span>
       </span>
       <button disabled={isLaunching} onClick={onFix} type="button">
-        {isLaunching ? "Opening…" : "Fix with agent"}
+        {isLaunching ? "Открываем…" : "Исправить с помощью помощника"}
       </button>
     </section>
   );

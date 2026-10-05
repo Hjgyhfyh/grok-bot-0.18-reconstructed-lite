@@ -7,16 +7,16 @@ import { projectLeafEntry, useTranscriptCardLeafProviders, type TranscriptCardLe
 // @evidence src/app/dist/renderer/assets/view-CizPQWLy.js#byteOffset=5912 (status, PR, branch, stats, and actions)
 
 const statusLabels: Record<CloudAgentStatus, { label: string; tone: string }> = {
-  creating: { label: "Creating", tone: "accent" },
-  running: { label: "Running", tone: "accent" },
-  finished: { label: "Done", tone: "done" },
-  error: { label: "Error", tone: "danger" },
-  expired: { label: "Expired", tone: "danger" },
-  unknown: { label: "Status unavailable", tone: "muted" },
+  creating: { label: "Создаётся", tone: "accent" },
+  running: { label: "Выполняется", tone: "accent" },
+  finished: { label: "Готово", tone: "done" },
+  error: { label: "Ошибка", tone: "danger" },
+  expired: { label: "Срок истёк", tone: "danger" },
+  unknown: { label: "Статус недоступен", tone: "muted" },
 };
 
 function filesChangedLabel(count: number): string {
-  return `${count} file${count === 1 ? "" : "s"} changed`;
+  return `Изменено файлов: ${count}`;
 }
 
 function pullRequestIcon(prState: string | undefined): { name: string; color: string } {
@@ -38,22 +38,22 @@ function CloudAgentStatusBadge({ status }: { status: CloudAgentStatus }) {
 function CloudAgentBody({ info, onOpen, onOpenPr, disabled }: { info: CloudAgentInfo | null; onOpen: () => void; onOpenPr?: (url: string) => void; disabled: boolean }) {
   const titleId = useId();
   if (info == null) {
-    return <article aria-label="Cursor cloud agent" className="sand-cursor-agent-card" aria-busy="true"><div className="sand-cursor-agent-card__content sand-78zum5 sand-dt5ytf sand-1jnr06f sand-h8yej3 sand-euugli"><span aria-hidden="true" className="sand-cursor-agent-card__content" /><span aria-hidden="true" className="sand-cursor-agent-card__content" /><span aria-hidden="true" className="sand-cursor-agent-card__content" /></div></article>;
+    return <article aria-label="Облачный помощник Cursor" className="sand-cursor-agent-card" aria-busy="true"><div className="sand-cursor-agent-card__content sand-78zum5 sand-dt5ytf sand-1jnr06f sand-h8yej3 sand-euugli"><span aria-hidden="true" className="sand-cursor-agent-card__content" /><span aria-hidden="true" className="sand-cursor-agent-card__content" /><span aria-hidden="true" className="sand-cursor-agent-card__content" /></div></article>;
   }
-  const title = info.name?.trim() || "Cursor cloud agent";
+  const title = info.name?.trim() || "Облачный помощник Cursor";
   const hasPr = info.prUrl != null && info.prUrl.length > 0;
   return <article aria-labelledby={titleId} className="sand-cursor-agent-card">
     <div className="sand-cursor-agent-card__content sand-78zum5 sand-dt5ytf sand-1jnr06f sand-h8yej3 sand-euugli">
       <div className="sand-cursor-agent-card__header sand-78zum5 sand-6s0dn4 sand-167g77z sand-h8yej3 sand-euugli">
         <div className="sand-cursor-agent-card__title-slot sand-78zum5 sand-1iyjqo2 sand-s83m0k sand-euugli">
-          {hasPr && onOpenPr != null ? <button className="sand-cursor-agent-card__title-button" disabled={disabled} onClick={() => onOpenPr(info.prUrl as string)} title="Open the pull request" type="button"><span className="sand-cursor-agent-card__title" id={titleId}>{title}</span></button> : <span className="sand-cursor-agent-card__title" id={titleId}>{title}</span>}
+          {hasPr && onOpenPr != null ? <button className="sand-cursor-agent-card__title-button" disabled={disabled} onClick={() => onOpenPr(info.prUrl as string)} title="Открыть запрос на слияние" type="button"><span className="sand-cursor-agent-card__title" id={titleId}>{title}</span></button> : <span className="sand-cursor-agent-card__title" id={titleId}>{title}</span>}
         </div>
         <CloudAgentStatusBadge status={info.status} />
       </div>
       {info.prompt?.trim().length ? <p className="sand-cursor-agent-card__prompt">{info.prompt}</p> : null}
       {info.branchName?.trim().length ? (() => { const icon = pullRequestIcon(info.prState ?? (hasPr ? "unknown" : "none")); return <span className="sand-cursor-agent-card__branch"><span aria-hidden="true" data-color={icon.color} data-icon-name={icon.name} data-size="sm" /> <span className="sand-cursor-agent-card__branch-name">{info.branchName}</span>{info.prNumber == null ? null : <span className="sand-cursor-agent-card__pr-number">PR #{info.prNumber}</span>}</span>; })() : info.prNumber == null ? null : <span className="sand-cursor-agent-card__pr-number">PR #{info.prNumber}</span>}
       {(info.filesChanged ?? 0) > 0 ? <div className="sand-cursor-agent-card__stats"><span className="sand-cursor-agent-card__stats-files"><span aria-hidden="true" data-icon-name="plus-minus" />{filesChangedLabel(info.filesChanged ?? 0)}</span><span className="sand-cursor-agent-card__stat-numbers">{(info.linesAdded ?? 0) > 0 ? <span className="sand-1w5rjie">+{info.linesAdded}</span> : null}{(info.linesRemoved ?? 0) > 0 ? <span className="sand-1jh5svw">-{info.linesRemoved}</span> : null}</span></div> : null}
-      <div className="sand-cursor-agent-card__footer"><>{hasPr && onOpenPr != null ? <button className="sand-cursor-agent-card__view-pr" disabled={disabled} onClick={() => onOpenPr(info.prUrl as string)} title="Open the pull request" type="button">View PR <span aria-hidden="true" data-icon-name="arrow-right-up" /></button> : null}</><button className="sand-cursor-agent-card__open" disabled={disabled} onClick={onOpen} title="Open this cloud agent in Cursor" type="button"><span aria-hidden="true" data-icon-name="cursor-logo" />Open in Cursor</button></div>
+      <div className="sand-cursor-agent-card__footer"><>{hasPr && onOpenPr != null ? <button className="sand-cursor-agent-card__view-pr" disabled={disabled} onClick={() => onOpenPr(info.prUrl as string)} title="Открыть запрос на слияние" type="button">Посмотреть PR <span aria-hidden="true" data-icon-name="arrow-right-up" /></button> : null}</><button className="sand-cursor-agent-card__open" disabled={disabled} onClick={onOpen} title="Открыть этого облачного помощника в Cursor" type="button"><span aria-hidden="true" data-icon-name="cursor-logo" />Открыть в Cursor</button></div>
     </div>
   </article>;
 }

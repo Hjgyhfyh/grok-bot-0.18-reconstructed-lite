@@ -64,25 +64,25 @@ export function AgentRowActions({ agentId, agentName, isPinned = false, hasUnrea
   };
 
   const canMoveToSection = !isPinned && !isHidden && (onMoveToNewSection != null || (sections != null && sections.length > 0 && onMoveToSection != null));
-  const sectionLabel = sections != null && sections.length > 0 ? "Move to" : "Move to new section";
+  const sectionLabel = sections != null && sections.length > 0 ? "Переместить в" : "Переместить в новый раздел";
   const closeMenu = () => {
     setMenu(null);
     setMoveMenuOpen(false);
   };
 
   const content = <div className="ui-menu__list" data-component="menu-list">
-    {onOpenProfile == null ? null : <SandButton onClick={() => { closeMenu(); onOpenProfile(agentId); }} leadingIcon="pencil" role="menuitem" size="sm" variant="secondary">Edit Profile</SandButton>}
-    {onShowFullConversation == null ? null : <SandButton onClick={() => { closeMenu(); onShowFullConversation(agentId); }} leadingIcon="list-bullets" role="menuitem" size="sm" variant="secondary">Show full conversation</SandButton>}
-    {onShowAsyncTasks == null ? null : <SandButton onClick={() => { closeMenu(); onShowAsyncTasks(agentId); }} leadingIcon="clock" role="menuitem" size="sm" variant="secondary">Show async tasks</SandButton>}
+    {onOpenProfile == null ? null : <SandButton onClick={() => { closeMenu(); onOpenProfile(agentId); }} leadingIcon="pencil" role="menuitem" size="sm" variant="secondary">Изменить помощника</SandButton>}
+    {onShowFullConversation == null ? null : <SandButton onClick={() => { closeMenu(); onShowFullConversation(agentId); }} leadingIcon="list-bullets" role="menuitem" size="sm" variant="secondary">Показать всю переписку</SandButton>}
+    {onShowAsyncTasks == null ? null : <SandButton onClick={() => { closeMenu(); onShowAsyncTasks(agentId); }} leadingIcon="clock" role="menuitem" size="sm" variant="secondary">Показать фоновые задачи</SandButton>}
     {canMoveToSection ? sections != null && sections.length > 0 ? <>
       <SandMenuRoot closeOnSelect={false} onOpenChange={setMoveMenuOpen} open={moveMenuOpen} placement="right-start">
         <SandMenuTrigger><SandButton aria-expanded={moveMenuOpen} aria-haspopup="menu" role="menuitem" size="sm" variant="secondary">{sectionLabel}</SandButton></SandMenuTrigger>
-        <SandMenuContent ariaLabel="Move to section">
+        <SandMenuContent ariaLabel="Переместить в раздел">
           {onMoveToSection == null ? null : sections.map((section, index) => <SandMenuItem index={index} key={section.id} onSelect={() => { closeMenu(); onMoveToSection(section.id); }}>{section.name}</SandMenuItem>)}
-          {onMoveToNewSection == null ? null : <SandMenuItem index={sections.length} onSelect={() => { closeMenu(); onMoveToNewSection(); }}>New section</SandMenuItem>}
+          {onMoveToNewSection == null ? null : <SandMenuItem index={sections.length} onSelect={() => { closeMenu(); onMoveToNewSection(); }}>Новый раздел</SandMenuItem>}
         </SandMenuContent>
       </SandMenuRoot>
-    </> : <SandButton onClick={() => { closeMenu(); onMoveToNewSection?.(); }} role="menuitem" size="sm" variant="secondary">Move to new section</SandButton> : null}
+    </> : <SandButton onClick={() => { closeMenu(); onMoveToNewSection?.(); }} role="menuitem" size="sm" variant="secondary">Переместить в новый раздел</SandButton> : null}
     {actions.map((action) => <SandButton
       key={action.id}
       onClick={() => {

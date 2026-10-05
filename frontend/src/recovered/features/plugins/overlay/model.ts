@@ -107,26 +107,26 @@ export function canUpdatePrivateSkill(skill: Pick<PluginPrivateSkill, "source" |
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L770
 export function pluginPrivateSkillSubtitle(skill: Pick<PluginPrivateSkill, "source" | "description">): string {
-  return `${skill.source === "plugin" ? "Published" : "Created locally"} · ${skill.description.length > 0 ? skill.description : "Skill"}`;
+  return `${skill.source === "plugin" ? "Опубликовано" : "Создано на этом компьютере"} · ${skill.description.length > 0 ? skill.description : "Навык"}`;
 }
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L1377
 export function pluginPrivateSkillSourceLabel(skill: Pick<PluginPrivateSkill, "source">): string {
-  if (skill.source === "managed") return "Managed by Cursor";
-  if (skill.source === "plugin") return "Shared with your team";
-  return "Private skill";
+  if (skill.source === "managed") return "Управляется Cursor";
+  if (skill.source === "plugin") return "Доступно вашей команде";
+  return "Личный навык";
 }
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L1240
 export function pluginSkillPublishTargetsFromCoordinator(value: unknown): PluginSkillPublishTargets {
-  if (typeof value !== "object" || value == null || Array.isArray(value)) return { kind: "unavailable", reason: "No team is available to publish to." };
+  if (typeof value !== "object" || value == null || Array.isArray(value)) return { kind: "unavailable", reason: "Опубликовать некуда: нет ни одной команды." };
   const record = value as Record<string, unknown>;
   const teams = Array.isArray(record.teams) ? record.teams.flatMap((candidate) => {
     if (typeof candidate !== "object" || candidate == null || Array.isArray(candidate)) return [];
     const team = candidate as Record<string, unknown>;
     return typeof team.teamId === "string" && typeof team.name === "string" ? [{ teamId: team.teamId, name: team.name }] : [];
   }) : [];
-  if (teams.length === 0) return { kind: "unavailable", reason: typeof record.unavailableReason === "string" ? record.unavailableReason : "No team is available to publish to." };
+  if (teams.length === 0) return { kind: "unavailable", reason: typeof record.unavailableReason === "string" ? record.unavailableReason : "Опубликовать некуда: нет ни одной команды." };
   return { kind: "ready", teams };
 }
 
@@ -139,8 +139,8 @@ export function pluginInstallMode(value: EffectivePlugin | McpServerSummary | un
 
 export function pluginTeamPolicyLabel(mode: PluginInstallMode): string | null {
   switch (mode) {
-    case "team-required": return "Managed by your team";
-    case "team-default": return "Added by your team";
+    case "team-required": return "Управляет ваша команда";
+    case "team-default": return "Добавила ваша команда";
     case "user":
     case "unknown": return null;
   }
@@ -175,7 +175,7 @@ export function normalizePluginSetupValues(
 }
 
 export function pluginAccountLabel(accountKey: string): string {
-  return accountKey === DEFAULT_ACCOUNT_KEY ? "Default" : accountKey;
+  return accountKey === DEFAULT_ACCOUNT_KEY ? "Основной" : accountKey;
 }
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L839
@@ -188,11 +188,11 @@ export function pluginAccountAction(accounts: readonly PluginAccount[], rawLabel
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L325
 export function pluginAuthenticationNotice(result: McpAuthenticationResult): { kind: "success" | "error"; text: string } {
   switch (result.status) {
-    case "already-authenticated": return { kind: "success", text: "Already authenticated" };
-    case "not-configured": return { kind: "error", text: "Server is not configured" };
+    case "already-authenticated": return { kind: "success", text: "Вход уже выполнен" };
+    case "not-configured": return { kind: "error", text: "Сервер не настроен" };
     case "not-supported": return { kind: "error", text: result.message };
-    case "unreachable": return { kind: "error", text: `Couldn't start sign-in: ${result.message}` };
-    case "started": return { kind: "success", text: "Opened the OAuth flow in your browser. Return here once it completes." };
+    case "unreachable": return { kind: "error", text: `Не удалось начать вход: ${result.message}` };
+    case "started": return { kind: "success", text: "Вход открыт в браузере. Вернитесь сюда, когда закончите." };
   }
 }
 

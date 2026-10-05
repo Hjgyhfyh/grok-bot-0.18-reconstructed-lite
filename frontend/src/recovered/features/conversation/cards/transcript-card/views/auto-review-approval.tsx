@@ -12,22 +12,22 @@ const NOOP_SUBSCRIBE = () => () => {};
 const PENDING_STATE: AutoReviewApprovalActionState = { status: "pending" };
 
 const SURFACE_COPY: Record<string, { title: string; subject: string }> = {
-  host_shell: { title: "The agent wants to run a command", subject: "command" },
-  box_shell: { title: "The agent wants to run a command", subject: "command" },
-  mcp: { title: "The agent wants to use a connected service", subject: "details" },
-  computer: { title: "Auto-review Paused This Action", subject: "details" },
-  automation_write: { title: "Auto-review Paused This Action", subject: "details" },
-  cloud_agent: { title: "Auto-review Paused This Action", subject: "details" },
-  subagent: { title: "The agent wants to run a task", subject: "details" },
+  host_shell: { title: "Помощник хочет выполнить команду", subject: "команда" },
+  box_shell: { title: "Помощник хочет выполнить команду", subject: "команда" },
+  mcp: { title: "Помощник хочет воспользоваться подключённым сервисом", subject: "подробности" },
+  computer: { title: "Автопроверка остановила это действие", subject: "подробности" },
+  automation_write: { title: "Автопроверка остановила это действие", subject: "подробности" },
+  cloud_agent: { title: "Автопроверка остановила это действие", subject: "подробности" },
+  subagent: { title: "Помощник хочет выполнить задачу", subject: "подробности" },
 };
 
 function surfaceCopy(surface: AutoReviewSurface): { title: string; subject: string } {
-  return SURFACE_COPY[surface] ?? { title: "Auto-review Paused This Action", subject: "details" };
+  return SURFACE_COPY[surface] ?? { title: "Автопроверка остановила это действие", subject: "подробности" };
 }
 
 function locationForSurface(surface: AutoReviewSurface): string | undefined {
-  if (surface === "host_shell") return "Runs on your local computer";
-  if (surface === "box_shell" || surface === "computer") return "Runs on Grok Bot's computer";
+  if (surface === "host_shell") return "Выполняется на вашем компьютере";
+  if (surface === "box_shell" || surface === "computer") return "Выполняется на компьютере Grok Bot";
   return undefined;
 }
 
@@ -58,12 +58,12 @@ function redactProposedRule(value: string | undefined): string | undefined {
 
 function statusLabel(status: AutoReviewApproval["status"] | "failed" | "stale" | "unavailable"): string | undefined {
   switch (status) {
-    case "approved": return "Allowed once";
-    case "always": return "Always allowed";
-    case "denied": return "Denied";
-    case "expired": return "Expired";
-    case "failed": return "Status unavailable";
-    case "stale": return "Expired";
+    case "approved": return "Разрешено один раз";
+    case "always": return "Разрешено всегда";
+    case "denied": return "Запрещено";
+    case "expired": return "Срок истёк";
+    case "failed": return "Статус недоступен";
+    case "stale": return "Срок истёк";
     default: return undefined;
   }
 }
@@ -103,7 +103,7 @@ function AutoReviewApprovalBody({ approval, entryId, isStale }: { approval: Auto
   const hideSummary = approval.command === undefined || approval.summary === "Run a command on your local computer" || approval.summary === "Run a command on Grok Bot's computer" || approval.summary === "Run a command on the agent's VM" || /^Run [“"]/.test(approval.summary) || /^Use .+ tool .+ with /.test(approval.summary);
   const redactedRule = redactProposedRule(approval.proposedRule);
   const settledNote = state.status === "settled" && state.resolution === "always"
-    ? `A rule always allowing this was added to your Auto-review settings${redactedRule === undefined ? "" : `: “${redactedRule}”`}`
+    ? `Правило «всегда разрешать» добавлено в настройки автопроверки${redactedRule === undefined ? "" : `: «${redactedRule}»`}`
     : undefined;
   const resolve = (resolution: "approved" | "always" | "denied") => {
     if (!canAct) return;
@@ -111,16 +111,16 @@ function AutoReviewApprovalBody({ approval, entryId, isStale }: { approval: Auto
   };
   const status = state.status === "failed" ? "unavailable" : state.status === "stale" ? "expired" : state.status === "settled" ? state.resolution : approval.status;
 
-  return <section aria-labelledby={titleId} aria-label="Auto-review approval">
+  return <section aria-labelledby={titleId} aria-label="Разрешение автопроверки">
     <h3 id={titleId}>{copy.title}</h3>
     {approval.reason == null ? null : <p>{approval.reason}</p>}
     {locationForSurface(approval.surface) == null ? null : <p>{locationForSurface(approval.surface)}</p>}
     {hideSummary ? null : <details><summary>{copy.subject}</summary><p>{truncateSummary(summary)}</p></details>}
     {settledNote == null ? null : <p>{settledNote}</p>}
     {status === "pending" ? <div>
-      <button disabled={!canAct} onClick={() => resolve("approved")} type="button">Allow once</button>
-      <button disabled={!canAct} onClick={() => resolve("always")} type="button">Always allow</button>
-      <button disabled={!canAct} onClick={() => resolve("denied")} type="button">Deny</button>
+      <button disabled={!canAct} onClick={() => resolve("approved")} type="button">Разрешить один раз</button>
+      <button disabled={!canAct} onClick={() => resolve("always")} type="button">Разрешать всегда</button>
+      <button disabled={!canAct} onClick={() => resolve("denied")} type="button">Запретить</button>
     </div> : <ApprovalStatus state={state} rawStatus={approval.status} />}
   </section>;
 }

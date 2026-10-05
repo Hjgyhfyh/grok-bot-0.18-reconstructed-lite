@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
-import { dirname, extname, isAbsolute, join, relative, sep } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ATTACHMENTS_DIRNAME, ASSETS_DIRNAME, getAgentAssetsDir, getAgentAttachmentsDir } from "../../attachment-paths.js";
 import { resolveChannelAttachment } from "../../connectors/channel-attachment.js";
@@ -18,6 +18,8 @@ import { stageAttachmentsIntoBox, type BoxStagingDependencies } from "./box-stag
 import { readEncodedImageSize, type ImageSize } from "./link-preview-image-bounds.js";
 import { fetchSafeLinkPreviewResource, parseSafeLinkPreviewUrl, SandLinkPreviewError } from "./safe-link-preview-fetch.js";
 import { withVideoPlaybackSource } from "./video-playback-rendition.js";
+import { extractAttachmentText, DEFAULT_DOCUMENT_LIMITS, type AttachmentTextResult, type DocumentExtractLimits } from "./document/text.js";
+import { buildAttachmentDocumentsNote, type AttachmentDocumentItem } from "./documents-note.js";
 
 export const LINK_CACHE_DIRNAME = "link-cache";
 export const LINK_CACHE_VERSION = 3;
@@ -31,6 +33,13 @@ export const LINK_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/
 export const LINK_IMAGE_ACCEPT = [...LINK_IMAGE_MIME_TYPES].join(",");
 export const ATTACHMENT_CHUNK_MAX_BYTES = 8 * 1024 * 1024;
 export const ATTACHMENT_TEXT_PREVIEW_BYTE_CAP = 64 * 1024;
+/**
+ * Сколько байт одного вложения читать целиком ради извлечения текста. Раньше
+ * превью читало 64 КБ, и `.docx` с картинками обрезался раньше, чем
+ * находилась часть `word/document.xml`. Файл в 100 МБ — это потолок приёма,
+ * а не рабочий объём, поэтому читать целиком безопасно.
+ */
+export const ATTACHMENT_WHOLE_READ_BYTE_CAP = 100 * 1024 * 1024;
 export class SandAttachmentError extends Error {}
 export interface IngestedAttachment { readonly absolutePath: string; readonly hash: string; readonly bytes: number }
 export interface LinkMetadata extends Record<string, unknown> {
@@ -211,10 +220,95 @@ export async function readHostAttachmentChunk(agentDir: string, filePath: string
   try { return videoPlayback ? await withVideoPlaybackSource(source, read) : await read(source); } catch { return null; }
 }
 export function resolveAttachmentOwnerDir(filePath: string): string | null { if (!filePath) return null; const resolved = reanchorSandPath(filePath), agentsRoot = join(getSandRootDir(), "agents"); if (!isPathWithin(agentsRoot, resolved)) return null; const segments = relative(agentsRoot, resolved).split(sep), agentId = segments[0], bucket = segments[1]; return segments.length >= 3 && isSafeFolderId(agentId) && (bucket === ATTACHMENTS_DIRNAME || bucket === ASSETS_DIRNAME) ? join(agentsRoot, agentId) : null; }
-const TEXT_PREVIEWABLE_EXTENSIONS = new Set(["txt","text","log","md","markdown","mdx","rst","adoc","tex","json","jsonc","json5","ndjson","csv","tsv","xml","yaml","yml","toml","ini","cfg","conf","env","properties","plist","gradle","html","htm","css","scss","sass","less","svg","js","jsx","mjs","cjs","ts","tsx","mts","cts","py","pyi","rb","go","rs","java","kt","kts","c","h","cc","cpp","cxx","hpp","hh","cs","php","swift","scala","dart","lua","pl","pm","r","sql","graphql","gql","proto","vue","svelte","astro","sh","bash","zsh","fish","bat","ps1","tf","tfvars","dockerfile","diff","patch"]);
-function isTextPreviewableName(path: string): boolean { const extension = extname(path).slice(1).toLowerCase(); return extension.length > 0 && TEXT_PREVIEWABLE_EXTENSIONS.has(extension); }
-function looksLikeBinary(bytes: Uint8Array): boolean { const sample = bytes.subarray(0, 8 * 1024); if (sample.byteLength === 0) return false; let controls = 0; for (const byte of sample) { if (byte === 0) return true; if (byte < 32 && !(byte >= 9 && byte <= 13)) controls += 1; } return controls / sample.byteLength > 0.3; }
-export async function readAttachmentText(agentDir: string, filePath: string) { const resolved = reanchorSandPath(filePath); if (!filePath || !isPathWithin(getAgentAttachmentsDir(agentDir), resolved)) return null; try { const info = await fs.stat(resolved); if (!info.isFile()) return null; if (!isTextPreviewableName(resolved)) return { kind: "binary" as const, bytes: info.size }; const handle = await fs.open(resolved, "r"); let head: Buffer; try { head = Buffer.alloc(ATTACHMENT_TEXT_PREVIEW_BYTE_CAP); const result = await handle.read(head, 0, head.length, 0); head = head.subarray(0, result.bytesRead); } finally { await handle.close(); } return looksLikeBinary(head) ? { kind: "binary" as const, bytes: info.size } : { kind: "text" as const, text: head.toString("utf8"), truncated: info.size > ATTACHMENT_TEXT_PREVIEW_BYTE_CAP, bytes: info.size }; } catch { return null; } }
+/** Байт, который ещё можно прочитать целиком: docx с картинками весит больше, чем его текст. */
+async function readWholeAttachment(resolved: string, byteCap: number): Promise<Buffer> {
+  const handle = await fs.open(resolved, "r");
+  try {
+    const { size } = await handle.stat();
+    const length = Math.min(size, byteCap);
+    if (length <= 0) return Buffer.alloc(0);
+    const buffer = Buffer.alloc(length);
+    const { bytesRead } = await handle.read(buffer, 0, length, 0);
+    return buffer.subarray(0, bytesRead);
+  } finally { await handle.close(); }
+}
+/** Потолки по умолчанию с возможностью сузить их на один вызов. */
+function resolveDocumentLimits(limits?: Partial<DocumentExtractLimits>): DocumentExtractLimits {
+  if (limits == null) return DEFAULT_DOCUMENT_LIMITS;
+  const base = DEFAULT_DOCUMENT_LIMITS;
+  return {
+    maxBytes: limits.maxBytes ?? base.maxBytes,
+    maxChars: limits.maxChars ?? base.maxChars,
+    maxArchiveInnerFiles: limits.maxArchiveInnerFiles ?? base.maxArchiveInnerFiles,
+    zip: limits.zip ?? base.zip,
+  };
+}
+
+const EMPTY_RESULT = (path: string, notice: string): AttachmentTextResult => ({
+  status: "unreadable", format: "binary", text: "", truncated: false, chars: 0, encoding: null, notice,
+});
+
+/**
+ * Текст одного вложения. Больше не спрашивает `TEXT_PREVIEWABLE_EXTENSIONS`:
+ * формат определяет `extractAttachmentText` по сигнатуре и по содержимому.
+ */
+export async function readAttachmentText(agentDir: string, filePath: string) {
+  const resolved = reanchorSandPath(filePath);
+  if (!filePath || !isPathWithin(getAgentAttachmentsDir(agentDir), resolved)) return null;
+  try {
+    const info = await fs.stat(resolved);
+    if (!info.isFile()) return null;
+    const bytes = await readWholeAttachment(resolved, ATTACHMENT_WHOLE_READ_BYTE_CAP);
+    if (bytes.byteLength === 0) return { kind: "binary" as const, bytes: info.size };
+    const extracted = extractAttachmentText(resolved, new Uint8Array(bytes));
+    if (extracted.status === "text" || extracted.status === "partial") {
+      return {
+        kind: "text" as const,
+        text: extracted.text,
+        truncated: extracted.truncated || info.size > bytes.byteLength,
+        bytes: info.size,
+        format: extracted.format,
+        encoding: extracted.encoding,
+        notice: extracted.notice,
+      };
+    }
+    return { kind: "binary" as const, bytes: info.size, format: extracted.format, notice: extracted.notice };
+  } catch { return null; }
+}
+
+/**
+ * Текст всех прикреплённых файлов разом. Это то, что нужно для «свести четыре
+ * файла в один отчёт»: у каждого файла есть имя и содержимое, и ни один файл
+ * не теряется из-за лимита интерфейса.
+ */
+export async function readAttachmentDocuments(
+  agentDir: string,
+  filePaths: readonly string[],
+  limits?: Partial<DocumentExtractLimits>,
+): Promise<AttachmentDocumentItem[]> {
+  const resolvedLimits = resolveDocumentLimits(limits);
+  const attachmentsDir = getAgentAttachmentsDir(agentDir);
+  const items: AttachmentDocumentItem[] = [];
+  for (const filePath of filePaths) {
+    const resolved = reanchorSandPath(filePath);
+    const filename = basename(resolved);
+    if (!filePath || !isPathWithin(attachmentsDir, resolved)) {
+      items.push({ filename, path: resolved, bytes: 0, result: EMPTY_RESULT(resolved, `Не смог прочитать файл ${filename} — он лежит вне папки вложений.`) });
+      continue;
+    }
+    let bytes = new Uint8Array();
+    let size = 0;
+    try {
+      const info = await fs.stat(resolved);
+      if (info.isFile()) {
+        size = info.size;
+        bytes = new Uint8Array(await readWholeAttachment(resolved, resolvedLimits.maxBytes));
+      }
+    } catch {}
+    items.push({ filename, path: resolved, bytes: size, result: extractAttachmentText(resolved, bytes, resolvedLimits) });
+  }
+  return items;
+}
 export async function readImageDimensions(filePath: string): Promise<ImageSize | null> { const resolved = reanchorSandPath(filePath), mime = servableImageMimeFromPath(resolved); if (mime == null) return null; try { return imageSize(await fs.readFile(resolved), mime); } catch { return null; } }
 export { Mp4Dimensions };
 export const VIDEO_DIMENSIONS_HEAD_BYTES = 1024 * 1024, VIDEO_DIMENSIONS_TAIL_BYTES = 8 * 1024 * 1024;
@@ -227,5 +321,10 @@ export function createAttachmentsService<Context>(deps: AttachmentsServiceDepend
   let fallbackAgentId: string | null = null;
   const resolveDir = (agentId?: string | null) => { const id = agentId ?? fallbackAgentId; if (!id) throw new SandAttachmentError("No active agent to attach to."); return resolveSandAgentDir(id); };
   const readDir = (path: string, agentId?: string | null) => resolveAttachmentOwnerDir(path) ?? (() => { try { return resolveDir(agentId); } catch { return null; } })();
-  return { setFallbackAgentId(agentId: string | null) { fallbackAgentId = agentId; }, async upload(args: { filename: string; bytesBase64?: string; agentId?: string | null }) { const result = await ingestAttachmentBytes(resolveDir(args.agentId), args.filename, Buffer.from(typeof args.bytesBase64 === "string" ? args.bytesBase64 : "", "base64")); return { path: result.absolutePath }; }, readImage: (args: { path: string }) => readHostAttachmentImage(args.path), async readText(args: { path: string; agentId?: string | null }) { const dir = readDir(args.path, args.agentId); if (dir == null) { deps.report?.({ extension: "attachments", kind: "read_text_miss", hasActive: args.agentId != null }); return null; } return await readAttachmentText(dir, args.path); }, async readChunk(args: { path: string; agentId?: string | null; offset: number; length: number; videoPlayback?: boolean }) { const dir = readDir(args.path, args.agentId); if (dir == null) { deps.report?.({ extension: "attachments", kind: "read_chunk_miss", hasActive: args.agentId != null }); return null; } return await readHostAttachmentChunk(dir, args.path, args.offset, args.length, args.videoPlayback); }, ingest: ingestAttachment, ingestBytes: ingestAttachmentBytes, persistImageBytes, readImageDimensions, readMediaDimensions, readVideoBytes: readHostAttachmentVideoBytes, resolveChannelAttachment, resolveOwnerDir: resolveAttachmentOwnerDir, createGenerateImageResourceAccessor: createSandGenerateImageResourceAccessor, stageIntoBox: (agentId: string, paths: readonly string[]) => stageAttachmentsIntoBox({ ctx: deps.ctx, box: deps.box, resolveOwnerDir: resolveAttachmentOwnerDir, upload: async (ctx, box, id, files) => { await uploadBoxFiles(ctx, box, id, files); } }, agentId, paths), createGenerateImageService: <C>(options: Parameters<typeof createSandGenerateImageService<C>>[1]) => createSandGenerateImageService(deps.auth, options) };
+  return { setFallbackAgentId(agentId: string | null) { fallbackAgentId = agentId; }, async upload(args: { filename: string; bytesBase64?: string; agentId?: string | null }) { const result = await ingestAttachmentBytes(resolveDir(args.agentId), args.filename, Buffer.from(typeof args.bytesBase64 === "string" ? args.bytesBase64 : "", "base64")); return { path: result.absolutePath }; }, readImage: (args: { path: string }) => readHostAttachmentImage(args.path), async readText(args: { path: string; agentId?: string | null }) { const dir = readDir(args.path, args.agentId); if (dir == null) { deps.report?.({ extension: "attachments", kind: "read_text_miss", hasActive: args.agentId != null }); return null; } return await readAttachmentText(dir, args.path); },
+    /**
+     * Содержимое всех прикреплённых файлов разом. Вызывающий код кладёт
+     * `buildAttachmentDocumentsNote(items)` в промпт хода.
+     */
+    async readDocuments(args: { paths: readonly string[]; agentId?: string | null }) { const dir = resolveAttachmentOwnerDir(args.paths[0] ?? "") ?? (() => { try { return resolveDir(args.agentId); } catch { return null; } })(); if (dir == null) { deps.report?.({ extension: "attachments", kind: "read_documents_miss", hasActive: args.agentId != null }); return null; } const items = await readAttachmentDocuments(dir, args.paths); return { items, note: buildAttachmentDocumentsNote(items) }; }, async readChunk(args: { path: string; agentId?: string | null; offset: number; length: number; videoPlayback?: boolean }) { const dir = readDir(args.path, args.agentId); if (dir == null) { deps.report?.({ extension: "attachments", kind: "read_chunk_miss", hasActive: args.agentId != null }); return null; } return await readHostAttachmentChunk(dir, args.path, args.offset, args.length, args.videoPlayback); }, ingest: ingestAttachment, ingestBytes: ingestAttachmentBytes, persistImageBytes, readImageDimensions, readMediaDimensions, readVideoBytes: readHostAttachmentVideoBytes, resolveChannelAttachment, resolveOwnerDir: resolveAttachmentOwnerDir, createGenerateImageResourceAccessor: createSandGenerateImageResourceAccessor, stageIntoBox: (agentId: string, paths: readonly string[]) => stageAttachmentsIntoBox({ ctx: deps.ctx, box: deps.box, resolveOwnerDir: resolveAttachmentOwnerDir, upload: async (ctx, box, id, files) => { await uploadBoxFiles(ctx, box, id, files); } }, agentId, paths), createGenerateImageService: <C>(options: Parameters<typeof createSandGenerateImageService<C>>[1]) => createSandGenerateImageService(deps.auth, options) };
 }

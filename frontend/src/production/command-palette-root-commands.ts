@@ -24,7 +24,7 @@ function infoCommand(
   keywords: readonly string[],
   run: () => void
 ): CommandPaletteCommand {
-  return { id, label, icon, keywords, detail: "Current chat", run };
+  return { id, label, icon, keywords, detail: "Текущий диалог", run };
 }
 
 /**
@@ -38,7 +38,7 @@ export function commandPaletteRootCommands(input: CommandPaletteRootCommandInput
   if (input.activeAgent.isGroup && input.activeAgent.raw.isSharedRoom !== true) {
     commands.push(infoCommand(
       "info:members",
-      "Members",
+      "Участники",
       "people",
       ["people", "group", "participants"],
       () => input.openInfoSection("members")
@@ -47,7 +47,7 @@ export function commandPaletteRootCommands(input: CommandPaletteRootCommandInput
   if (input.hasChannels) {
     commands.push(infoCommand(
       "info:channels",
-      "Channels",
+      "Каналы",
       "chat-bubbles",
       ["messaging", "platforms", "connect"],
       () => input.openInfoSection("channels")
@@ -55,7 +55,7 @@ export function commandPaletteRootCommands(input: CommandPaletteRootCommandInput
   }
   commands.push(infoCommand(
     "info:settings",
-    "Chat Settings",
+    "Настройки диалога",
     "settings-gear",
     ["details", "notifications"],
     () => input.openInfoSection("settings")
@@ -65,10 +65,10 @@ export function commandPaletteRootCommands(input: CommandPaletteRootCommandInput
     const action = input.computerUpdateAction;
     commands.push({
       id: "update:computer",
-      label: "Update Grok Bot's Computer",
+      label: "Обновить компьютер Grok Bot",
       icon: "device-desktop",
       keywords: ["box", "image", "machine", "recreate", "latest", "shared"],
-      detail: "Updates",
+      detail: "Обновления",
       run: () => input.openComputerUpdateConfirm(action)
     });
   }

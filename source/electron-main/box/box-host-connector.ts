@@ -109,9 +109,24 @@ export function isSignInRequiredFailure(error: unknown): boolean {
 
 export class BrokeredHostConnector {
   private blocked: { info: SandBoxBlockedInfo; untilMs: number } | undefined;
-  private readonly client: BrokerClient;
+  private readonly givenClient: BrokerClient | undefined;
+  private lazyClient: BrokerClient | undefined;
   constructor(private readonly deps: BrokerDeps, client?: BrokerClient, private readonly updateSink?: { noteBackendUpdateRequirement(required: boolean): void }) {
-    this.client = client ?? createSandCursorBackendClient(GrokBotService, deps);
+    this.givenClient = client;
+  }
+
+  /**
+   * The Cursor backend client is built on first use, not in the constructor.
+   * `createSandBackendTransport` refuses to build a transport while
+   * `SAND_BACKEND_URL` is empty, and `initializeServices` constructs this
+   * connector before `createWindow()`. Building the client eagerly therefore
+   * aborted the whole startup with `CURSOR_BACKEND_DISABLED_MESSAGE` and left
+   * the process running with no window. Nothing in DB Bot Lite dials the broker
+   * during startup, so the message now surfaces at the call that needs it.
+   */
+  private get client(): BrokerClient {
+    this.lazyClient ??= this.givenClient ?? createSandCursorBackendClient(GrokBotService, this.deps);
+    return this.lazyClient;
   }
 
   async connect(): Promise<GatewayConnection> {

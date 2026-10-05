@@ -186,12 +186,12 @@ export function FindInChatBar({ controller, focusNonce = 0, transcriptContainer,
     <div className="sand-chat-find">
       <div className="sand-chat-find-bar">
         <span aria-hidden="true" className="sand-78zum5 sand-6s0dn4 sand-6wrskw sand-169k319"><SandIcon name="search" size="sm" /></span>
-        <input aria-label="Find in chat" autoFocus onChange={(event) => setInputQuery(event.currentTarget.value)} onKeyDown={handleKeyDown} placeholder="Find in chat" ref={inputRef} spellCheck={false} type="text" value={query} />
+        <input aria-label="Поиск по диалогу" autoFocus onChange={(event) => setInputQuery(event.currentTarget.value)} onKeyDown={handleKeyDown} placeholder="Поиск по диалогу" ref={inputRef} spellCheck={false} type="text" value={query} />
         {query.trim().length > 0 ? <span role="status">{ordinal}/{snapshot.matches.length}</span> : null}
         <span aria-hidden="true" />
-        <button aria-label="Previous match" disabled={!hasMatches} onClick={() => step(-1)} type="button"><FindGlyph name="chevron-up" /></button>
-        <button aria-label="Next match" disabled={!hasMatches} onClick={() => step(1)} type="button"><FindGlyph name="chevron-down" /></button>
-        <SandIconButton aria-label="Close find" icon="close" onClick={close} size="sm" type="button" variant="ghost" />
+        <button aria-label="Предыдущее совпадение" disabled={!hasMatches} onClick={() => step(-1)} type="button"><FindGlyph name="chevron-up" /></button>
+        <button aria-label="Следующее совпадение" disabled={!hasMatches} onClick={() => step(1)} type="button"><FindGlyph name="chevron-down" /></button>
+        <SandIconButton aria-label="Закрыть поиск" icon="close" onClick={close} size="sm" type="button" variant="ghost" />
       </div>
     </div>
   );

@@ -68,7 +68,7 @@ export function selectComposerFiles(files: readonly File[], existingCount: numbe
   return files.slice(0, remaining);
 }
 
-export function ConversationComposer({ acceptedSendGeneration = 0, draft, disabled = false, notice, placeholder = "Ask anything, or drop a file.", transcribeAudio, onChange, onClearReplyTarget, onRemoveAttachment, onStageFiles, onSubmit, replyTarget, editorProviders, scopeKey }: ConversationComposerProps) {
+export function ConversationComposer({ acceptedSendGeneration = 0, draft, disabled = false, notice, placeholder = "Спросите о чём угодно или перетащите файл.", transcribeAudio, onChange, onClearReplyTarget, onRemoveAttachment, onStageFiles, onSubmit, replyTarget, editorProviders, scopeKey }: ConversationComposerProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const editorControls = useRef<PromptEditorControls | null>(null);
   const dragDepth = useRef(0);
@@ -160,16 +160,16 @@ export function ConversationComposer({ acceptedSendGeneration = 0, draft, disabl
   return (
     <form className="sand-prompt-form" onSubmit={submit}>
       <div className="sand-prompt-shell" data-expanded={hasPayload || undefined} onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDragOver={onDragOver} onDrop={onDrop}>
-        {isDragOver ? <div aria-hidden="true" className="sand-chat-drop-overlay"><div className="sand-chat-drop-overlay__badge">Drop files to add to chat</div></div> : null}
+        {isDragOver ? <div aria-hidden="true" className="sand-chat-drop-overlay"><div className="sand-chat-drop-overlay__badge">Отпустите файлы, чтобы добавить их</div></div> : null}
         {notice ? <p aria-live="polite" className="sand-prompt-attachment-notice" role="status">{notice}</p> : null}
         {replyTarget == null || onClearReplyTarget == null ? null : <ComposerReplyPill onClear={onClearReplyTarget} target={replyTarget} />}
         {draft.attachments.length > 0 ? (
-          <div aria-label="Attachments" className="sand-prompt-attachments" role="list">
+          <div aria-label="Вложения" className="sand-prompt-attachments" role="list">
             {draft.attachments.map((attachment, index) => {
               const label = attachment.name || attachmentBasename(attachment.path);
               return <span aria-label={label} className="sand-prompt-attachment" data-kind={inferAttachmentKind({ mimeType: attachment.mimeType, fileName: label, urlOrPath: attachment.path })} key={`${attachment.path}:${index}`} role="listitem">
                 <span><strong>{attachment.name}</strong>{attachment.size == null ? null : <small>{formatAttachmentBytes(attachment.size)}</small>}</span>
-                <button aria-label={`Remove ${label}`} onClick={() => {
+                <button aria-label={`Убрать ${label}`} onClick={() => {
                   onChange({ ...draft, attachments: draft.attachments.filter((candidate) => candidate !== attachment) });
                   void onRemoveAttachment?.(attachment);
                 }} type="button"><SandIcon name="close" size="xs" /></button>
@@ -195,11 +195,11 @@ export function ConversationComposer({ acceptedSendGeneration = 0, draft, disabl
           richText={draft.richText}
           scopeKey={scopeKey}
         />
-        {voice.isRecording || voice.isActivating ? <span aria-live="polite" className="sand-prompt-voice-status" role="status">Listening…</span> : null}
+        {voice.isRecording || voice.isActivating ? <span aria-live="polite" className="sand-prompt-voice-status" role="status">Слушаю…</span> : null}
         <div className="sand-prompt-actions-row">
-          <SandIconButton aria-label="Attach file" className={PROMPT_ATTACH_CLASS} disabled={disabled || atLimit || voiceBusy} icon="plus" onClick={() => fileInput.current?.click()} shape="circle" size="lg" type="button" variant="default" />
+          <SandIconButton aria-label="Прикрепить файл" className={PROMPT_ATTACH_CLASS} disabled={disabled || atLimit || voiceBusy} icon="plus" onClick={() => fileInput.current?.click()} shape="circle" size="lg" type="button" variant="default" />
           <span className="sand-prompt-actions-trailing sand-prompt-cta-cluster sand-78zum5 sand-6s0dn4 sand-2lah0s">
-            {voice.isRecording ? <button aria-label="Stop dictation" className={RECORDING_CHIP_CLASS} onClick={() => voice.handleStopClick()} onKeyDown={(event) => {
+            {voice.isRecording ? <button aria-label="Остановить запись" className={RECORDING_CHIP_CLASS} onClick={() => voice.handleStopClick()} onKeyDown={(event) => {
               if (event.key === "Escape") {
                 event.preventDefault();
                 cancelVoiceAndRefocus();
@@ -208,9 +208,9 @@ export function ConversationComposer({ acceptedSendGeneration = 0, draft, disabl
               <span aria-hidden="true" className="sand-recording-chip__stop sand-1fsd2vl sand-170jfvy sand-2lah0s sand-1bl94mz sand-mak4db" />
               <span aria-hidden="true" className="sand-recording-chip__timer sand-2lah0s sand-fc7y3v sand-1yxxptd sand-1bignsj sand-ss6m8b">{voice.recordingDuration}</span>
               <span className="sand-recording-chip__waveform sand-1xp8n7a sand-18gnavp sand-2lah0s sand-78zum5 sand-6s0dn4"><VoiceWaveform stream={voice.stream} /></span>
-            </button> : voice.isProcessing ? <span aria-label="Transcribing voice input…" className="sand-prompt-voice-processing sand-2lah0s sand-16w9d4f sand-1th6cxs sand-78zum5 sand-6s0dn4 sand-l56j7k" role="status"><SandSpinner ariaLabel="Transcribing voice input…" size={18} />Transcribing…</span> : <>
-              {hasPayload ? <SandIconButton aria-label="Start voice input" className={PROMPT_MIC_PAYLOAD_CLASS} disabled={disabled || voiceBusy} icon="mic" onClick={() => voice.handleMicClick()} shape="circle" size="lg" type="button" variant="default" /> : null}
-              {hasPayload ? <button aria-label="Send message" className={PROMPT_SEND_CLASS} disabled={!canSend} type="submit"><span className="sand-1n2onr6 sand-1kky2od sand-lup9mm"><ComposerGlyph hidden={hasPayload} name="mic" /><ComposerGlyph hidden={!hasPayload} name="arrow-up" /></span></button> : <SandIconButton aria-label="Start voice input" className={PROMPT_MIC_EMPTY_CLASS} disabled={disabled} icon="mic" onClick={() => voice.handleMicClick()} shape="circle" size="lg" type="button" variant="default" />}
+            </button> : voice.isProcessing ? <span aria-label="Расшифровываю голос…" className="sand-prompt-voice-processing sand-2lah0s sand-16w9d4f sand-1th6cxs sand-78zum5 sand-6s0dn4 sand-l56j7k" role="status"><SandSpinner ariaLabel="Расшифровываю голос…" size={18} />Расшифровываю…</span> : <>
+              {hasPayload ? <SandIconButton aria-label="Записать голосом" className={PROMPT_MIC_PAYLOAD_CLASS} disabled={disabled || voiceBusy} icon="mic" onClick={() => voice.handleMicClick()} shape="circle" size="lg" type="button" variant="default" /> : null}
+              {hasPayload ? <button aria-label="Отправить сообщение" className={PROMPT_SEND_CLASS} disabled={!canSend} type="submit"><span className="sand-1n2onr6 sand-1kky2od sand-lup9mm"><ComposerGlyph hidden={hasPayload} name="mic" /><ComposerGlyph hidden={!hasPayload} name="arrow-up" /></span></button> : <SandIconButton aria-label="Записать голосом" className={PROMPT_MIC_EMPTY_CLASS} disabled={disabled} icon="mic" onClick={() => voice.handleMicClick()} shape="circle" size="lg" type="button" variant="default" />}
             </>}
           </span>
         </div>

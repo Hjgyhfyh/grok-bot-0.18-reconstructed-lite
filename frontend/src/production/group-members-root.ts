@@ -73,7 +73,7 @@ export function createGroupMembersRootScope(
   const roster = createSynchronizedRendererRosterOwner();
   const source = createGenerationFencedGroupRosterSource(roster, client ?? {
     call: async () => {
-      throw new Error("coordinator is unavailable for setGroupMembers");
+      throw new Error("Нет связи с программой: setGroupMembers");
     },
   });
   const provider = createGroupMembersProvider(source, alert);

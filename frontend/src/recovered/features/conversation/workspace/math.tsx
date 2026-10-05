@@ -19,7 +19,7 @@ export async function loadShippedKatexRuntime(): Promise<KatexRuntime> {
   const module = await import(/* @vite-ignore */ KATEX_ASSET) as KatexRuntimeModule;
   if (module.default != null) return module.default;
   if (module.renderToString != null) return { renderToString: module.renderToString };
-  throw new Error("Shipped KaTeX runtime is unavailable.");
+  throw new Error("Модуль формул недоступен.");
 }
 
 function escapeHtml(value: string): string {

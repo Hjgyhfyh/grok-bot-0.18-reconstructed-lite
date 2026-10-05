@@ -88,7 +88,7 @@ export function HiddenChatsDialog({
 
   return (
     <div
-      aria-label="Hidden Bots"
+      aria-label="Скрытые помощники"
       aria-modal="true"
       aria-describedby={descriptionId}
       aria-labelledby={titleId}
@@ -100,17 +100,17 @@ export function HiddenChatsDialog({
     >
       <header className="sand-z9dl7a sand-cicffo sand-sag5q8 sand-19145p9">
         <div>
-          <h2 id={titleId}>Hidden Bots</h2>
-          <p className="sand-1o0liin" id={descriptionId}>Hidden Bots stay active and keep their history, they just don&apos;t show in the sidebar.</p>
+          <h2 id={titleId}>Скрытые помощники</h2>
+          <p className="sand-1o0liin" id={descriptionId}>Скрытые помощники работают и сохраняют переписку. Их просто нет в боковой панели.</p>
         </div>
-        <SandIconButton aria-label="Close" icon="close" onClick={onClose} size="sm" />
+        <SandIconButton aria-label="Закрыть" icon="close" onClick={onClose} size="sm" />
       </header>
 
       <div className="sand-78zum5 sand-dt5ytf sand-1iyjqo2 sand-2lwn1j sand-exx8yu sand-18d9i69">
         {hiddenAgents.length === 0 ? (
           <div className="sand-hidden-chats__empty sand-78zum5 sand-dt5ytf sand-6s0dn4 sand-l56j7k sand-w09woa sand-1iyjqo2 sand-2b8uid">
             <EyeSlashIcon />
-            <span className="sand-1o0liin">No hidden bots</span>
+            <span className="sand-1o0liin">Скрытых помощников нет</span>
           </div>
         ) : (
           <div className="sand-hidden-chats__list sand-yamay9 sand-1dbijih">
@@ -124,7 +124,7 @@ export function HiddenChatsDialog({
                     </span>
                     <span className="sand-euugli sand-1iyjqo2 sand-b3r6kr sand-lyipyv sand-uxw1ft sand-tyxrsu" id={nameId}>{agent.name}</span>
                   </button>
-                  <span className="sand-2lah0s sand-y13l1i"><button className="sand-hidden-chats__unhide sand-1o0liin" onClick={() => onUnhide(agent.id)} type="button">Unhide</button></span>
+                  <span className="sand-2lah0s sand-y13l1i"><button className="sand-hidden-chats__unhide sand-1o0liin" onClick={() => onUnhide(agent.id)} type="button">Показать</button></span>
                 </div>
               );
             })}

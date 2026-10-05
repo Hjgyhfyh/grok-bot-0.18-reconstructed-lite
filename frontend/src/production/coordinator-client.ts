@@ -33,16 +33,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function validateReply(method: string, value: unknown): unknown {
   if (method === "getAgentTranscriptWindow" || method === "getAgentThread") return validateCoordinatorReply(method, value);
   if (["listAgents", "searchAgents", "getTrays", "listAllAutomations"].includes(method)) {
-    if (!Array.isArray(value)) throw new Error(`${method} returned a malformed array reply`);
+    if (!Array.isArray(value)) throw new Error(`${method}: получен ответ неверного вида`);
   }
   if (["openAgentTail", "getAgentTranscriptTail"].includes(method)) {
     if (!isRecord(value) || !Array.isArray(value.entries) || (value.nextBeforeSeq != null && typeof value.nextBeforeSeq !== "number")) {
-      throw new Error(`${method} returned a malformed transcript page`);
+      throw new Error(`${method}: получена страница переписки неверного вида`);
     }
   }
   if (["getForeverBoxStatus", "ensureForeverBox"].includes(method) && value !== null) {
     if (!isRecord(value) || typeof value.agentId !== "string" || typeof value.state !== "string") {
-      throw new Error(`${method} returned a malformed box status`);
+      throw new Error(`${method}: получено состояние компьютера неверного вида`);
     }
   }
   return value;
@@ -79,7 +79,7 @@ export function createCoordinatorClient(portBridge: CoordinatorPortBridge): Prod
 
   const rejectCalls = (reason: string) => {
     rejectReady(new Error(reason));
-    for (const waiting of pending.values()) waiting.reject(new Error(`${waiting.method} failed: ${reason}`));
+    for (const waiting of pending.values()) waiting.reject(new Error(`${waiting.method}: ${reason}`));
     pending.clear();
   };
   let claim: ReturnType<CoordinatorPortBridge["claim"]> = null;
@@ -98,16 +98,16 @@ export function createCoordinatorClient(portBridge: CoordinatorPortBridge): Prod
     if (port !== expectedPort || disposed) return;
     if (!isRecord(value) || typeof value.kind !== "string") {
       expectedPort.postMessage({ kind: "lifecycle", phase: "shutdown", reason: "protocol-error", detail: "coordinator posted a malformed frame" });
-      return disconnect(expectedPort, "coordinator posted a malformed frame");
+      return disconnect(expectedPort, "Программа прислала неверное сообщение");
     }
     if (value.kind === "lifecycle" && value.phase === "ready") {
-      if (value.protocolVersion !== COORDINATOR_PROTOCOL_VERSION) return disconnect(expectedPort, "coordinator protocol version mismatch");
+      if (value.protocolVersion !== COORDINATOR_PROTOCOL_VERSION) return disconnect(expectedPort, "Версия протокола программы не совпадает");
       serving = true;
       resolveReady();
       for (const listener of transportListeners) listener("connected");
       return;
     }
-    if (value.kind === "lifecycle" && value.phase === "shutdown") return disconnect(expectedPort, "coordinator requested shutdown");
+    if (value.kind === "lifecycle" && value.phase === "shutdown") return disconnect(expectedPort, "Программа попросила закрыть соединение");
     if (value.kind === "reply" && typeof value.requestId === "string" && isRecord(value.outcome)) {
       const waiting = pending.get(value.requestId);
       if (waiting == null) return;
@@ -118,7 +118,7 @@ export function createCoordinatorClient(portBridge: CoordinatorPortBridge): Prod
       } else if (value.outcome.status === "failed" && isRecord(value.outcome.failure)) {
         waiting.reject(new CoordinatorCallError(
           typeof value.outcome.failure.code === "string" ? value.outcome.failure.code : "failed",
-          typeof value.outcome.failure.message === "string" ? value.outcome.failure.message : "Coordinator request failed",
+          typeof value.outcome.failure.message === "string" ? value.outcome.failure.message : "Программа не выполнила запрос",
           typeof value.outcome.failure.transportKind === "string" ? value.outcome.failure.transportKind : undefined
         ));
       }
@@ -136,7 +136,7 @@ export function createCoordinatorClient(portBridge: CoordinatorPortBridge): Prod
     onPort(nextPort) {
       if (disposed) return nextPort.close();
       const replacesLivePort = port != null;
-      if (replacesLivePort) rejectCalls("coordinator session replaced");
+      if (replacesLivePort) rejectCalls("Соединение с программой заменено");
       const previousPort = port;
       port = nextPort;
       previousPort?.close();
@@ -146,7 +146,7 @@ export function createCoordinatorClient(portBridge: CoordinatorPortBridge): Prod
         currentReady.catch(() => {});
       }
       nextPort.addEventListener("message", (event) => handleMessage(nextPort, event.data));
-      nextPort.addEventListener("close", () => disconnect(nextPort, "coordinator port closed"));
+      nextPort.addEventListener("close", () => disconnect(nextPort, "Соединение с программой закрыто"));
       nextPort.start();
       nextPort.postMessage({ kind: "lifecycle", phase: "hello", protocolVersion: COORDINATOR_PROTOCOL_VERSION });
     }
@@ -156,7 +156,7 @@ export function createCoordinatorClient(portBridge: CoordinatorPortBridge): Prod
 
   const call = async (method: string, args: unknown = {}) => {
     await currentReady;
-    if (disposed || port == null || !serving) throw new Error(`coordinator is unavailable for ${method}`);
+    if (disposed || port == null || !serving) throw new Error(`Нет связи с программой: ${method}`);
     const requestId = `r-${++nextRequestId}`;
     const response = new Promise<unknown>((resolve, reject) => pending.set(requestId, { method, resolve, reject }));
     port.postMessage({ kind: "request", requestId, method, args });
@@ -184,7 +184,7 @@ export function createCoordinatorClient(portBridge: CoordinatorPortBridge): Prod
       disposed = true;
       port?.postMessage({ kind: "lifecycle", phase: "shutdown", reason: "requested", detail: null });
       claim.release();
-      rejectCalls("coordinator source disposed");
+      rejectCalls("Программа закрыта");
       port?.close();
       port = null;
       serving = false;

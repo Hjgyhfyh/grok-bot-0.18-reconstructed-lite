@@ -16,9 +16,18 @@ export interface OrgChartAgentInspectorProps {
 }
 
 function activityLabel(agent: OrgChartInspectorAgent): { text: string; tone: "green" | "tertiary" } {
-  if (agent.awaitingUserResponse != null) return { text: "Waiting for you", tone: "tertiary" };
-  if (agent.isRunning) return { text: "Working…", tone: "green" };
-  return { text: "Idle", tone: "tertiary" };
+  if (agent.awaitingUserResponse != null) return { text: "Ждёт вашего ответа", tone: "tertiary" };
+  if (agent.isRunning) return { text: "Работает…", tone: "green" };
+  return { text: "Свободен", tone: "tertiary" };
+}
+
+function memberCountLabel(count: number): string {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return `${count} участников`;
+  if (last === 1) return `${count} участник`;
+  if (last >= 2 && last <= 4) return `${count} участника`;
+  return `${count} участников`;
 }
 
 function lastActivityTime(updatedAt: number): string {
@@ -36,18 +45,18 @@ export function OrgChartAgentInspector({ agent, byId, onOpenAgent, onClose }: Or
     : [];
   const open = () => onOpenAgent?.(agent.id);
 
-  return <aside aria-label="Org chart details" className="sand-org-chart-inspector">
-    <button aria-label="Close details" className="sand-org-chart-inspector__close" onClick={onClose} type="button">×</button>
+  return <aside aria-label="Схема помощников" className="sand-org-chart-inspector">
+    <button aria-label="Закрыть подробности" className="sand-org-chart-inspector__close" onClick={onClose} type="button">×</button>
     <div className="sand-org-chart-inspector__scroll">
       <div style={{ display: "grid", gap: 4, justifyItems: "center", padding: "8px 0 16px", textAlign: "center" }}>
         <InitialAvatar agent={agent} size="large" />
         <h2>{agent.name}</h2>
         <span style={{ color: activity.tone === "green" ? "var(--cursor-icon-green, #5fd47a)" : "var(--cursor-text-tertiary, #aaa)", fontSize: 12 }}>{activity.text}</span>
       </div>
-      {agent.description?.trim() ? <div style={{ borderTop: "1px solid var(--cursor-stroke-secondary, #414141)", display: "grid", gap: 4, padding: "10px 0" }}><small style={{ color: "var(--cursor-text-tertiary, #aaa)", fontSize: 11, fontWeight: 600 }}>About</small><p style={{ color: "var(--cursor-text-secondary, #c6c6c6)", fontSize: 13, margin: 0, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>{agent.description.trim()}</p></div> : null}
-      {members.length > 0 ? <div style={{ borderTop: "1px solid var(--cursor-stroke-secondary, #414141)", display: "grid", gap: 4, padding: "10px 0" }}><small style={{ color: "var(--cursor-text-tertiary, #aaa)", fontSize: 11, fontWeight: 600 }}>{members.length} {members.length === 1 ? "member" : "members"}</small><div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 4 }}>{members.slice(0, 12).map((member) => <span key={member.id} title={member.name}><InitialAvatar agent={member} size="medium" /></span>)}{members.length > 12 ? <span>+{members.length - 12}</span> : null}</div></div> : null}
-      {agent.lastMessage?.length ? <div style={{ borderTop: "1px solid var(--cursor-stroke-secondary, #414141)", display: "grid", gap: 4, padding: "10px 0" }}><small style={{ color: "var(--cursor-text-tertiary, #aaa)", fontSize: 11, fontWeight: 600 }}>Last activity</small><p style={{ color: "var(--cursor-text-secondary, #c6c6c6)", fontSize: 13, margin: 0, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>{agent.lastMessage}</p><time style={{ color: "var(--cursor-text-tertiary, #aaa)", fontSize: 11 }} dateTime={new Date(agent.updatedAt).toISOString()}>{lastActivityTime(agent.updatedAt)}</time></div> : null}
-      <div className="sand-org-chart-inspector__open"><button onClick={open} type="button">{agent.isGroup ? "Open room" : "Open chat"}</button></div>
+      {agent.description?.trim() ? <div style={{ borderTop: "1px solid var(--cursor-stroke-secondary, #414141)", display: "grid", gap: 4, padding: "10px 0" }}><small style={{ color: "var(--cursor-text-tertiary, #aaa)", fontSize: 11, fontWeight: 600 }}>О помощнике</small><p style={{ color: "var(--cursor-text-secondary, #c6c6c6)", fontSize: 13, margin: 0, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>{agent.description.trim()}</p></div> : null}
+      {members.length > 0 ? <div style={{ borderTop: "1px solid var(--cursor-stroke-secondary, #414141)", display: "grid", gap: 4, padding: "10px 0" }}><small style={{ color: "var(--cursor-text-tertiary, #aaa)", fontSize: 11, fontWeight: 600 }}>{memberCountLabel(members.length)}</small><div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 4 }}>{members.slice(0, 12).map((member) => <span key={member.id} title={member.name}><InitialAvatar agent={member} size="medium" /></span>)}{members.length > 12 ? <span>+{members.length - 12}</span> : null}</div></div> : null}
+      {agent.lastMessage?.length ? <div style={{ borderTop: "1px solid var(--cursor-stroke-secondary, #414141)", display: "grid", gap: 4, padding: "10px 0" }}><small style={{ color: "var(--cursor-text-tertiary, #aaa)", fontSize: 11, fontWeight: 600 }}>Последняя работа</small><p style={{ color: "var(--cursor-text-secondary, #c6c6c6)", fontSize: 13, margin: 0, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>{agent.lastMessage}</p><time style={{ color: "var(--cursor-text-tertiary, #aaa)", fontSize: 11 }} dateTime={new Date(agent.updatedAt).toISOString()}>{lastActivityTime(agent.updatedAt)}</time></div> : null}
+      <div className="sand-org-chart-inspector__open"><button onClick={open} type="button">{agent.isGroup ? "Открыть общий диалог" : "Открыть диалог"}</button></div>
     </div>
   </aside>;
 }

@@ -27,7 +27,7 @@ const EMPTY_SNAPSHOT = { status: "idle" } as const;
 const EMPTY_STORE: EmojiCatalogStore = {
   getSnapshot: () => EMPTY_SNAPSHOT,
   subscribe: () => () => {},
-  load: () => Promise.reject(new Error("Emoji catalog is not configured.")),
+  load: () => Promise.reject(new Error("Список значков не задан.")),
   reset: () => {},
   dispose: () => {},
 };
@@ -76,7 +76,7 @@ function statusView(snapshot: EmojiCatalogSnapshot) {
     // Keep the content fail-closed and expose an assistive live state without inventing text.
     return <div aria-live="polite" data-state="error" role="alert" />;
   }
-  return <div aria-live="polite">Loading emoji…</div>;
+  return <div aria-live="polite">Значки загружаются…</div>;
 }
 
 function EmojiCell({
@@ -104,7 +104,7 @@ function EmojiCell({
     event.preventDefault();
     cellRefs.current.get(next)?.focus();
   };
-  const label = isReacted ? `Remove ${entry.name} reaction` : `React with ${entry.name}`;
+  const label = isReacted ? `Убрать значок ${entry.name}` : `Поставить значок ${entry.name}`;
   return (
     <button
       aria-label={label}
@@ -170,29 +170,29 @@ export function EmojiPickerContentView({
 }: EmojiPickerContentViewProps) {
   const input = (
     <input
-      aria-label="Search emoji"
+      aria-label="Поиск значка"
       autoFocus={autoFocus}
       onChange={(event) => onQueryChange(event.currentTarget.value)}
-      placeholder="Search emoji"
+      placeholder="Поиск значка"
       type="search"
       value={query}
     />
   );
   const contentStyle = { width: `${EMOJI_PICKER_WIDTH}px`, maxHeight: `${EMOJI_PICKER_MAX_HEIGHT}px`, overflowY: "auto" } as CSSProperties;
   if (snapshot.status !== "ready") {
-    return <div aria-label="Choose an emoji" ref={contentRef} style={contentStyle}>{input}{statusView(snapshot)}</div>;
+    return <div aria-label="Выберите значок" ref={contentRef} style={contentStyle}>{input}{statusView(snapshot)}</div>;
   }
 
   if (query.trim().length > 0) {
     const results = searchEmoji(snapshot.catalog, query, EMOJI_SEARCH_LIMIT, recents);
     if (results.length === 0) {
-      return <div aria-label="Choose an emoji" ref={contentRef} style={contentStyle}>{input}<div>No emoji found</div></div>;
+      return <div aria-label="Выберите значок" ref={contentRef} style={contentStyle}>{input}<div>Значок не найден</div></div>;
     }
     return (
-      <div aria-label="Choose an emoji" ref={contentRef} style={contentStyle}>
+      <div aria-label="Выберите значок" ref={contentRef} style={contentStyle}>
         {input}
         <div className="sand-emoji-picker__results">
-          <span>Results</span>
+          <span>Найдено</span>
           <EmojiGrid entries={results} myReactions={myReactions} onSelect={onSelect} />
         </div>
       </div>
@@ -200,7 +200,7 @@ export function EmojiPickerContentView({
   }
 
   return (
-    <div aria-label="Choose an emoji" ref={contentRef} style={contentStyle}>
+    <div aria-label="Выберите значок" ref={contentRef} style={contentStyle}>
       {input}
       <div className="sand-emoji-picker__results">
         {snapshot.catalog.categories.map((category) => <EmojiSection category={category} key={category.id} myReactions={myReactions} onSelect={onSelect} />)}
