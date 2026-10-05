@@ -21,7 +21,7 @@ export type ReportFormat = "rtf" | "docx" | "odt" | "md";
  * (`source/electron-main/reports/report-documents.ts`): русский Word открывает
  * `.docx` сам, а таблицы в нём настоящие, а не «ячейки через табуляцию».
  */
-export const DEFAULT_REPORT_FORMAT: ReportFormat = "rtf";
+export const DEFAULT_REPORT_FORMAT: ReportFormat = "docx";
 
 export interface ReportMessage {
   /** То, что стоит в имени файла и в заголовке листа. */

@@ -50,6 +50,7 @@ export const MAIN_METHOD_TABLE = {
   // обычным сообщением (`report_preview` шлёт `send-message`), и без этих двух
   // методов у пользователя нет ни файла, ни принтера: звонить в `save_report`
   // должен агент, а не заведующая библиотеки.
+  saveReportFile: { args: "object" },
   printReport: { args: "object" },
   commitStagedAttachments: { args: "object" },
   discardStagedAttachment: { args: "object" },

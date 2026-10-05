@@ -42,7 +42,7 @@ export function ReportActions({ report, bridge }: ReportActionsProps) {
     try {
       const outcome = which === "save"
         ? await bridge.saveFile(report.title, report.markdown, DEFAULT_REPORT_FORMAT)
-        : await bridge.saveFile(report.title, report.markdown, DEFAULT_REPORT_FORMAT);
+        : await bridge.print(report.title, report.markdown);
       const described = which === "save"
         ? describeSaveOutcome(outcome)
         : describePrintOutcome(outcome);
