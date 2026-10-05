@@ -18,6 +18,19 @@ const LATIN1 = "latin1";
 const MAX_INFLATED_BYTES = 96 * 1024 * 1024;
 const MAX_PAGES = 2_000;
 const MAX_OBJECTS = 200_000;
+/** Глубина вложенных массивов `[` в потоке страницы. */
+const MAX_ARRAY_DEPTH = 32;
+/** Сколько байт одной строки `( … )` реально держим в памяти. */
+const MAX_STRING_BYTES = 64 * 1024;
+/**
+ * Зазор в `TJ`-массиве, который читается как пробел. Числа в `TJ` идут в тысячных
+ * долях текстового пробела: `-250` — это настоящий разрыв между словами, а `-20`
+ * — узкий зазор редактора. Порог `-10` отделяет межбуквенный кернинг от зазора,
+ * который человек видит как пробел.
+ */
+const TJ_SPACE_GAP = -10;
+/** Сколько байт от начала файла просматривается в поиске заголовка `%PDF`. */
+const PDF_HEADER_WINDOW = 1_024;
 
 export class PdfTextError extends Error {
   constructor(message: string) {
@@ -36,6 +49,12 @@ export interface PdfTextResult {
   readonly text: string;
   readonly pageCount: number;
   readonly encrypted: boolean;
+  /**
+   * `true`, когда файл не разобран: ни одна страница не дала содержимого. Такой
+   * файл отличается от скана без текстового слоя, и говорить пользователю, что
+   * «это PDF из сканированных страниц», про него враньё.
+   */
+  readonly damaged: boolean;
 }
 
 // ───────────────────────── разбор структуры ─────────────────────────
@@ -46,9 +65,9 @@ function toLatin1(bytes: Uint8Array): string {
 
 /**
  * Значение ключа словаря PDF. Ссылка, имя, массив, вложенный словарь или
- * число. Раньше значение искалось регуляркой «всё до следующего слэша», и
- * `/Contents 4 0 R` читалось как пустая строка — содержимое страницы
- * терялось целиком.
+ * число. Раньше значение искалось регуляркой «всё до следующего `>>`», и вложенный
+ * словарь обрывал разбор: `/Resources << /XObject << /Im0 8 0 R >> /Font << /F1
+ * 5 0 R >> >>` читался как `/XObject << /Im0 8 0 R`, а шрифт страницы пропадал.
  */
 type PdfValue =
   | { readonly kind: "ref"; readonly ref: number }
@@ -58,16 +77,50 @@ type PdfValue =
   | { readonly kind: "number"; readonly value: number }
   | { readonly kind: "none" };
 
-const VALUE_PATTERN = "(\\d+)\\s+(\\d+)\\s+R|\\[([^\\]]*)\\]|<<([\\s\\S]*?)>>|\\/([^\\s/\\[\\]<>(){}]+)|(-?\\d+(?:\\.\\d+)?)";
+/** Конец парной конструкции с учётом вложенности: `<<…>>` или `[…]`. */
+function balancedEnd(source: string, start: number, open: string, close: string): number {
+  let depth = 0;
+  for (let index = start; index < source.length; index += 1) {
+    if (source.startsWith(open, index)) { depth += 1; index += open.length - 1; continue; }
+    if (source.startsWith(close, index)) {
+      depth -= 1;
+      if (depth === 0) return index + close.length;
+      index += close.length - 1;
+    }
+  }
+  return source.length;
+}
+
+/** Читает значение, стоящее за ключом словаря, начиная с первой буквы значения. */
+function readValue(source: string, at: number): PdfValue {
+  let index = at;
+  while (index < source.length && source[index] !== undefined && /\s/.test(source[index] as string)) index += 1;
+  const char = source[index];
+  if (char == null) return { kind: "none" };
+  if (char === "<" && source[index + 1] === "<") {
+    const end = balancedEnd(source, index, "<<", ">>");
+    return { kind: "dict", body: source.slice(index + 2, Math.max(index + 2, end - 2)) };
+  }
+  if (char === "[") {
+    const end = balancedEnd(source, index, "[", "]");
+    return { kind: "array", items: (source.slice(index + 1, Math.max(index + 1, end - 1)).match(/\d+\s+\d+\s+R/g) ?? []) };
+  }
+  if (char === "/") {
+    const name = /\/[^\s/[\]<>(){}%]*/.exec(source.slice(index));
+    return { kind: "name", name: (name?.[0] ?? "/").slice(1) };
+  }
+  const reference = /(\d+)\s+(\d+)\s+R\b/.exec(source.slice(index));
+  if (reference != null) return { kind: "ref", ref: Number.parseInt(reference[1] as string, 10) };
+  const number = /-?\d+(?:\.\d+)?/.exec(source.slice(index));
+  if (number != null) return { kind: "number", value: Number.parseFloat(number[0]) };
+  return { kind: "none" };
+}
 
 function lookup(dict: string, key: string): PdfValue {
-  const match = new RegExp(`\\/${key}\\s*(?:${VALUE_PATTERN})`).exec(dict);
+  const pattern = new RegExp(`/${key}\\b`);
+  const match = pattern.exec(dict);
   if (match == null) return { kind: "none" };
-  if (match[1] != null) return { kind: "ref", ref: Number.parseInt(match[1], 10) };
-  if (match[3] != null) return { kind: "array", items: (match[3] ?? "").match(/\d+\s+\d+\s+R/g) ?? [] };
-  if (match[4] != null) return { kind: "dict", body: match[4] };
-  if (match[5] != null) return { kind: "name", name: match[5] };
-  return { kind: "number", value: Number.parseFloat(match[6] ?? "0") };
+  return readValue(dict, match.index + key.length + 1);
 }
 
 function refOf(value: PdfValue): number | null {
@@ -92,46 +145,58 @@ function arrayRefs(dict: string, key: string): number[] {
   return value.kind === "array" ? value.items.map((item) => Number.parseInt(/^(\d+)/.exec(item)?.[1] ?? "0", 10)) : [];
 }
 
+/**
+ * Границы объекта. Раньше конец искался как `indexOf("endobj")` от начала тела, и
+ * слово `endobj` в тексте страницы (`(страница endobj здесь)`) обрывало объект:
+ * страница и все следующие объекты терялись. Теперь сначала ищется поток, потом
+ * `endstream` после него и только потом `endobj`.
+ */
 function scanObjects(source: string): Map<number, PdfObject> {
   const objects = new Map<number, PdfObject>();
+  const buffer = Buffer.from(source, LATIN1);
   const pattern = /(?:^|[\s>])(\d+)\s+(\d+)\s+obj\b/g;
+  const streamPattern = /stream(?:\r\n|\n|\r)/g;
   let count = 0;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(source)) != null) {
     if (++count > MAX_OBJECTS) break;
     const num = Number.parseInt(match[1] as string, 10);
     const bodyStart = match.index + match[0].length;
-    const endIndex = source.indexOf("endobj", bodyStart);
-    const bodyEnd = endIndex < 0 ? Math.min(source.length, bodyStart + 4 * 1024 * 1024) : endIndex;
-    const body = source.slice(bodyStart, bodyEnd);
-    const streamStart = findStreamStart(body);
-    if (streamStart == null) {
+    // Поиск метки `stream` идёт по телу объекта: она может стоять после перевода
+    // строки, поэтому ищем от начала тела, а не строго по позиции.
+    const earlyEnd = source.indexOf("endobj", bodyStart);
+    const searchEnd = earlyEnd < 0 ? Math.min(source.length, bodyStart + 4 * 1024 * 1024) : earlyEnd;
+    streamPattern.lastIndex = bodyStart;
+    const found = streamPattern.exec(source);
+    const streamMatch = found != null && found.index <= searchEnd ? found : null;
+    if (streamMatch == null) {
+      const endIndex = source.indexOf("endobj", bodyStart);
+      const bodyEnd = endIndex < 0 ? Math.min(source.length, bodyStart + 4 * 1024 * 1024) : endIndex;
+      const body = source.slice(bodyStart, bodyEnd);
       if (!objects.has(num)) objects.set(num, { num, dict: body, stream: null });
       continue;
     }
-    const dict = body.slice(0, streamStart.dictEnd);
-    const stream = sliceStream(body, streamStart.dataStart, dict);
-    if (!objects.has(num)) objects.set(num, { num, dict, stream });
+    const dictEnd = streamMatch.index;
+    const dataStart = dictEnd + streamMatch[0].length;
+    const endStream = source.indexOf("endstream", dataStart);
+    const afterStream = endStream < 0 ? Math.min(source.length, dataStart + 4 * 1024 * 1024) : endStream + "endstream".length;
+    const endIndex = source.indexOf("endobj", afterStream);
+    const bodyEnd = endIndex < 0 ? afterStream : endIndex;
+    const dict = source.slice(bodyStart, dictEnd);
+    if (!objects.has(num)) {
+      objects.set(num, { num, dict, stream: sliceStream(buffer, dataStart, dict, endStream < 0 ? buffer.byteLength : endStream) });
+    }
     pattern.lastIndex = bodyEnd;
   }
   return objects;
 }
 
-function findStreamStart(body: string): { readonly dictEnd: number; readonly dataStart: number } | null {
-  const match = /stream\r\n|stream\n|stream\r/.exec(body);
-  if (match == null) return null;
-  return { dictEnd: match.index, dataStart: match.index + match[0].length };
-}
-
-function sliceStream(body: string, dataStart: number, dict: string): Uint8Array {
-  const buffer = Buffer.from(body, LATIN1);
+function sliceStream(buffer: Buffer, dataStart: number, dict: string, streamEnd: number): Uint8Array {
   const declared = Number.parseInt(dictValue(dict, "Length") ?? "", 10);
   if (Number.isFinite(declared) && declared > 0 && dataStart + declared <= buffer.byteLength) {
     return new Uint8Array(buffer.subarray(dataStart, dataStart + declared));
   }
-  const endIndex = body.indexOf("endstream", dataStart);
-  const stop = endIndex < 0 ? buffer.byteLength : endIndex;
-  let end = stop;
+  let end = Math.min(streamEnd, buffer.byteLength);
   while (end > dataStart && (buffer[end - 1] === 0x0a || buffer[end - 1] === 0x0d)) end -= 1;
   return new Uint8Array(buffer.subarray(dataStart, end));
 }
@@ -314,32 +379,107 @@ function resolveFont(objects: Map<number, PdfObject>, value: string | undefined,
   return font;
 }
 
+/**
+ * `/Font` бывает и словарём на месте, и ссылкой на отдельный объект. Раньше
+ * значение искалось регуляркой до первого `>>`, и вложенный словарь в
+ * `/Resources` (`/XObject << … >> /Font << … >>`) съешал половину описания:
+ * шрифт страницы не находился, а текст читался латиницей.
+ */
 function fontsOf(objects: Map<number, PdfObject>, resources: string): Map<string, string> {
   const fonts = new Map<string, string>();
-  const fontRef = refOf(lookup(resources, "Font"));
-  const fontDict = fontRef == null ? resources : (objects.get(fontRef)?.dict ?? "");
-  const inline = /\/Font\s*<<([\s\S]*?)>>/.exec(resources);
-  const body = inline == null ? fontDict : `<<${inline[1] ?? ""}>>`;
-  for (const entry of body.matchAll(/\/([^\s/]+)\s+(\d+\s+\d+\s+R)/g)) fonts.set(entry[1] as string, entry[2] as string);
+  const value = lookup(resources, "Font");
+  let body = "";
+  if (value.kind === "dict") body = value.body;
+  else if (value.kind === "ref") body = objects.get(value.ref)?.dict ?? "";
+  if (body === "") body = resources;
+  for (const entry of body.matchAll(/\/([^\s/[\]<>(){}%]+)\s+(\d+\s+\d+\s+R)/g)) fonts.set(entry[1] as string, entry[2] as string);
   return fonts;
+}
+
+/** Страницы в порядке каталога документа (`/Kids`), а не порядка объектов в файле. */
+function pagesOf(objects: Map<number, PdfObject>): PdfObject[] {
+  const isPages = (object: PdfObject): boolean => /\/Type\s*\/Pages\b/.test(object.dict);
+  const isPage = (object: PdfObject): boolean => /\/Type\s*\/Page\b/.test(object.dict) && !isPages(object);
+  const ordered: PdfObject[] = [];
+  const seen = new Set<number>();
+  const walk = (dict: string, depth: number): void => {
+    if (depth > 32) return;
+    for (const num of arrayRefs(dict, "Kids")) {
+      if (seen.has(num)) continue;
+      seen.add(num);
+      const node = objects.get(num);
+      if (node == null) continue;
+      if (isPages(node)) walk(node.dict, depth + 1);
+      else if (isPage(node)) ordered.push(node);
+    }
+  };
+  for (const object of objects.values()) {
+    if (!isPages(object)) continue;
+    walk(object.dict, 0);
+    if (ordered.length > 0) break;
+  }
+  for (const object of objects.values()) {
+    if (isPage(object) && !ordered.includes(object)) ordered.push(object);
+  }
+  return ordered.slice(0, MAX_PAGES);
+}
+
+/**
+ * Зашифрован ли файл. Раньше искалось слово `/Encrypt` по всему файлу, и обычный
+ * документ со строкой «никогда не пишите /Encrypt» объявлялся запароленным.
+ * Теперь смотрят только словари: `trailer` и объекты со `/Filter /Standard`.
+ */
+function isEncrypted(source: string, objects: Map<number, PdfObject>): boolean {
+  const trailerAt = source.lastIndexOf("trailer");
+  if (trailerAt >= 0) {
+    const end = balancedEnd(source, trailerAt + "trailer".length, "<<", ">>");
+    if (/\/Encrypt\b/.test(source.slice(trailerAt, end))) return true;
+  }
+  for (const object of objects.values()) {
+    if (/\/Filter\s*\/Standard\b/.test(object.dict)) return true;
+  }
+  return false;
 }
 
 // ───────────────────────── содержимое страницы ─────────────────────────
 
 type Operand = { readonly kind: "string"; readonly bytes: number[] } | { readonly kind: "number"; readonly value: number } | { readonly kind: "name"; readonly value: string } | { readonly kind: "array"; readonly items: Operand[] } | { readonly kind: "other" };
 
-function tokenizeContent(source: string): { operands: Operand[]; operator: string }[] {
-  const out: { operands: Operand[]; operator: string }[] = [];
-  const operands: Operand[] = [];
+type Token = { operands: Operand[]; operator: string };
+
+/**
+ * Разбор потока страницы. Оператор — латинская строка из букв (`Tj`, `TJ`, `'`,
+ * `"`), всё остальное — операнд.
+ *
+ * Три правки по следам падений:
+ *   1. `TJ`-массив терял текст: его строки были операндами без оператора и до
+ *      `TJ` доходили пустым списком. Теперь оставшиеся операнды отдаются последним
+ *      токеном;
+ *   2. `%` — комментарий до конца строки. Незакрытая скобка в комментарии раньше
+ *      утаскивала остаток потока страницы в «строку»;
+ *   3. вложенность `[` ограничена, а строка `(…)` не держится в памяти целиком:
+ *      файл с двадцатью тысячами скобок ронял разбор `RangeError`, а строка из
+ *      двадцати миллионов скобок съедала полгигабайта.
+ */
+function tokenizeContent(source: string, depth = 0): Token[] {
+  const out: Token[] = [];
+  let operands: Operand[] = [];
   let index = 0;
   const length = source.length;
+  const endOfLine = /[\r\n]/g;
   while (index < length) {
     const char = source[index] as string;
+    if (char === "%") {
+      endOfLine.lastIndex = index;
+      const stop = endOfLine.exec(source);
+      index = stop == null ? length : stop.index;
+      continue;
+    }
     if (char === "(") {
       const bytes: number[] = [];
-      let depth = 1;
+      let depthInside = 1;
       index += 1;
-      while (index < length && depth > 0) {
+      while (index < length && depthInside > 0) {
         const inner = source[index] as string;
         if (inner === "\\") {
           const next = source[index + 1];
@@ -357,9 +497,9 @@ function tokenizeContent(source: string): { operands: Operand[]; operator: strin
           index += 2;
           continue;
         }
-        if (inner === "(") depth += 1;
-        else if (inner === ")") { depth -= 1; if (depth === 0) { index += 1; break; } }
-        bytes.push(source.charCodeAt(index));
+        if (inner === "(") depthInside += 1;
+        else if (inner === ")") { depthInside -= 1; if (depthInside === 0) { index += 1; break; } }
+        if (bytes.length < MAX_STRING_BYTES) bytes.push(source.charCodeAt(index));
         index += 1;
       }
       operands.push({ kind: "string", bytes });
@@ -383,19 +523,23 @@ function tokenizeContent(source: string): { operands: Operand[]; operator: strin
     }
     if (char === "[") {
       const items: Operand[] = [];
-      let depth = 1;
+      let depthInside = 1;
       index += 1;
       let inner = "";
-      while (index < length && depth > 0) {
+      while (index < length && depthInside > 0) {
         const nested = source[index] as string;
         if (nested === "\\") { inner += nested + (source[index + 1] ?? ""); index += 2; continue; }
-        if (nested === "[") depth += 1;
-        else if (nested === "]") { depth -= 1; if (depth === 0) { index += 1; break; } }
+        if (nested === "[") depthInside += 1;
+        else if (nested === "]") { depthInside -= 1; if (depthInside === 0) { index += 1; break; } }
         inner += nested;
         index += 1;
       }
-      const nestedTokens = tokenizeContent(inner);
-      for (const token of nestedTokens) for (const operand of token.operands) items.push(operand);
+      // Глубже порога содержимое всё равно не показать, а рекурсия кончается
+      // переполнением стека на файле с двадцатью тысячами открытых скобок.
+      if (depth < MAX_ARRAY_DEPTH) {
+        const nestedTokens = tokenizeContent(inner, depth + 1);
+        for (const token of nestedTokens) for (const operand of token.operands) items.push(operand);
+      }
       operands.push({ kind: "array", items });
       continue;
     }
@@ -416,6 +560,9 @@ function tokenizeContent(source: string): { operands: Operand[]; operator: strin
     }
     index += 1;
   }
+  // Операнды после последнего оператора: обычно это содержимое `TJ`-массива,
+  // записанное в самом конце потока. Без них текст терялся целиком.
+  if (operands.length > 0) out.push({ operands: operands.slice(), operator: "" });
   return out;
 }
 
@@ -468,10 +615,15 @@ function extractPageText(content: string, fonts: Map<string, string>, objects: M
     if (operator === "TJ") {
       const array = operands.at(-1);
       if (array == null || array.kind !== "array") continue;
+      // Кернированный массив — отдельный текстовый прогон. Без `Td` позиция
+      // прогона неизвестна, поэтому он начинается и заканчивается с новой строки:
+      // иначе `(Intro) Tj [(Body) -20 (text)] TJ` давал «IntroBody text».
+      breakLine();
       for (const item of array.items) {
         if (item.kind === "string") show(item);
-        else if (item.kind === "number" && item.value <= -120) { if (lineHasText.value && !out.endsWith(" ")) out += " "; }
+        else if (item.kind === "number" && item.value <= TJ_SPACE_GAP) { if (lineHasText.value && !out.endsWith(" ")) out += " "; }
       }
+      breakLine();
       continue;
     }
     if (operator === "Td" || operator === "TD" || operator === "T*" || operator === "ET" || operator === "BT") { breakLine(); continue; }
@@ -481,17 +633,25 @@ function extractPageText(content: string, fonts: Map<string, string>, objects: M
 
 // ───────────────────────── точка входа ─────────────────────────
 
+/**
+ * Заголовок `%PDF` по спецификации может стоять не на первом байте: файл, который
+ * переименовали в `.txt` или прислали с почтой, начинается с мусора. Раньше такой
+ * файл не считался PDF и уходил в модель сырым текстом целиком.
+ */
 export function pdfBytesToText(bytes: Uint8Array): PdfTextResult {
-  const source = toLatin1(bytes);
-  if (!source.startsWith("%PDF")) throw new PdfTextError("Файл не начинается с %PDF — это не PDF.");
-  if (/\/Encrypt\b/.test(source)) return { text: "", pageCount: 0, encrypted: true };
+  const whole = toLatin1(bytes);
+  const headerAt = whole.indexOf("%PDF");
+  if (headerAt < 0 || headerAt > PDF_HEADER_WINDOW) throw new PdfTextError("Файл не начинается с %PDF — это не PDF.");
+  const source = headerAt === 0 ? whole : whole.slice(headerAt);
   const objects = scanObjects(source);
+  if (isEncrypted(source, objects)) return { text: "", pageCount: 0, encrypted: true, damaged: false };
   expandObjectStreams(objects);
   const fontCache = new Map<number, PdfFont>();
-  const pages = [...objects.values()].filter((object) => /\/Type\s*\/Page\b/.test(object.dict) && !/\/Type\s*\/Pages\b/.test(object.dict));
+  const pages = pagesOf(objects);
   const texts: string[] = [];
   let pageCount = 0;
-  for (const page of pages.slice(0, MAX_PAGES)) {
+  let readableStreams = 0;
+  for (const page of pages) {
     const contents = pageContentsOf(page, objects);
     if (contents.length === 0) continue;
     pageCount += 1;
@@ -499,10 +659,14 @@ export function pdfBytesToText(bytes: Uint8Array): PdfTextResult {
     const fonts = fontsOf(objects, resources);
     const content = contents.map((part) => decodeStream(part.dict, part.stream ?? new Uint8Array()) ?? new Uint8Array()).map((part) => toLatin1(part)).join("\n");
     if (content.length === 0) continue;
+    readableStreams += 1;
     const text = extractPageText(content, fonts, objects, fontCache).replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
     if (text.length > 0) texts.push(text);
   }
-  return { text: texts.join("\n\n").trim(), pageCount, encrypted: false };
+  // Ни одна страница не дала содержимого — файл не разобран, а не «скан без
+  // текстового слоя». Пользователю об этом честнее сказать прямо.
+  const damaged = texts.length === 0 && readableStreams === 0;
+  return { text: texts.join("\n\n").trim(), pageCount, encrypted: false, damaged };
 }
 
 /** `/Resources` бывает и словарём на месте, и ссылкой на отдельный объект. */

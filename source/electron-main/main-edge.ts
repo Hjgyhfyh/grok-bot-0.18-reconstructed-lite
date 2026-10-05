@@ -100,8 +100,11 @@ function updateService(deps: MainEdgeDeps) { return required(deps.readLiveUpdate
 function themeController(deps: MainEdgeDeps) { return required(deps.readThemeController, MAIN_EDGE_THEME_UNAVAILABLE, "The theme controller is not running."); }
 /** The DeepSeek key name in the OS secret store. The renderer never receives its value. */
 const CUSTOM_ENDPOINT_SECRET_KEY = "DEEPSEEK_API_KEY";
+// The hint must name a section that exists. The provider section is called
+// «Провайдер» (SETTINGS_SECTIONS in `view.tsx`); the old wording sent the user
+// to a «DeepSeek» section that the settings navigation never had.
 const DEEPSEEK_MISSING_KEY_HINT =
-  "Не задан ключ DeepSeek API. Открой Настройки → DeepSeek и вставь ключ вида sk-… " +
+  "Не задан ключ DeepSeek API. Открой Настройки → Провайдер и вставь ключ вида sk-… " +
   "или задай переменную окружения DEEPSEEK_API_KEY.";
 
 /**
@@ -166,9 +169,15 @@ export function createMainEdgeHandlers(deps: MainEdgeDeps): HandlerMap {
     // the same question on `GET https://api.deepseek.com/models`, so the picker works with the
     // key the user typed and with no Cursor account anywhere.
     getAvailableModels: async () => await listSandEndpointModels({ baseUrl: DEEPSEEK_BASE_URL, apiKey: await secretDeepSeekApiKey(deps) }),
-    getInferenceApiKeyStatus: () => { const key = storedDeepSeekApiKey(deps) ?? process.env[CUSTOM_ENDPOINT_SECRET_KEY]?.trim(); const configured = typeof key === "string" && key.length > 0; return { configured, message: configured ? null : DEEPSEEK_MISSING_KEY_HINT }; },
+    // The panel used to answer "is the key saved?" from the settings file and the environment
+    // variable only, while every request to DeepSeek was signed by `secretDeepSeekApiKey`,
+    // which also reads the OS secret store. A key put there by the launcher therefore worked
+    // for every message and the panel still told the user no key exists, so the only visible
+    // way out was to paste the same key a second time into the very panel that was lying.
+    // Both answers must come from the same reader, or the panel denies the key the app uses.
+    getInferenceApiKeyStatus: async () => { const key = await secretDeepSeekApiKey(deps); return { configured: key != null, message: key != null ? null : DEEPSEEK_MISSING_KEY_HINT }; },
     setInferenceApiKey: (raw) => { const value = req(raw).apiKey; const key = typeof value === "string" ? value.trim() : ""; deps.setInferenceApiKey?.(key.length === 0 ? undefined : key); return { configured: key.length > 0 }; },
-    getInferenceRouter: async () => { const settings = await deps.readHostSettingsFromBox().catch(() => ({} as UnknownRecord)); const provider = invoke(deps.settingsStore, "getInferenceProvider"); return { provider: isSandInferenceProvider(provider) ? provider : SAND_INFERENCE_PROVIDER, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, endpoint: invoke(deps.settingsStore, "getInferenceCustomEndpoint") ?? defaultSandInferenceCustomEndpoint(), apiKeyConfigured: storedDeepSeekApiKey(deps) != null }; },
+    getInferenceRouter: async () => { const settings = await deps.readHostSettingsFromBox().catch(() => ({} as UnknownRecord)); const provider = invoke(deps.settingsStore, "getInferenceProvider"); return { provider: isSandInferenceProvider(provider) ? provider : SAND_INFERENCE_PROVIDER, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, endpoint: invoke(deps.settingsStore, "getInferenceCustomEndpoint") ?? defaultSandInferenceCustomEndpoint(), apiKeyConfigured: await secretDeepSeekApiKey(deps) != null }; },
     listInferenceRouterModels: async (raw) => await listSandEndpointModels({ baseUrl: req(raw).baseUrl ?? DEEPSEEK_BASE_URL, apiKey: await secretDeepSeekApiKey(deps) }),
     // The routing decision is made from the BOX copy of the settings
     // (`inference-router.ts` reads `getInferenceProvider()` on the host side),
@@ -181,7 +190,7 @@ export function createMainEdgeHandlers(deps: MainEdgeDeps): HandlerMap {
     // reading "Custom" locally while the host still routes to Cursor — and because
     // `coordinator-resync` re-pushes the desktop copy on every reconnect, that divergence
     // would then be made permanent.
-    const previousProvider = invoke(deps.settingsStore, "getInferenceProvider"); const previousEndpoint = invoke(deps.settingsStore, "getInferenceCustomEndpoint"); invoke(deps.settingsStore, "setInferenceProvider", provider); if (requestedEndpoint !== undefined) invoke(deps.settingsStore, "setInferenceCustomEndpoint", endpoint); const settings = await (requestedEndpoint === undefined ? deps.syncHostSettingsToBox({ inferenceProvider: provider }) : deps.syncHostSettingsToBox({ inferenceProvider: provider, inferenceCustomEndpoint: endpoint ?? null })).catch(() => null); if (settings === null) { invoke(deps.settingsStore, "setInferenceProvider", previousProvider); invoke(deps.settingsStore, "setInferenceCustomEndpoint", previousEndpoint); throw new SandHostSettingsUnreachableError("Couldn't reach the computer to save the inference route."); } return { provider, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, endpoint: requestedEndpoint === undefined ? invoke(deps.settingsStore, "getInferenceCustomEndpoint") ?? defaultSandInferenceCustomEndpoint() : endpoint ?? defaultSandInferenceCustomEndpoint(), apiKeyConfigured: storedDeepSeekApiKey(deps) != null }; },
+    const previousProvider = invoke(deps.settingsStore, "getInferenceProvider"); const previousEndpoint = invoke(deps.settingsStore, "getInferenceCustomEndpoint"); invoke(deps.settingsStore, "setInferenceProvider", provider); if (requestedEndpoint !== undefined) invoke(deps.settingsStore, "setInferenceCustomEndpoint", endpoint); const settings = await (requestedEndpoint === undefined ? deps.syncHostSettingsToBox({ inferenceProvider: provider }) : deps.syncHostSettingsToBox({ inferenceProvider: provider, inferenceCustomEndpoint: endpoint ?? null })).catch(() => null); if (settings === null) { invoke(deps.settingsStore, "setInferenceProvider", previousProvider); invoke(deps.settingsStore, "setInferenceCustomEndpoint", previousEndpoint); throw new SandHostSettingsUnreachableError("Couldn't reach the computer to save the inference route."); } return { provider, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, endpoint: requestedEndpoint === undefined ? invoke(deps.settingsStore, "getInferenceCustomEndpoint") ?? defaultSandInferenceCustomEndpoint() : endpoint ?? defaultSandInferenceCustomEndpoint(), apiKeyConfigured: await secretDeepSeekApiKey(deps) != null }; },
     getBoxRuntime: async () => ({ mode: LOCAL_BOX_RUNTIME, status: LOCAL_BOX_RUNTIME_STATUS }),
     setBoxRuntime: async (raw) => { const mode = req(raw).mode; invariant(isSandBoxRuntime(mode), "Unknown box runtime."); return { mode: LOCAL_BOX_RUNTIME, status: LOCAL_BOX_RUNTIME_STATUS }; },
 

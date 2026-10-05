@@ -1,0 +1,153 @@
+{
+  "startedAt": "2026-10-05T18:32:37.252Z",
+  "port": 9462,
+  "inspectPort": 5858,
+  "userDataDir": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\.tmp-qa-net",
+  "renderer": {
+    "responses": [
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html",
+        "status": 200,
+        "statusText": "OK",
+        "mimeType": "text/html",
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "type": "Document"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/index-7WWk2H4B.css",
+        "status": 200,
+        "statusText": "OK",
+        "mimeType": "text/css",
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "type": "Stylesheet"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/katex/katex.css",
+        "status": 200,
+        "statusText": "OK",
+        "mimeType": "text/css",
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "type": "Stylesheet"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/jsx-runtime-DoRCtqn9.js",
+        "status": 200,
+        "statusText": "OK",
+        "mimeType": "text/javascript",
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "type": "Script"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/index-t2RbRXja.js",
+        "status": 200,
+        "statusText": "OK",
+        "mimeType": "text/javascript",
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "type": "Script"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/cursor-icons-16-f_W_ogc--f_W_ogc-.woff2",
+        "status": 200,
+        "statusText": "OK",
+        "mimeType": "application/octet-stream",
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "type": "Font"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/view-CHxTvbkY.js",
+        "status": 200,
+        "statusText": "OK",
+        "mimeType": "text/javascript",
+        "fromDiskCache": false,
+        "fromServiceWorker": false,
+        "type": "Script"
+      }
+    ],
+    "requests": [
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html",
+        "method": "GET",
+        "type": "Document",
+        "postDataLength": 0,
+        "initiator": "other"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/index-t2RbRXja.js",
+        "method": "GET",
+        "type": "Script",
+        "postDataLength": 0,
+        "initiator": "parser"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/jsx-runtime-DoRCtqn9.js",
+        "method": "GET",
+        "type": "Script",
+        "postDataLength": 0,
+        "initiator": "parser"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/index-7WWk2H4B.css",
+        "method": "GET",
+        "type": "Stylesheet",
+        "postDataLength": 0,
+        "initiator": "parser"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/katex/katex.css",
+        "method": "GET",
+        "type": "Stylesheet",
+        "postDataLength": 0,
+        "initiator": "parser"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/view-CHxTvbkY.js",
+        "method": "GET",
+        "type": "Script",
+        "postDataLength": 0,
+        "initiator": "script"
+      },
+      {
+        "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/cursor-icons-16-f_W_ogc--f_W_ogc-.woff2",
+        "method": "GET",
+        "type": "Font",
+        "postDataLength": 0,
+        "initiator": "parser"
+      }
+    ],
+    "failures": [],
+    "sockets": []
+  },
+  "main": {
+    "responses": [],
+    "requests": [],
+    "failures": []
+  },
+  "rendererInfo": {
+    "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html",
+    "page": {
+      "origin": "file://",
+      "href": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html",
+      "title": "DB Bot",
+      "bodyTextLength": 110,
+      "scripts": [
+        "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/index-t2RbRXja.js"
+      ],
+      "stylesheets": [
+        "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/index-7WWk2H4B.css",
+        "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/assets/katex/katex.css"
+      ],
+      "frames": 0,
+      "serviceWorker": 0
+    }
+  },
+  "tcpSockets": [],
+  "finishedAt": "2026-10-05T18:33:43.859Z",
+  "stderrTail": "Debugger listening on ws://127.0.0.1:5858/90eb41e7-3ea7-4929-ac65-9af016ed0328\r\nFor help, see: https://nodejs.org/en/docs/inspector\r\n\r\nDevTools listening on ws://127.0.0.1:9462/devtools/browser/27277f68-2c32-4729-9df6-75598181a49b\r\n(node:10624) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.\n(Use `DB Bot --trace-deprecation ...` to show where the warning was created)\nDebugger attached.",
+  "probePid": 10624
+}

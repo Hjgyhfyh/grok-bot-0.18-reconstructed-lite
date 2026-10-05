@@ -86,6 +86,94 @@ function mixHex(from: string, to: string, ratio: number): string {
   const a = hexChannels(from), b = hexChannels(to);
   return channelsHex([a[0] + (b[0] - a[0]) * ratio, a[1] + (b[1] - a[1]) * ratio, a[2] + (b[2] - a[2]) * ratio]);
 }
+
+// ───────────────────────── контраст по WCAG 2.1 ─────────────────────────
+
+/**
+ * Порог WCAG 2.1 для обычного текста и ступени лестницы серого.
+ *
+ * Второй и третий текст раньше брали свою долю непрозрачности из «Белой» темы
+ * (`0x99` и `0x66`) и просто накладывались на холст варианта. На «Белой» это
+ * давало 4.8:1 и 2.6:1, а на «Молочном», «Дымчатом» и «Небе» — 3.9:1 и 2.3:1:
+ * четыре темы из одной палитры разъезжались, потому что доля непрозрачности
+ * копировалась, а контраст — нет. Теперь доля подбирается по контрасту: второй
+ * текст набирает 5.5:1, третий — ровно минимум 4.5:1, и обе ступени считаются
+ * на самой тёмной плоскости, на которой текст вообще лежит (выбранная строка
+ * боковой панели), а не на холсте. `--sand-text-disabled` не трогаем: WCAG
+ * освобождает неактивные элементы управления (1.4.3, «inactive»).
+ */
+export const WCAG_AA_TEXT_CONTRAST = 4.5;
+const SECONDARY_TEXT_CONTRAST = 5.5;
+const TERTIARY_TEXT_CONTRAST = 4.5;
+
+/** `#rrggbb` или `#rrggbbaa` в каналы и долю непрозрачности. */
+function parseHexColour(hex: string): { readonly rgb: readonly [number, number, number]; readonly alpha: number } {
+  const body = hex.slice(1);
+  const full = body.length === 4 ? body[0] + body[0] + body[1] + body[1] + body[2] + body[2] : body;
+  return {
+    rgb: [parseInt(full.slice(0, 2), 16), parseInt(full.slice(2, 4), 16), parseInt(full.slice(4, 6), 16)] as const,
+    alpha: full.length === 8 ? parseInt(full.slice(6, 8), 16) / 255 : 1
+  };
+}
+/** Полупрозрачный цвет, наложенный на непрозрачную плоскость. */
+function flatten(rgb: readonly [number, number, number], alpha: number, plane: readonly [number, number, number]): readonly [number, number, number] {
+  return [
+    rgb[0] * alpha + plane[0] * (1 - alpha),
+    rgb[1] * alpha + plane[1] * (1 - alpha),
+    rgb[2] * alpha + plane[2] * (1 - alpha)
+  ] as const;
+}
+function linearChannel(value: number): number {
+  const channel = value / 255;
+  return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+}
+/** Относительная яркость по WCAG 2.1. */
+function relativeLuminance(rgb: readonly [number, number, number]): number {
+  return 0.2126 * linearChannel(rgb[0]) + 0.7152 * linearChannel(rgb[1]) + 0.0722 * linearChannel(rgb[2]);
+}
+/** Контрастное отношение по WCAG 2.1. */
+export function wcagContrast(a: readonly [number, number, number], b: readonly [number, number, number]): number {
+  const first = relativeLuminance(a), second = relativeLuminance(b);
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+}
+/**
+ * Наименьшая доля непрозрачности, при которой текст набирает `target` на каждой
+ * из плоскостей. Контраст растёт вместе с долей, поэтому бинарного поиска
+ * достаточно; 40 шагов дают точность лучше сотой доли процента.
+ */
+function alphaForContrast(ink: string, planes: readonly (readonly [number, number, number])[], target: number): number {
+  const inkRgb = hexChannels(ink);
+  let low = 0, high = 1;
+  for (let step = 0; step < 40; step += 1) {
+    const middle = (low + high) / 2;
+    const ok = planes.every((plane) => wcagContrast(flatten(inkRgb, middle, plane), plane) >= target);
+    if (ok) high = middle; else low = middle;
+  }
+  return high;
+}
+/** Две цифры непрозрачности для цвета `#rrggbbaa`. */
+function alphaHex(alpha: number): string {
+  return Math.max(0, Math.min(255, Math.round(alpha * 255))).toString(16).padStart(2, "0");
+}
+
+/**
+ * Плоскости, на которых лежит обычный текст: холст, боковая панель, карточка и
+ * две самые тёмные — наведение и выбранная строка. Полупрозрачные заливки взяты
+ * из самой же таблицы, поэтому список считается после её сборки.
+ */
+function textPlanes(variant: RuntimeThemeVariant, table: Readonly<Record<string, string>>): readonly (readonly [number, number, number])[] {
+  const spec = THEME_VARIANT_SPECS[variant];
+  const surface = hexChannels(spec.surface);
+  const hover = parseHexColour(table["#78787817"] ?? "#78787817");
+  const selected = parseHexColour(table["#7878782b"] ?? "#7878782b");
+  return [
+    hexChannels(spec.canvas),
+    surface,
+    hexChannels(spec.elevated),
+    flatten(hover.rgb, hover.alpha, surface),
+    flatten(selected.rgb, selected.alpha, surface)
+  ];
+}
 /** Every alpha suffix the shipped light palette uses, so #1414144d follows its own base. */
 const ALPHA_SUFFIXES: readonly string[] = ["00", "0a", "0d", "10", "17", "1a", "1f", "21", "24", "26", "2b", "2c", "33", "4d", "52", "66", "80", "99", "ad", "bd", "e5", "eb", "f2", "ff"];
 
@@ -104,6 +192,12 @@ export function runtimeThemeNeutralMap(variant: RuntimeThemeVariant): Readonly<R
   put("#ffffff", spec.canvas);
   put("#f7f7f7", spec.surface);
   for (const [base, ratio] of Object.entries(NEUTRAL_RAMP)) put(base, mixHex(spec.ink, spec.canvas, ratio));
+  // Второй и третий текст — единственные нейтрали, у которых доля непрозрачности
+  // не переносится из «Белой» темы: она подбирается под контраст на холсте
+  // варианта. Иначе «Молочный», «Дымчатый» и «Небо» не добирали 4.5:1.
+  const planes = textPlanes(variant, table);
+  table["#14141499"] = spec.ink + alphaHex(alphaForContrast(spec.ink, planes, SECONDARY_TEXT_CONTRAST));
+  table["#14141466"] = spec.ink + alphaHex(alphaForContrast(spec.ink, planes, TERTIARY_TEXT_CONTRAST));
   return table;
 }
 

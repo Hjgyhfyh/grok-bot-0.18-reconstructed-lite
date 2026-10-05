@@ -6,10 +6,17 @@
  * идёт из исходников и лишние мегабайты в бандл не нужны.
  */
 
-import { scanXml, tidyExtractedText, type XmlToken } from "./xml.js";
-import { readGuardedZipEntries, type ZipReadLimits, type GuardedZipEntry } from "./zip-reader.js";
+import { decodeXmlPart, scanXml, tidyExtractedText, type XmlToken } from "./xml.js";
+import {
+  guardedZipEntryNames,
+  planGuardedZipEntries,
+  readGuardedZipEntriesByName,
+  readGuardedZipEntry,
+  type ZipReadLimits,
+  type GuardedZipEntry,
+  type GuardedZipPlan,
+} from "./zip-reader.js";
 
-const DECODER = new TextDecoder("utf-8");
 
 /** Части Word, из которых собирается читаемый текст. Порядок имеет смысл. */
 const DOCX_PARTS = [
@@ -79,19 +86,24 @@ export function docxXmlToText(xml: string): string {
 }
 
 export function docxZipToText(bytes: Uint8Array, limits?: ZipReadLimits): string {
-  const entries = readGuardedZipEntries(bytes, limits);
-  const byName = new Map(entries.map((entry) => [entry.name, entry]));
-  const main = byName.get("word/document.xml");
-  if (main == null) throw new DocumentParseError("В документе Word нет части word/document.xml.");
+  const plan = planGuardedZipEntries(bytes, limits);
+  if (findGuardedZipEntryName(plan, "word/document.xml") == null) {
+    throw new DocumentParseError("В документе Word нет части word/document.xml.");
+  }
+  // Распаковываются только части с текстом. Фотография на 40 МБ внутри документа
+  // текста не даёт, а раньше она распаковывалась целиком и стоила столько же
+  // памяти, сколько весь документ.
+  const parts = readGuardedZipEntriesByName(plan, DOCX_PARTS);
   const chunks: string[] = [];
-  for (const name of DOCX_PARTS) {
-    const entry = byName.get(name);
-    if (entry == null) continue;
-    const text = docxXmlToText(DECODER.decode(entry.data));
+  for (const entry of parts) {
+    const text = docxXmlToText(decodeXmlPart(entry.data));
     if (text.length > 0) chunks.push(text);
   }
-  if (chunks.length === 0) chunks.push(docxXmlToText(DECODER.decode(main.data)));
   return tidyExtractedText(chunks.join("\n\n"));
+}
+
+function findGuardedZipEntryName(plan: GuardedZipPlan, name: string): GuardedZipPlan["entries"][number] | null {
+  return plan.entries.find((entry) => entry.name === name) ?? null;
 }
 
 // ───────────────────────────── ODT ─────────────────────────────
@@ -143,26 +155,26 @@ function clampRepeat(raw: string | undefined): number {
 }
 
 export function odtZipToText(bytes: Uint8Array, limits?: ZipReadLimits): string {
-  const entries = readGuardedZipEntries(bytes, limits);
-  const content = entries.find((entry) => entry.name === "content.xml");
+  const plan = planGuardedZipEntries(bytes, limits);
+  const [content] = readGuardedZipEntriesByName(plan, ["content.xml"]);
   if (content == null) throw new DocumentParseError("В документе LibreOffice нет части content.xml.");
-  const text = odtXmlToText(DECODER.decode(content.data));
+  const text = odtXmlToText(decodeXmlPart(content.data));
   if (text.length === 0) {
-    const spreadsheet = entries.find((entry) => entry.name === "Object 1/content.xml");
-    if (spreadsheet != null) return tidyExtractedText(odtXmlToText(DECODER.decode(spreadsheet.data)));
+    const [spreadsheet] = readGuardedZipEntriesByName(plan, ["Object 1/content.xml"]);
+    if (spreadsheet != null) return tidyExtractedText(odtXmlToText(decodeXmlPart(spreadsheet.data)));
   }
   return text;
 }
 
 // ───────────────────────────── XLSX ─────────────────────────────
 
-function sharedStringsOf(entries: readonly GuardedZipEntry[]): string[] {
-  const part = entries.find((entry) => entry.name === "xl/sharedStrings.xml");
+function sharedStringsOf(plan: GuardedZipPlan): string[] {
+  const [part] = readGuardedZipEntriesByName(plan, ["xl/sharedStrings.xml"]);
   if (part == null) return [];
   const strings: string[] = [];
   let current = "";
   let inside = false;
-  for (const token of scanXml(DECODER.decode(part.data))) {
+  for (const token of scanXml(decodeXmlPart(part.data))) {
     if (token.kind === "open" && token.name === "si") { inside = true; current = ""; continue; }
     if (token.kind === "close" && token.name === "si") { strings.push(current); inside = false; continue; }
     if (!inside) continue;
@@ -172,11 +184,11 @@ function sharedStringsOf(entries: readonly GuardedZipEntry[]): string[] {
   return strings;
 }
 
-function sheetNamesOf(entries: readonly GuardedZipEntry[]): string[] {
-  const part = entries.find((entry) => entry.name === "xl/workbook.xml");
+function sheetNamesOf(plan: GuardedZipPlan): string[] {
+  const [part] = readGuardedZipEntriesByName(plan, ["xl/workbook.xml"]);
   if (part == null) return [];
   const names: string[] = [];
-  for (const token of scanXml(DECODER.decode(part.data))) {
+  for (const token of scanXml(decodeXmlPart(part.data))) {
     if (token.kind === "empty" && token.name === "sheet") {
       const name = token.attrs.get("name");
       if (name != null) names.push(name);
@@ -251,16 +263,22 @@ function trimRow(cells: readonly string[]): string[] {
 }
 
 export function xlsxZipToText(bytes: Uint8Array, limits?: ZipReadLimits): string {
-  const entries = readGuardedZipEntries(bytes, limits);
-  const shared = sharedStringsOf(entries);
-  const names = sheetNamesOf(entries);
-  const sheets = entries
-    .filter((entry) => /^xl\/worksheets\/sheet\d+\.xml$/.test(entry.name))
-    .sort((a, b) => sheetOrder(a.name) - sheetOrder(b.name));
-  if (sheets.length === 0) throw new DocumentParseError("В книге Excel нет листов.");
+  const plan = planGuardedZipEntries(bytes, limits);
+  const shared = sharedStringsOf(plan);
+  const names = sheetNamesOf(plan);
+  // Листы распаковываются по одному: книга на 40 МБ не должна целиком лежать в
+  // памяти только затем, чтобы из неё вытащили текст.
+  const sheetNames = guardedZipEntryNames(plan).filter((name) => /^xl\/worksheets\/sheet\d+\.xml$/.test(name));
+  if (sheetNames.length === 0) throw new DocumentParseError("В книге Excel нет листов.");
+  const ordered = sheetNames.slice().sort((left, right) => sheetOrder(left) - sheetOrder(right));
   const blocks: string[] = [];
-  for (const [index, sheet] of sheets.entries()) {
-    const rows = sheetXmlToRows(DECODER.decode(sheet.data), shared);
+  let inflated = 0;
+  for (const [index, name] of ordered.entries()) {
+    const item = plan.entries.find((entry) => entry.name === name);
+    if (item == null) continue;
+    const sheet = readGuardedZipEntry(plan, item, inflated);
+    inflated += sheet.data.byteLength;
+    const rows = sheetXmlToRows(decodeXmlPart(sheet.data), shared);
     const title = names[index] ?? `Лист ${index + 1}`;
     blocks.push(rows.length === 0 ? `## ${title}` : `## ${title}\n${rows.join("\n")}`);
   }
@@ -279,10 +297,15 @@ export type OfficeZipKind = "docx" | "odt" | "xlsx" | "archive";
  * Если ни одного из известных наборов нет — это обычный архив, а не документ.
  */
 export function officeZipKindOf(entries: readonly GuardedZipEntry[]): OfficeZipKind {
-  const names = new Set(entries.map((entry) => entry.name));
-  if (names.has("word/document.xml")) return "docx";
-  if (names.has("xl/workbook.xml")) return "xlsx";
-  if (names.has("content.xml") || [...names].some((name) => name.endsWith("/content.xml"))) return "odt";
+  return officeZipKindOfNames(entries.map((entry) => entry.name));
+}
+
+/** Тот же вход, но по именам: распаковывать части ради проверки состава незачем. */
+export function officeZipKindOfNames(names: readonly string[]): OfficeZipKind {
+  const set = new Set(names);
+  if (set.has("word/document.xml")) return "docx";
+  if (set.has("xl/workbook.xml")) return "xlsx";
+  if (set.has("content.xml") || [...set].some((name) => name.endsWith("/content.xml"))) return "odt";
   return "archive";
 }
 

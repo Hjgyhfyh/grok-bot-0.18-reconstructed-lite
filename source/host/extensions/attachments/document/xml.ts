@@ -112,16 +112,121 @@ export function* scanXml(xml: string): Generator<XmlToken> {
   if (textStart < xml.length) yield { kind: "text", value: decodeXmlEntities(xml.slice(textStart)) };
 }
 
-/** Схлопывает пробелы, оставляя переносы строк. Так отчёт читается глазами. */
+/** Неразрывные пробелы, которые приходят из Word и Excel, — обычные пробелы. */
+const EXOTIC_SPACES = new Set(["\u00a0", "\u2007", "\u202f", "\u2009"]);
+
+function isSpaceChar(char: string): boolean {
+  return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "" || EXOTIC_SPACES.has(char);
+}
+
+/**
+ * Сколько символов текста имеет смысл собрать. В модель уходит не больше
+ * `ATTACHMENT_TEXT_CHAR_LIMIT` символов, а разбор шёл до конца файла: страница
+ * на 25 МБ схлопывалась целиком, хотя её первые шестьсот тысяч символов всё
+ * равно никто не увидит. Потолок вчетверо больше того, что уходит в модель, и
+ * для любого файла короче него результат остаётся прежним.
+ */
+export const PLAIN_TEXT_BUDGET = 600_000;
+
+/**
+ * Собирает текст и схлопывает пробелы за один проход, без копий строки целиком.
+ *
+ * Раньше схлопывание делалось цепочкой `replace` и `split`/`map`/`join`. На
+ * разметке в 8 МБ это 150 МБ памяти: на каждый пробел создавался свой кусок, и
+ * на странице из одних коротких слов их было пять миллионов. Здесь текст идёт
+ * кусками, а сборка останавливается на потолке выше.
+ */
+export class PlainTextCollector {
+  private readonly parts: string[] = [];
+  private spaces = 0;
+  private newlines = 0;
+  private tabs = 0;
+  private wrote = false;
+  private produced = 0;
+
+  private pushRun(run: string): void {
+    if (run.length === 0 || this.produced >= PLAIN_TEXT_BUDGET) return;
+    if (!this.wrote) { this.newlines = 0; this.tabs = 0; this.spaces = 0; }
+    this.flush();
+    this.wrote = true;
+    this.produced += run.length;
+    this.parts.push(run);
+  }
+
+  private flush(): void {
+    if (this.tabs > 0) { this.parts.push("\t"); this.tabs = 0; }
+    if (this.newlines > 0) { this.parts.push("\n".repeat(Math.min(this.newlines, 2))); this.newlines = 0; }
+    if (this.spaces > 0) { this.parts.push(" "); this.spaces = 0; }
+  }
+
+  /** Текст между тегами: пробелы схлопываются, пустые строки — в одну перевод строки. */
+  pushText(text: string): void {
+    const length = text.length;
+    let start = 0;
+    let index = 0;
+    while (index < length && this.produced < PLAIN_TEXT_BUDGET) {
+      if (!isSpaceChar(text[index] as string)) { index += 1; continue; }
+      if (index > start) this.pushRun(text.slice(start, index));
+      while (index < length && isSpaceChar(text[index] as string)) {
+        const char = text[index] as string;
+        if (char === "\n" || char === "\r") { this.newlines += 1; this.spaces = 0; }
+        else if (char === "\t") { this.tabs += 1; this.spaces = 0; }
+        else if (this.wrote) this.spaces += 1;
+        index += 1;
+      }
+      start = index;
+    }
+    if (start < length) this.pushRun(text.slice(start));
+  }
+
+  /** Табуляция ячейки таблицы. */
+  pushTab(): void {
+    this.tabs += 1;
+    this.spaces = 0;
+  }
+
+  /** Перевод строки на конце абзаца. */
+  pushNewline(): void {
+    this.newlines += 1;
+    this.spaces = 0;
+  }
+
+  /** Значение, которое можно отдать модели. */
+  toString(): string {
+    // Хвостовые пробелы, табуляции и переводы строки уходят, как и в прежнем
+    // `.trim()` в конце цепочки `replace`.
+    while (this.parts.length > 0 && /^[ \t\n]+$/.test(this.parts[this.parts.length - 1] as string)) this.parts.pop();
+    if (this.parts.length === 0) return "";
+    this.flush();
+    return this.parts.join("");
+  }
+}
+
+/**
+ * Схлопывает пробелы, оставляя переносы строк. Так отчёт читается глазами.
+ * Один проход вместо семи `replace` и `split`/`map`/`join`: на
+ * `word/document.xml` весом 47 МБ старый вариант делал шесть копий строки и
+ * массив из миллионов строк.
+ */
 export function tidyExtractedText(text: string): string {
-  return text
-    .replace(/\r\n?/g, "\n")
-    .replace(/[   ]/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/\t{2,}/g, "\t")
-    .split("\n")
-    .map((line) => line.trim())
-    .join("\n")
-    .trim();
+  const collector = new PlainTextCollector();
+  collector.pushText(text);
+  return collector.toString();
+}/**
+ * Сколько байт части имеет смысл декодировать в строку. В модель уходит не больше
+ * `ATTACHMENT_TEXT_CHAR_LIMIT` символов, а `word/document.xml` на 47 МБ
+ * декодировался целиком: строка в 47 миллионов символов и ещё шесть её копий.
+ * Восемь мегабайт разметки дают больше миллиона символов текста — заведомо
+ * больше потолка, поэтому текст от этого не теряется.
+ */
+export const XML_DECODE_BUDGET = 8 * 1024 * 1024;
+
+/** Декодирует часть архива в строку, не разрывая многобайтовый символ на границе. */
+export function decodeXmlPart(data: Uint8Array): string {
+  const decoder = new TextDecoder();
+  if (data.byteLength <= XML_DECODE_BUDGET) return decoder.decode(data);
+  let cut = XML_DECODE_BUDGET;
+  // Отступаем назад, пока не найдём начало последовательности UTF-8.
+  while (cut > 0 && (data[cut] as number) >= 0x80 && ((data[cut] as number) & 0xc0) === 0x80) cut -= 1;
+  return decoder.decode(data.subarray(0, cut));
 }

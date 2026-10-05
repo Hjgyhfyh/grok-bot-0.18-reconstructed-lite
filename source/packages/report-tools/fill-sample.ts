@@ -16,6 +16,7 @@
  */
 
 import { readZipEntries, readZipEntryText, writeZip } from "./zip.js";
+import { rtfEscapeNonAscii, rtfUnicodeEscape } from "./rtf.js";
 import { stripXmlTags, xmlEscapeText, xmlUnescape } from "./xml.js";
 
 export type DocFormat = "rtf" | "docx" | "odt";
@@ -236,14 +237,38 @@ function cloneRow(
 ): string {
   let out = "";
   let cursor = donor.start;
-  donor.cells.forEach(([cellStart, cellEnd], index) => {
-    if (cellEnd <= donor.start || cellStart >= donor.end) return;
+  let lastCell: readonly [number, number, string] | undefined;
+  for (const [index, [cellStart, cellEnd]] of donor.cells.entries()) {
+    if (cellEnd <= donor.start || cellStart >= donor.end) continue;
     out += source.slice(cursor, cellStart);
     out += rewriteCell(source.slice(cellStart, cellEnd), newCells[index] ?? "", format);
     cursor = cellEnd;
-  });
-  out += source.slice(cursor, donor.end);
-  return out;
+    lastCell = donor.cells[index] as readonly [number, number, string];
+  }
+  // Колонок в отчёте больше, чем в образце. Раньше лишние значения просто
+  // отбрасывались: документ собирался, помощник рапортовал «готово», а
+  // «Ответственный» и «Количество» из отчёта не доходили вообще. Дописываем
+  // ячейки по образцу последней — оформление строки остаётся образцовым.
+  if (lastCell !== undefined && newCells.length > donor.cells.length) {
+    const template = source.slice(lastCell[0], lastCell[1]);
+    for (let index = donor.cells.length; index < newCells.length; index += 1) {
+      out += rewriteCell(template, newCells[index] ?? "", format);
+    }
+  }
+  return out + source.slice(cursor, donor.end);
+}
+
+/** Ячейки, дописанные строке образца: последняя ячейка переписывается под каждый текст. */
+function appendCellsToRow(
+  source: string,
+  row: ExtractedRow,
+  values: readonly string[],
+  format: DocFormat,
+): string {
+  const last = row.cells[row.cells.length - 1];
+  if (last === undefined || values.length === 0) return "";
+  const template = source.slice(last[0], last[1]);
+  return values.map((value) => rewriteCell(template, value, format)).join("");
 }
 
 function planFill(
@@ -319,12 +344,13 @@ function planFill(
     let inserted = "";
     if (clonedSection) {
       // Второй блок с тем же номером: клонируем строку-заголовок секции.
-      const sectionCells = new Array<string>(row.cells.length).fill("");
+      // Ширина строки берётся из отчёта: колонок там может быть больше, чем
+      // в образце, и лишние заголовки граф тоже обязаны попасть в документ.
+      const width = Math.max(row.cells.length, ...section.headerCells.map(([index]) => index + 1));
+      const sectionCells = new Array<string>(width).fill("");
       if (sectionCells.length > 0) sectionCells[0] = section.number;
       if (sectionCells.length > 1) sectionCells[1] = section.label;
-      for (const [index, value] of section.headerCells) {
-        if (index < sectionCells.length) sectionCells[index] = value;
-      }
+      for (const [index, value] of section.headerCells) sectionCells[index] = value;
       inserted += cloneRow(source, row, sectionCells, format);
     }
     if (section.rows.length > 0) {
@@ -338,8 +364,17 @@ function planFill(
     if (!clonedSection) {
       rewriteCellInto(ops, source, row, 0, section.number, format);
       if (section.label.trim().length > 0) rewriteCellInto(ops, source, row, 1, section.label, format);
+      // Заголовки граф, для которых в образце нет ячейки, дописываются в конец
+      // строки: иначе графа в отчёте есть, а подписи к ней в документе нет.
+      const extra: { readonly index: number; readonly value: string }[] = [];
       for (const [index, value] of section.headerCells) {
-        rewriteCellInto(ops, source, row, index, value, format);
+        if (index < row.cells.length) rewriteCellInto(ops, source, row, index, value, format);
+        else extra.push({ index, value });
+      }
+      const lastCell = row.cells[row.cells.length - 1];
+      if (extra.length > 0 && lastCell !== undefined) {
+        extra.sort((left, right) => left.index - right.index);
+        insertAfter(ops, lastCell[1], appendCellsToRow(source, row, extra.map((item) => item.value), format));
       }
     }
     report.applied.push([`${section.number} ${section.label}`, section.rows.length]);
@@ -560,6 +595,53 @@ function isContentToken(token: RtfToken): boolean {
   return token.kind === "control" && CONTENT_CONTROLS.has(token.word);
 }
 
+/** Верхняя половина cp1251 (0x80–0xFF) как коды символов — для побайтового чтения. */
+const CP1251_CODES: number[] = CP1251_HIGH.map((text) => text.codePointAt(0) ?? 0xfffd);
+
+/**
+ * Байты windows-1251 → строка.
+ *
+ * Образец `.rtf` почти всегда ansi-файл: `\ansicpg1251` пишет сам Word, и русские
+ * слова лежат в нём байтами cp1251, а не последовательностями `\uN?`. Читать
+ * такой файл как UTF-8 нельзя: `TextDecoder` без `fatal` ставит на месте
+ * каждого не-ASCII байта U+FFFD, и весь русский текст превращается в «�».
+ * Заведующая присылает бланк в cp1251 чаще всего, и отчёт уходил с «�» везде.
+ */
+function decodeCp1251(bytes: Uint8Array): string {
+  const step = 8192;
+  let out = "";
+  for (let start = 0; start < bytes.length; start += step) {
+    const slice = bytes.subarray(start, Math.min(start + step, bytes.length));
+    const codes: number[] = new Array<number>(slice.length);
+    for (let index = 0; index < slice.length; index += 1) {
+      const byte = slice[index] as number;
+      codes[index] = byte < 0x80 ? byte : (CP1251_CODES[byte - 0x80] ?? 0xfffd);
+    }
+    out += String.fromCharCode(...codes);
+  }
+  return out;
+}
+
+/**
+ * Декодирование образца `.rtf`.
+ *
+ * Порядок проб такой. Сначала строгий UTF-8: если файл в нём, он читается
+ * верно, а объявленный в шапке `\ansicpg1251` ничего не значит — за него
+ * отвечает тот, кто кодировал. Если UTF-8 не распался, файл однобайтовый, и
+ * заведующая присылает его в windows-1251: русские слова лежат байтами cp1251,
+ * а не последовательностями `\uN?`. Читать такой файл обычным `TextDecoder`
+ * нельзя — на месте каждого не-ASCII байта он ставит U+FFFD, и весь русский
+ * текст превращается в «�». Байты 0xC0 и 0xC1 в cp1251 — это «А» и «Б» и в
+ * UTF-8 они невозможны, поэтому русский образец почти всегда отсеивается сам.
+ */
+function decodeRtfSource(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return decodeCp1251(bytes);
+  }
+}
+
 /** Экранирование для вставки: `\n` → `\par `, `\t` → `\tab `. */
 export function rtfEscapeText(text: string): string {
   let out = "";
@@ -570,10 +652,7 @@ export function rtfEscapeText(text: string): string {
     else if (ch === "\n") out += "\\par ";
     else if (ch === "\t") out += "\\tab ";
     else if ((ch.codePointAt(0) as number) < 128) out += ch;
-    else {
-      const code = ch.codePointAt(0) as number;
-      out += `\\u${code > 32767 ? code - 65536 : code}?`;
-    }
+    else out += rtfUnicodeEscape(ch.codePointAt(0) as number);
   }
   return out;
 }
@@ -665,20 +744,49 @@ function extractRtfRows(source: string): ExtractedRow[] {
   return rows;
 }
 
-/** Замены текста в шапке RTF (до первой таблицы) на уровне токенов. */
+/**
+ * Области RTF, где ищется текст для замены: шапка и хвост ПОСЛЕ таблицы.
+ *
+ * Тело таблицы не трогается: заполнением строк занимается `planFill`, а здесь
+ * ищутся реквизиты бланка. Хвост добавлен по той же причине, что и в DOCX:
+ * подпись «Составил: ____» и ФИО стоят под таблицей, а искались только выше неё.
+ */
+function rtfReplacementRegions(tokens: readonly RtfTokenRecord[]): { from: number; to: number }[] {
+  const isControl = (index: number, word: string): boolean => {
+    const record = tokens[index];
+    return record !== undefined && record.token.kind === "control" && record.token.word === word;
+  };
+  const firstRow: number[] = [];
+  tokens.forEach((record, index) => {
+    if (record.token.kind === "control" && record.token.word === "trowd") firstRow.push(index);
+  });
+  if (firstRow.length === 0) return [{ from: 0, to: tokens.length }];
+  const regions: { from: number; to: number }[] = [{ from: 0, to: firstRow[0] as number }];
+  const lastTrowd = firstRow[firstRow.length - 1] as number;
+  for (let index = lastTrowd + 1; index < tokens.length; index += 1) {
+    if (!isControl(index, "row")) continue;
+    if (index + 1 < tokens.length) regions.push({ from: index + 1, to: tokens.length });
+    break;
+  }
+  return regions;
+}
+
+/**
+ * Замены текста в шапке RTF на уровне токенов.
+ *
+ * Считаются ПАРЫ, а не вхождения, — так же, как в DOCX и ODT: инструмент
+ * говорит пользователю, сколько замен выполнено, и одна пара не должна
+ * выглядеть как две. Пара, для которой в образце ничего не нашлось, попадает
+ * в `notFound`, и `formatFillReport` печатает её пользователю.
+ */
 function applyRtfReplacements(
   source: string,
   replacements: readonly (readonly [string, string])[],
   ops: RowOps,
-): number {
-  if (replacements.length === 0) return 0;
+): { readonly applied: number; readonly notFound: readonly string[] } {
+  const notFound: string[] = [];
+  if (replacements.length === 0) return { applied: 0, notFound };
   const tokens = tokenizeRtf(source);
-  let firstRowToken = tokens.length;
-  tokens.forEach((record, index) => {
-    if (record.token.kind === "control" && record.token.word === "trowd" && firstRowToken === tokens.length) {
-      firstRowToken = index;
-    }
-  });
   const offsets: number[] = [];
   let position = 0;
   for (const record of tokens) {
@@ -686,49 +794,54 @@ function applyRtfReplacements(
     position += record.raw.length;
   }
 
-  let count = 0;
+  let applied = 0;
   for (const [old, next] of replacements) {
     if (old.length === 0) continue;
     const oldChars = Array.from(old);
-    // Карта: (позиция в декодированном тексте) → индекс токена.
-    // Запасной символ после `\uN` пропускается — иначе в шапке, набранной
-    // Word как `\u1055?\u1088?...`, ни одна замена не нашла бы свой текст.
-    const decoded: { char: string; token: number }[] = [];
-    let skipFallback = false;
-    tokens.slice(0, firstRowToken).forEach((record, index) => {
-      const token = record.token;
-      if (skipFallback && token.kind === "char") {
+    let hits = 0;
+    for (const region of rtfReplacementRegions(tokens)) {
+      // Карта: символ декодированного текста → индекс токена.
+      // Запасной символ после `\uN` пропускается — иначе в шапке, набранной
+      // Word как `\u1055?\u1088?...`, ни одна замена не нашла бы свой текст.
+      const decoded: { char: string; token: number }[] = [];
+      let skipFallback = false;
+      for (let index = region.from; index < region.to; index += 1) {
+        const token = (tokens[index] as RtfTokenRecord).token;
+        if (skipFallback && token.kind === "char") {
+          skipFallback = false;
+          continue;
+        }
         skipFallback = false;
-        return;
-      }
-      skipFallback = false;
-      if (token.kind === "char" || token.kind === "escaped") decoded.push({ char: token.char, token: index });
-      else if (token.kind === "hex") decoded.push({ char: rtfCharOf(token.byte), token: index });
-      else if (token.kind === "control" && token.word === "u") {
-        const decodedChar = controlChar(token);
-        if (decodedChar !== null) {
-          decoded.push({ char: decodedChar, token: index });
-          skipFallback = true;
+        if (token.kind === "char" || token.kind === "escaped") decoded.push({ char: token.char, token: index });
+        else if (token.kind === "hex") decoded.push({ char: rtfCharOf(token.byte), token: index });
+        else if (token.kind === "control" && token.word === "u") {
+          const decodedChar = controlChar(token);
+          if (decodedChar !== null) {
+            decoded.push({ char: decodedChar, token: index });
+            skipFallback = true;
+          }
         }
       }
-    });
-    let searchFrom = 0;
-    while (searchFrom + oldChars.length <= decoded.length) {
-      const matched = oldChars.every((expected, offset) => decoded[searchFrom + offset]?.char === expected);
-      if (!matched) {
-        searchFrom += 1;
-        continue;
+      let searchFrom = 0;
+      while (searchFrom + oldChars.length <= decoded.length) {
+        const matched = oldChars.every((expected, offset) => decoded[searchFrom + offset]?.char === expected);
+        if (!matched) {
+          searchFrom += 1;
+          continue;
+        }
+        const firstToken = (decoded[searchFrom] as { token: number }).token;
+        const lastToken = (decoded[searchFrom + oldChars.length - 1] as { token: number }).token;
+        const start = offsets[firstToken] as number;
+        const end = (offsets[lastToken] as number) + (tokens[lastToken] as RtfTokenRecord).raw.length;
+        ops.cellEdits.push([start, end, rtfEscapeText(next)]);
+        hits += 1;
+        searchFrom += oldChars.length;
       }
-      const firstToken = (decoded[searchFrom] as { token: number }).token;
-      const lastToken = (decoded[searchFrom + oldChars.length - 1] as { token: number }).token;
-      const start = offsets[firstToken] as number;
-      const end = (offsets[lastToken] as number) + (tokens[lastToken] as RtfTokenRecord).raw.length;
-      ops.cellEdits.push([start, end, rtfEscapeText(next)]);
-      count += 1;
-      searchFrom += oldChars.length;
     }
+    if (hits > 0) applied += 1;
+    else notFound.push(old);
   }
-  return count;
+  return { applied, notFound };
 }
 
 // ───────────────────────── DOCX ─────────────────────────
@@ -920,47 +1033,168 @@ function extractRows(source: string, format: DocFormat): ExtractedRow[] {
   return extractOdtRows(source);
 }
 
+/** Полуинтервал в строке: `[start, end)`. */
+interface Range {
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * Границы элементов `<tag …>…</tag>` верхнего уровня: вложенные пропускаются.
+ *
+ * У DOCX это прогоны `<w:t>` внутри абзаца, у ODT — абзацы `<text:p>`. Имена
+ * элементов различаются последней буквой (`w:t` против `w:tc`, `text:p` против
+ * `text:p`), поэтому проверяется, что сразу за именем идёт `>` или пробел.
+ */
+function elementSpans(source: string, tag: string): Range[] {
+  const openTag = `<${tag}`;
+  const closeTag = `</${tag}>`;
+  const spans: Range[] = [];
+  let scan = 0;
+  while (scan < source.length) {
+    const open = source.indexOf(openTag, scan);
+    if (open < 0) break;
+    const afterName = open + openTag.length;
+    if (source[afterName] !== ">" && source[afterName] !== " ") {
+      scan = afterName;
+      continue;
+    }
+    const gt = source.indexOf(">", open);
+    if (gt < 0) break;
+    const contentStart = gt + 1;
+    const close = source.indexOf(closeTag, contentStart);
+    if (close < 0) break;
+    spans.push({ start: contentStart, end: close });
+    scan = close + closeTag.length;
+  }
+  return spans;
+}
+
+/**
+ * Склеивает прогоны абзаца в один и заменяет в склеенном тексте.
+ *
+ * Word дробит длинную метку на куски: «ФИО» приходит тремя прогонами с разным
+ * форматированием, и поиск по одному прогону её не находит — замена молча
+ * не выполнялась, а инструмент рапортовал об успехе. Склейка идёт по всему
+ * абзацу, поэтому метка находится независимо от того, на сколько её разрезали.
+ * Всё, что между прогонами (закладки, разрывы, `w:br`), сохраняется.
+ */
+function mergeRunsInContainer(container: string, tag: string, old: string, next: string): string | null {
+  const spans = elementSpans(container, tag);
+  if (spans.length === 0) return null;
+  const texts = spans.map((span) => xmlUnescape(stripXmlTags(container.slice(span.start, span.end))));
+  const joined = texts.join("");
+  if (!joined.includes(old)) return null;
+  const replaced = joined.replaceAll(old, next);
+  const openTag = `<${tag} xml:space="preserve">`;
+  let out = "";
+  let cursor = 0;
+  for (const [index, span] of spans.entries()) {
+    out += container.slice(cursor, span.start);
+    out += index === 0 ? `${openTag}${xmlEscapeText(replaced)}</${tag}>` : `<${tag} xml:space="preserve"></${tag}>`;
+    cursor = span.end;
+  }
+  return out + container.slice(cursor);
+}
+
+/**
+ * Области документа, где ищется текст для замены: всё, кроме тела таблиц.
+ *
+ * Тело таблицы не трогается намеренно — заполнением занимается `planFill`, и
+ * строка «Название» в таблице это название графы, а не текст шапки.
+ *
+ * Область ПОСЛЕ таблицы добавлена потому, что подпись («Составил: ____») и ФИО
+ * стоят под таблицей, а искались только выше неё: нижняя часть бланка не
+ * заполнялась никогда, и это нигде не сообщалось.
+ */
+function replacementRegions(source: string, format: DocFormat): Range[] {
+  const tableOpen = format === "docx" ? "<w:tbl" : "<table:table ";
+  const tableClose = format === "docx" ? "</w:tbl>" : "</table:table>";
+  const open = source.indexOf(tableOpen);
+  if (open < 0) return [{ start: 0, end: source.length }];
+  const regions: Range[] = [{ start: 0, end: open }];
+  const close = source.lastIndexOf(tableClose);
+  if (close >= 0 && close + tableClose.length < source.length) {
+    regions.push({ start: close + tableClose.length, end: source.length });
+  }
+  return regions;
+}
+
 function applyXmlHeaderReplacement(
   source: string,
   old: string,
   next: string,
   format: DocFormat,
-): string {
-  const tableMarker = format === "docx" ? "<w:tbl" : "<table:table ";
-  const headEnd = source.indexOf(tableMarker) < 0 ? source.length : source.indexOf(tableMarker);
-  const head = source.slice(0, headEnd);
-  const tail = source.slice(headEnd);
-  const tag = format === "docx" ? "w:t" : "text:p";
-  const closeTag = `</${tag}>`;
-  const openTag = `<${tag}`;
-  let out = "";
-  let scan = 0;
-  while (scan <= head.length) {
-    const openRelative = head.indexOf(openTag, scan);
-    if (openRelative < 0) break;
-    const open = openRelative;
-    const gtRelative = head.indexOf(">", open);
-    if (gtRelative < 0) break;
-    const contentStart = gtRelative + 1;
-    const closeRelative = head.indexOf(closeTag, contentStart);
-    if (closeRelative < 0) break;
-    const contentEnd = closeRelative;
-    out += head.slice(scan, contentStart);
-    const content = xmlUnescape(stripXmlTags(head.slice(contentStart, contentEnd)));
-    out += content.includes(old) ? xmlEscapeText(content.replaceAll(old, next)) : head.slice(contentStart, contentEnd);
-    out += closeTag;
-    scan = contentEnd + closeTag.length;
+): { readonly text: string; readonly count: number } {
+  if (old.length === 0) return { text: source, count: 0 };
+  // У DOCX контейнер — абзац `<w:p>`, а текст лежит в прогонах `<w:t>`.
+  // У ODT контейнер — сам абзац `<text:p>`, текст лежит прямо в нём.
+  const containerTag = format === "docx" ? "w:p" : "text:p";
+  const textTag = format === "docx" ? "w:t" : "text:p";
+  const edits: { readonly start: number; readonly end: number; readonly text: string }[] = [];
+  let count = 0;
+
+  for (const region of replacementRegions(source, format)) {
+    const body = source.slice(region.start, region.end);
+    const containers = elementSpans(body, containerTag);
+    const inner: { start: number; end: number; text: string }[] = [];
+    for (const container of containers) {
+      const merged = format === "docx"
+        ? mergeRunsInContainer(body.slice(container.start, container.end), textTag, old, next)
+        : (() => {
+          const text = xmlUnescape(stripXmlTags(body.slice(container.start, container.end)));
+          if (!text.includes(old)) return null;
+          return body.slice(container.start, container.end).replace(
+            text,
+            xmlEscapeText(text.replaceAll(old, next)),
+          );
+        })();
+      if (merged === null) continue;
+      count += 1;
+      inner.push({ start: container.start, end: container.end, text: merged });
+    }
+    // Правки внутри области накладываются друг на друга, поэтому область
+    // пересобирается справа налево — иначе смещения после первой правки уедут.
+    inner.sort((left, right) => right.start - left.start);
+    let rebuilt = body;
+    for (const edit of inner) rebuilt = rebuilt.slice(0, edit.start) + edit.text + rebuilt.slice(edit.end);
+    if (inner.length === 0) continue;
+    edits.push({ start: region.start, end: region.end, text: rebuilt });
   }
-  return out + head.slice(scan) + tail;
+
+  edits.sort((left, right) => right.start - left.start);
+  let out = source;
+  for (const edit of edits) out = out.slice(0, edit.start) + edit.text + out.slice(edit.end);
+  return { text: out, count };
 }
 
+/**
+ * Части DOCX, где год и прочие реквизиты повторяются: колонтитулы и сноски.
+ *
+ * Без них «2025 год» в колонтитуле оставался старым, а инструмент рапортовал
+ * об успешной замене — год в шапке менялся, год на странице нет.
+ */
+const RUNNING_PARTS = /^word\/(?:header\d+|footer\d+|footnotes|endnotes)\.xml$/;
+
 /** Архив пересобирается целиком: все части копируются, `mimetype` — без сжатия. */
-function rebuildZip(sample: Uint8Array, part: string, newPart: string): Uint8Array {
-  const entries = readZipEntries(sample).map((entry) => ({
-    name: entry.name,
-    data: entry.name === part ? new TextEncoder().encode(newPart) : entry.data,
-    stored: entry.name === "mimetype",
-  }));
+function rebuildZip(
+  sample: Uint8Array,
+  part: string,
+  newPart: string,
+  replacements: readonly (readonly [string, string])[],
+  format: DocFormat,
+): Uint8Array {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const entries = readZipEntries(sample).map((entry) => {
+    if (entry.name === part) return { name: entry.name, data: encoder.encode(newPart), stored: false };
+    if (format === "docx" && RUNNING_PARTS.test(entry.name) && replacements.length > 0) {
+      let text = decoder.decode(entry.data);
+      for (const [old, next] of replacements) text = applyXmlHeaderReplacement(text, old, next, format).text;
+      return { name: entry.name, data: encoder.encode(text), stored: false };
+    }
+    return { name: entry.name, data: entry.data, stored: entry.name === "mimetype" };
+  });
   return writeZip(entries);
 }
 
@@ -971,6 +1205,28 @@ export interface FillDocumentInput {
   readonly replacements: readonly (readonly [string, string])[];
 }
 
+/** Замена в шапке: считаются ПАРЫ, а не вхождения, и молчание не остаётся молчанием. */
+function missingReplacementWarning(old: string): string {
+  return `замена «${old}» в образце не найдена — текст шапки написан иначе, проверь бланк`;
+}
+
+function applyReplacements(
+  source: string,
+  replacements: readonly (readonly [string, string])[],
+  format: DocFormat,
+): { readonly text: string; readonly applied: number; readonly notFound: readonly string[] } {
+  let text = source;
+  let applied = 0;
+  const notFound: string[] = [];
+  for (const [old, next] of replacements) {
+    const result = applyXmlHeaderReplacement(text, old, next, format);
+    text = result.text;
+    if (result.count > 0) applied += 1;
+    else notFound.push(old);
+  }
+  return { text, applied, notFound };
+}
+
 export function fillDocument(input: FillDocumentInput): { readonly bytes: Uint8Array; readonly report: FillReport } {
   const format = formatOf(input.sampleName);
   if (format === null) throw new Error("формат образца не поддержан (нужен rtf/docx/odt)");
@@ -978,14 +1234,15 @@ export function fillDocument(input: FillDocumentInput): { readonly bytes: Uint8A
   if (sections.length === 0) throw new Error("в отчёте не найдено ни одной таблицы-раздела");
 
   if (format === "rtf") {
-    const source = new TextDecoder().decode(input.sampleBytes);
+    const source = decodeRtfSource(input.sampleBytes);
     const rows = extractRtfRows(source);
     if (rows.length === 0) throw new Error("в образце не найдено таблиц");
     const ops = newRowOps();
     const { report } = planFill(source, format, rows, sections, ops);
-    const applied = applyRtfReplacements(source, input.replacements, ops);
-    report.replacements = applied;
-    const filled = applyOps(source, ops);
+    const replaced = applyRtfReplacements(source, input.replacements, ops);
+    report.replacements = replaced.applied;
+    report.warnings.push(...replaced.notFound.map(missingReplacementWarning));
+    const filled = rtfEscapeNonAscii(applyOps(source, ops));
     return { bytes: new TextEncoder().encode(filled), report };
   }
 
@@ -1001,13 +1258,12 @@ export function fillDocument(input: FillDocumentInput): { readonly bytes: Uint8A
   const ops = newRowOps();
   const { report } = planFill(xml, format, rows, sections, ops);
   // Честный счётчик: сколько пар реально заменено, а не сколько запрошено.
-  let appliedReplacements = 0;
-  let filled = applyOps(xml, ops);
-  for (const [old, next] of input.replacements) {
-    const before = filled;
-    filled = applyXmlHeaderReplacement(filled, old, next, format);
-    if (filled !== before) appliedReplacements += 1;
-  }
-  report.replacements = appliedReplacements;
-  return { bytes: rebuildZip(input.sampleBytes, part, filled), report };
+  const filled = applyOps(xml, ops);
+  const replaced = applyReplacements(filled, input.replacements, format);
+  report.replacements = replaced.applied;
+  report.warnings.push(...replaced.notFound.map(missingReplacementWarning));
+  return {
+    bytes: rebuildZip(input.sampleBytes, part, replaced.text, input.replacements, format),
+    report,
+  };
 }

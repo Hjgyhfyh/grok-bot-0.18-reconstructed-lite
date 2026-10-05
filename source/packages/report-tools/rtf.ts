@@ -16,6 +16,25 @@ import { type ReportBlock } from "./markdown-to-blocks.js";
 
 const RTF_HEADER = "{\\rtf1\\ansi\\ansicpg1251\\deff0{\\fonttbl{\\f0 Times New Roman;}}\\f0\\fs22 ";
 
+/**
+ * Кодовая точка → последовательность `\uN?`.
+ *
+ * `\uN` в RTF — ЗНАКОВЫЙ 16-бит. Одно вычитание 65536 спасает только BMP:
+ * всё, что выше U+FFFF, после вычитания снова больше 32767, и символ уезжает
+ * в область частной области (U+1F600 → U+F600), а U+10000 превращается в
+ * `\u0?`, то есть в NUL. Символы вне BMP в RTF хранятся сурогатной парой из
+ * двух `\uN?` по UTF-16-единицам — читатель собирает их обратно в один символ.
+ */
+export function rtfUnicodeEscape(code: number): string {
+  if (code > 0xffff) {
+    const adjusted = code - 0x10000;
+    const high = 0xd800 + (adjusted >> 10);
+    const low = 0xdc00 + (adjusted & 0x3ff);
+    return `\\u${high - 0x10000}?\\u${low - 0x10000}?`;
+  }
+  return `\\u${code > 32767 ? code - 65536 : code}?`;
+}
+
 export function rtfEscape(text: string): string {
   let out = "";
   for (const ch of text) {
@@ -23,11 +42,24 @@ export function rtfEscape(text: string): string {
     else if (ch === "{") out += "\\{";
     else if (ch === "}") out += "\\}";
     else if ((ch.codePointAt(0) as number) < 128) out += ch;
-    else {
-      const code = ch.codePointAt(0) as number;
-      const signed = code > 32767 ? code - 65536 : code;
-      out += `\\u${signed}?`;
-    }
+    else out += rtfUnicodeEscape(ch.codePointAt(0) as number);
+  }
+  return out;
+}
+
+/**
+ * Переписывает в готовом документе каждый символ вне ASCII как `\uN?`.
+ *
+ * Нужна для образца в Windows-1251: файл приходит с байтами cp1251, читается
+ * в строку, и если записать её обратно байтами UTF-8, то Word, объявивший
+ * `\ansicpg1251`, прочитает их как cp1251 — то есть снова мусор. Единственная
+ * запись, которая не зависит от кодовой страницы получателя, — `\uN?`.
+ */
+export function rtfEscapeNonAscii(source: string): string {
+  let out = "";
+  for (const ch of source) {
+    const code = ch.codePointAt(0) as number;
+    out += code < 128 ? ch : rtfUnicodeEscape(code);
   }
   return out;
 }
@@ -42,6 +74,20 @@ export function rtfInline(text: string): string {
   return out;
 }
 
+/**
+ * Заголовок целиком жирный и своего кегля.
+ *
+ * Жирный выражен ГРУППОЙ `{\b ...}`, а не переключателем `\b … \b0`. Иначе
+ * заголовок был единственным местом в документе, где состояние начертания
+ * менялось и возвращалось вручную, и расходился с тем, как тот же жирный пишется
+ * в первой строке таблицы и внутри строки. DOCX и ODT тоже печатают заголовок
+ * жирным — значит, все три формата обязаны выражать одно и то же одним способом.
+ */
+function rtfHeading(level: number, text: string): string {
+  const size = level === 1 ? 30 : level === 2 ? 26 : 24;
+  return `{\\b \\fs${size} ${rtfInline(text)}}\\fs22\\par\n`;
+}
+
 /** Простой построчный конвертер: заголовки, списки, таблицы, жирный. */
 export function markdownToRtf(markdown: string): string {
   let out = RTF_HEADER;
@@ -51,10 +97,9 @@ export function markdownToRtf(markdown: string): string {
       out += "\\par\n";
       continue;
     }
-    const heading = /^(#{1,3})\s+(.*)$/.exec(trimmed);
+    const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed);
     if (heading !== null) {
-      const size = (heading[1] as string).length === 1 ? 30 : (heading[1] as string).length === 2 ? 26 : 24;
-      out += `\\b\\fs${size} ${rtfInline(heading[2] as string)} \\b0\\fs22\\par\n`;
+      out += rtfHeading((heading[1] as string).length, heading[2] as string);
       continue;
     }
     if (trimmed.trimStart().startsWith("|")) {
@@ -83,8 +128,7 @@ export function blocksToRtf(blocks: readonly ReportBlock[]): string {
   let out = RTF_HEADER;
   for (const block of blocks) {
     if (block.kind === "heading") {
-      const size = block.level === 1 ? 30 : block.level === 2 ? 26 : 24;
-      out += `\\b\\fs${size} ${rtfInline(block.text)} \\b0\\fs22\\par\n`;
+      out += rtfHeading(block.level, block.text);
       continue;
     }
     if (block.kind === "paragraph") {

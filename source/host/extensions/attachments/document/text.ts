@@ -31,11 +31,11 @@ import { looksLikeBinary } from "../../../../shared/media/attachment-preview.js"
 import { documentArchiveToText } from "./archive.js";
 import { isArchiveExtension, isOpaqueArchiveExtension } from "../../../../shared/media/attachment-formats.js";
 import { salvageLegacyOfficeText } from "./legacy-office.js";
-import { docxZipToText, DocumentParseError, odtZipToText, officeZipKindOf, xlsxZipToText } from "./ooxml.js";
-import { decodeTextBytes, markupToText } from "./plain-text.js";
+import { docxZipToText, DocumentParseError, odtZipToText, officeZipKindOf, officeZipKindOfNames, xlsxZipToText } from "./ooxml.js";
+import { decodeTextBytes, markupToText, utf16Flavour } from "./plain-text.js";
 import { pdfBytesToText, PdfTextError } from "./pdf.js";
 import { rtfBytesToText } from "./rtf.js";
-import { hasZipSignature, readGuardedZipEntries, ZipGuardError, type ZipReadLimits } from "./zip-reader.js";
+import { hasZipSignature, planGuardedZipEntries, guardedZipEntryNames, ZipGuardError, type ZipReadLimits } from "./zip-reader.js";
 
 export interface DocumentExtractLimits {
   /** Файл больше этого размера целиком не разбирается. */
@@ -50,7 +50,7 @@ export interface DocumentExtractLimits {
 export const DEFAULT_DOCUMENT_LIMITS: DocumentExtractLimits = {
   maxBytes: DOCUMENT_BYTE_LIMIT,
   maxChars: ATTACHMENT_TEXT_CHAR_LIMIT,
-  zip: { maxEntries: 2_000, maxEntryBytes: 48 * 1024 * 1024, maxTotalBytes: 96 * 1024 * 1024 },
+  zip: { maxEntries: 2_000, maxEntryBytes: 48 * 1024 * 1024, maxTotalBytes: DOCUMENT_BYTE_LIMIT },
   maxArchiveInnerFiles: 60,
 };
 
@@ -69,8 +69,23 @@ export interface AttachmentTextResult {
 
 const MAX_NAME_FOR_NOTICE = 80;
 
+/**
+ * Сколько байт файла имеет смысл декодировать в строку. В модель уходит не больше
+ * `ATTACHMENT_TEXT_CHAR_LIMIT` символов, а HTML на 25 МБ раньше стоил 362 МБ
+ * памяти: разметка превращалась в пять миллионов отдельных строк. Восемь мегабайт
+ * заведомо больше потолка символов, поэтому текст от этого не теряется.
+ */
+const decodeByteBudget = 8 * 1024 * 1024;
+
+/**
+ * Имя файла без пути: заведующая видит в отказе своё `protokol.doc`, а не
+ * `C:\Users\...\dbbot\agents\<uuid>\attachments\protokol.doc`. Раньше путь
+ * укорачивался по длине и оставался целиком, если помещался.
+ */
 function shortName(name: string): string {
-  return name.length <= MAX_NAME_FOR_NOTICE ? name : `…${name.slice(-(MAX_NAME_FOR_NOTICE - 1))}`;
+  const parts = name.split(/[/\\]/).filter((part) => part.length > 0);
+  const base = parts.length === 0 ? name : (parts.at(-1) as string);
+  return base.length <= MAX_NAME_FOR_NOTICE ? base : `…${base.slice(-(MAX_NAME_FOR_NOTICE - 1))}`;
 }
 
 function finish(
@@ -90,14 +105,37 @@ function finish(
     truncated,
     chars: limited.length,
     encoding: extra.encoding ?? null,
-    notice: extra.notice ?? "",
+    notice: extra.notice ?? (status === "empty" && extra.status == null ? EMPTY_TEXT_NOTICE_RU : ""),
   };
 }
+
+/**
+ * Пустой результат тоже объясняется по-русски. Раньше модель получала строку
+ * «NOT READABLE.» без причины и не могла объяснить пользователю, что произошло.
+ */
+const EMPTY_TEXT_NOTICE_RU = "В файле нет текста: только пробелы и пустые строки.";
 
 /** Отказ всегда заканчивается одной и той же фразой — что делать пользователю. */
 function refuse(name: string, format: AttachmentFormat, reason?: string): AttachmentTextResult {
   return {
     status: "unsupported",
+    format,
+    text: "",
+    truncated: false,
+    chars: 0,
+    encoding: null,
+    notice: attachmentReadFailureNoticeRu(shortName(name), name, reason),
+  };
+}
+
+/**
+ * Тот же отказ, но со статусом «нечитаемый» — файл существует и известного
+ * формата, но добраться до текста нечем. Формулировка собирается общей
+ * функцией, иначе такие ветки расходятся между собой.
+ */
+function unreadable(name: string, format: AttachmentFormat, reason?: string): AttachmentTextResult {
+  return {
+    status: "unreadable",
     format,
     text: "",
     truncated: false,
@@ -124,19 +162,51 @@ function withoutText(name: string, format: AttachmentFormat): AttachmentTextResu
 export type SniffedFormat =
   | "zip-ooxml" | "zip" | "pdf" | "rtf" | "ole" | "text" | "binary";
 
+/**
+ * Сколько байт в начале файла просматривается в поиске сигнатуры. По спецификации
+ * перед `%PDF` может лежать мусор (файл, скачанный как `.txt`, склеенный выгрузкой),
+ * и такой PDF обязан читаться как PDF, а не уходить в модель сырым текстом.
+ */
+const SIGNATURE_WINDOW = 1_024;
+
+/** Начало файла без BOM: метка UTF-8 не должна прятать сигнатуру RTF. */
+function startWithoutBom(bytes: Uint8Array): Uint8Array {
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return bytes.subarray(3);
+  return bytes;
+}
+
+function startsWithAt(bytes: Uint8Array, signature: readonly number[], offset = 0): boolean {
+  if (bytes.length < offset + signature.length) return false;
+  for (let index = 0; index < signature.length; index += 1) {
+    if (bytes[offset + index] !== signature[index]) return false;
+  }
+  return true;
+}
+
+function hasSignatureInWindow(bytes: Uint8Array, signature: readonly number[]): boolean {
+  const limit = Math.min(bytes.length, SIGNATURE_WINDOW);
+  for (let offset = 0; offset + signature.length <= limit; offset += 1) {
+    if (startsWithAt(bytes, signature, offset)) return true;
+  }
+  return false;
+}
+
 export function sniffFormat(bytes: Uint8Array): SniffedFormat {
   if (hasZipSignature(bytes)) return "zip-ooxml";
-  if (bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf";
-  if (bytes.length >= 5 && bytes[0] === 0x7b && bytes[1] === 0x5c && bytes[2] === 0x72 && bytes[3] === 0x74 && bytes[4] === 0x66) return "rtf";
-  if (bytes.length >= 8 && bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0) return "ole";
-  if (looksLikeBinary(bytes)) return "binary";
+  if (hasSignatureInWindow(bytes, [0x25, 0x50, 0x44, 0x46])) return "pdf";
+  const start = startWithoutBom(bytes);
+  if (startsWithAt(start, [0x7b, 0x5c, 0x72, 0x74, 0x66])) return "rtf";
+  if (startsWithAt(start, [0xd0, 0xcf, 0x11, 0xe0])) return "ole";
+  // Нули в файле — это не всегда двоичный файл: так записан UTF-16 без метки.
+  if (looksLikeBinary(bytes) && utf16Flavour(bytes) == null) return "binary";
   return "text";
 }
 
 function officeZipFormatOf(bytes: Uint8Array, limits: DocumentExtractLimits): AttachmentFormat {
   try {
-    const entries = readGuardedZipEntries(bytes, limits.zip);
-    return officeZipKindOf(entries);
+    // Состав архива известен из центрального каталога: распаковывать части ради
+    // проверки «docx или обычный архив» незачем, иначе документ читается дважды.
+    return officeZipKindOfNames(guardedZipEntryNames(planGuardedZipEntries(bytes, limits.zip)));
   } catch {
     return "archive";
   }
@@ -183,6 +253,12 @@ export function extractAttachmentText(
         return { status: "unreadable", format: "pdf", text: "", truncated: false, chars: 0, encoding: null, notice: `Файл ${name} защищён паролем — снимите пароль или пришлите его в Word.` };
       }
       if (result.text.length === 0) {
+        // Скан без текстового слоя и битый файл — это разные вещи. Если ни одна
+        // страница не дала содержимого, файл не разобран, и говорить про сканы
+        // враньё: модель отвечает пользователю, что в документе нет текста.
+        if (result.damaged) {
+          return unreadable(nameOrPath, "pdf", `Файл ${name} повреждён: текст из него не достать.`);
+        }
         return { status: "empty", format: "pdf", text: "", truncated: false, chars: 0, encoding: null, notice: `Файл ${name} — это PDF из сканированных страниц, текста в нём нет. Пришлите его в Word или в виде фотографий, чтобы я прочитал его сам.` };
       }
       return finish(nameOrPath, "pdf", result.text, limits);
@@ -211,7 +287,7 @@ export function extractAttachmentText(
       return finish(nameOrPath, "archive", fromArchive(bytes, limits), limits);
     } catch (error) {
       if (error instanceof ZipGuardError) {
-        return { status: "unreadable", format: kind, text: "", truncated: false, chars: 0, encoding: null, notice: `Не смог прочитать файл ${name} — он, скорее всего, в формате ${describeAttachmentFormatRu(nameOrPath)}. Разворачивать такой архив слишком опасно или долго: ${error.message} Пришлите его в Word или в виде таблицы.` };
+        return unreadable(nameOrPath, kind, `Разворачивать такой архив слишком опасно или долго: ${error.message}`);
       }
       return refuse(nameOrPath, kind, error instanceof DocumentParseError ? `${error.message}` : undefined);
     }
@@ -230,14 +306,15 @@ export function extractAttachmentText(
   }
 
   // `sniffed === "text"` — читаем с определением кодировки.
+  const readable = bytes.length > decodeByteBudget ? bytes.subarray(0, decodeByteBudget) : bytes;
   if (declared === "html" || declared === "xml") {
-    const decoded = decodeTextBytes(bytes);
+    const decoded = decodeTextBytes(readable);
     return finish(nameOrPath, declared, markupToText(decoded.text), limits, { encoding: decoded.encoding });
   }
   if (declared === "archive") {
     return refuse(nameOrPath, "archive", "Это не zip: распакуйте его и пришлите файлы по одному.");
   }
-  const decoded = decodeTextBytes(bytes);
+  const decoded = decodeTextBytes(readable);
   return finish(nameOrPath, declared, decoded.text, limits, { encoding: decoded.encoding });
 }
 

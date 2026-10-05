@@ -114,19 +114,57 @@ export function describeAttachmentFormatRu(nameOrPath: string): string {
 }
 
 /**
+ * Название формата в родительном падеже — для оборота «в формате …».
+ *
+ * Раньше здесь стояло единственное `describeAttachmentFormatRu` в именительном
+ * падеже, и отказ звучал как «он, скорее всего, в формате таблица в тексте» или
+ * «в формате архив». По-русски так не говорят: после «в формате» нужен
+ * родительный падеж — «в формате таблицы в тексте», «в формате архива».
+ */
+export function describeAttachmentFormatCaseRu(nameOrPath: string): string {
+  const extension = attachmentExtension(nameOrPath);
+  const format = attachmentFormatOf(nameOrPath);
+  const withExtension = extension == null ? "без расширения" : `.${extension}`;
+  switch (format) {
+    case "docx": return `документа Word (${withExtension})`;
+    case "doc": return `старого документа Word (${withExtension})`;
+    case "odt": return `документа LibreOffice (${withExtension})`;
+    case "ods": return `таблицы LibreOffice (${withExtension})`;
+    case "odp": return `презентации LibreOffice (${withExtension})`;
+    case "rtf": return `документа RTF (${withExtension})`;
+    case "xlsx": return `таблицы Excel (${withExtension})`;
+    case "xls": return `старой таблицы Excel (${withExtension})`;
+    case "pdf": return `документа PDF (${withExtension})`;
+    case "text": return `текстового файла (${withExtension})`;
+    case "markdown": return `текста Markdown (${withExtension})`;
+    case "csv": return `таблицы в тексте (${withExtension})`;
+    case "json": return `файла JSON (${withExtension})`;
+    case "xml": return `файла XML (${withExtension})`;
+    case "html": return `страницы (${withExtension})`;
+    case "archive": return `архива (${withExtension})`;
+    case "image": return `изображения (${withExtension})`;
+    case "media": return `аудио или видео (${withExtension})`;
+    case "binary": return `неизвестного формата (${withExtension})`;
+  }
+}
+
+/**
  * Сообщение об отказе. Формулировка из задания: «Не смог прочитать файл X —
  * он, скорее всего, в формате Y. Пришлите его в Word или в виде таблицы.»
  * `reason` вставляется перед последней фразой, чтобы отказ во всех случаях
- * заканчивался одним и тем же советом.
+ * заканчивался одним и тем же советом. Если `reason` уже содержит свой совет
+ * («Пришлите его в виде .docx»), общая фраза не добавляется: один отказ не
+ * должен просить два разных действия подряд.
  */
 export function attachmentReadFailureNoticeRu(
   filename: string,
   nameOrPath = filename,
   reason?: string,
 ): string {
-  const lead = `Не смог прочитать файл ${filename} — он, скорее всего, в формате ${describeAttachmentFormatRu(nameOrPath)}.`;
+  const lead = `Не смог прочитать файл ${filename} — он, скорее всего, в формате ${describeAttachmentFormatCaseRu(nameOrPath)}.`;
   const tail = "Пришлите его в Word или в виде таблицы.";
-  return reason == null || reason.length === 0 ? `${lead} ${tail}` : `${lead} ${reason} ${tail}`;
+  if (reason == null || reason.length === 0) return `${lead} ${tail}`;
+  return reason.includes("Пришлите") ? `${lead} ${reason}` : `${lead} ${reason} ${tail}`;
 }
 
 /** Сообщение о том, что файл принят, но текста из него не получилось. */

@@ -57,10 +57,15 @@ export function blocksToOdt(blocks: readonly ReportBlock[]): Uint8Array {
       continue;
     }
     body += "<table:table table:name=\"ReportTable\" table:style-name=\"ReportTable\">";
+    // В ODF ячейки размещаются подряд и колонками не адресованы: короткая
+    // строка из двух ячеек в таблице из трёх колонок сдвигает содержимое на
+    // соседнюю графу — «День книги» встаёт на место «Срок». DOCX дополняет
+    // строку пустыми ячейками, и ODT обязан делать то же самое.
+    const columns = Math.max(1, ...block.rows.map((row) => row.length));
     for (const row of block.rows) {
       body += "<table:table-row>";
-      for (const cell of row) {
-        body += `<table:table-cell table:style-name=\"ReportCell\"><text:p>${xmlEscape(cell)}</text:p></table:table-cell>`;
+      for (let index = 0; index < columns; index += 1) {
+        body += `<table:table-cell table:style-name="ReportCell"><text:p>${xmlEscape(row[index] ?? "")}</text:p></table:table-cell>`;
       }
       body += "</table:table-row>";
     }

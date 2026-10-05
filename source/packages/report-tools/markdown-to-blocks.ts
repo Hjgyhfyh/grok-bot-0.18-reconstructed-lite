@@ -5,6 +5,16 @@
  * с табуляцией. Оба вида накапливаются в отдельные буферы, при переключении
  * типа буфер предыдущего вида выталкивается как готовый блок.
  *
+ * Уровней заголовка ровно шесть — столько их в markdown. Регулярка уровней
+ * 1–3 пропускала `####`, и строка падала в обычный абзац: в документе появлялся
+ * `#### Пункт 2.1.1` с видимыми решётками и кеглем абзаца при правильно
+ * оформленных трёх верхних уровнях, поэтому дефект не бросался в глаза.
+ *
+ * Маркеры `**` снимаются ОТОВСЮДУ, а не только с абзацев и списков. Заголовок и
+ * ячейка таблицы в RTF печатаются жирным, в DOCX и ODT — нет, и оставленный
+ * маркер попадал в подписанный отчёт как `**Итого**`. Формат не умеет жирный —
+ * маркер обязан исчезнуть, а не висесть в тексте.
+ *
  * Порт: Graphite Lite `ai/tools.rs:652-756`.
  */
 
@@ -52,23 +62,29 @@ export function reportBlocks(markdown: string): ReportBlock[] {
     const trimmed = raw.trim();
     if (trimmed.startsWith("|")) {
       flushTabs();
-      pipe.push(trimmed.replace(/^\|+/, "").replace(/\|+$/, "").split("|").map((cell) => cell.trim()));
+      pipe.push(
+        trimmed
+          .replace(/^\|+/, "")
+          .replace(/\|+$/, "")
+          .split("|")
+          .map((cell) => stripBoldMarkers(cell.trim())),
+      );
       continue;
     }
     if (raw.includes("\t")) {
       flushPipe();
-      tabs.push(raw.split("\t").map((cell) => cell.trim()));
+      tabs.push(raw.split("\t").map((cell) => stripBoldMarkers(cell.trim())));
       continue;
     }
     flushPipe();
     flushTabs();
     if (trimmed.length === 0 || trimmed.startsWith("---")) continue;
-    const heading = /^(#{1,3})\s+(.*)$/.exec(trimmed);
+    const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed);
     if (heading !== null) {
       blocks.push({
         kind: "heading",
         level: (heading[1] as string).length,
-        text: heading[2] as string,
+        text: stripBoldMarkers(heading[2] as string),
       });
       continue;
     }

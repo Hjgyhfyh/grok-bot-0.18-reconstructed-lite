@@ -7,6 +7,18 @@
  *
  * Порядок записи значим для ODF: часть `mimetype` обязана идти первой и без
  * сжатия, иначе LibreOffice и Word не откроют файл.
+ *
+ * ЧТЕНИЕ ОГРАНИЧЕНО. Образец приходит с диска пользователя, а не из вложения,
+ * но упаковать его может любая программа-архиватор, и 100 МБ на диске после
+ * распаковки — это сотни мегабайт в памяти. У заведующей 8 ГБ ОПЕРАТИВНОЙ ПАМЯТИ,
+ * и три процесса Electron держат её заняты. Поэтому у чтения ровно те же
+ * потолки, что у `source/host/extensions/attachments/document/zip-reader.ts`,
+ * и добавочно сверка CRC32: Word файл с неверной контрольной суммой не откроет,
+ * а бот обязан сказать об этом до того, как соберёт из него «готовый отчёт».
+ *
+ * Порядок проверок не менее важен, чем сами проверки: сначала всё, что можно
+ * узнать из каталога (маркеры zip64, смещения, объявленные размеры), и только
+ * потом распаковка. Тогда отказ приходит до выделения памяти.
  */
 
 import { deflateRawSync, inflateRawSync } from "node:zlib";
@@ -17,6 +29,20 @@ const END_OF_CENTRAL_SIGNATURE = 0x06054b50;
 
 const METHOD_STORED = 0;
 const METHOD_DEFLATED = 8;
+
+/** Маркер zip64 в полях размера и числа частей. */
+const ZIP64_MARKER = 0xffff;
+
+/**
+ * Потолки чтения. Числа те же, что у `zip-reader.ts`, с одной поправкой:
+ * потолок на часть поднят до суммарного. Иначе образец `.docx` с фотографией
+ * на 50 МБ — обычное дело — отказывался бы, хотя в сумме он укладывается.
+ */
+export const ZIP_READ_LIMITS = {
+  maxEntries: 2_000,
+  maxEntryBytes: 96 * 1024 * 1024,
+  maxTotalBytes: 96 * 1024 * 1024,
+} as const;
 
 /** Бит 11: имя части записано в UTF-8. */
 const FLAG_UTF8_NAMES = 0x800;
@@ -153,36 +179,124 @@ function findEndOfCentralDirectory(view: DataView): number {
   return -1;
 }
 
+function zipError(message: string): Error {
+  return new Error(`zip: ${message}`);
+}
+
+function megabytes(bytes: number): number {
+  return Math.round(bytes / (1024 * 1024));
+}
+
+interface PlannedEntry {
+  readonly name: string;
+  readonly method: number;
+  /** Смещение локального заголовка: им же заканчивается область предыдущей части. */
+  readonly localOffset: number;
+  readonly dataStart: number;
+  readonly compressedSize: number;
+  readonly checksum: number;
+}
+
 export function readZipEntries(buffer: Uint8Array): ZipReadEntry[] {
+  if (buffer.byteLength < 22) throw zipError("файл слишком мал, чтобы быть zip-архивом");
   const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   const endOffset = findEndOfCentralDirectory(view);
-  if (endOffset < 0) throw new Error("zip: не найдена запись конца центрального каталога");
+  if (endOffset < 0) throw zipError("не найдена запись конца центрального каталога");
   const count = view.getUint16(endOffset + 10, true);
-  let position = view.getUint32(endOffset + 16, true);
+  if (count === ZIP64_MARKER) throw zipError("это zip64; такой архив прочитать нечем");
+  if (count > ZIP_READ_LIMITS.maxEntries) {
+    throw zipError(`в архиве ${count} частей, а читать можно не больше ${ZIP_READ_LIMITS.maxEntries}`);
+  }
+  const centralOffset = view.getUint32(endOffset + 16, true);
+  if (centralOffset + 46 > view.byteLength || view.getUint32(centralOffset, true) !== CENTRAL_HEADER_SIGNATURE) {
+    throw zipError("запись центрального каталога повреждена");
+  }
+
+  let position = centralOffset;
   const decoder = new TextDecoder();
-  const entries: ZipReadEntry[] = [];
+  const planned: PlannedEntry[] = [];
+  let declaredTotal = 0;
 
   for (let index = 0; index < count; index += 1) {
+    if (position + 46 > view.byteLength) throw zipError("запись центрального каталога повреждена: файл обрезан");
     if (view.getUint32(position, true) !== CENTRAL_HEADER_SIGNATURE) {
-      throw new Error("zip: запись центрального каталога повреждена");
+      throw zipError(`запись ${index} центрального каталога повреждена`);
     }
     const method = view.getUint16(position + 10, true);
+    const checksum = view.getUint32(position + 16, true);
     const compressedSize = view.getUint32(position + 20, true);
+    const declaredSize = view.getUint32(position + 24, true);
     const nameLength = view.getUint16(position + 28, true);
     const extraLength = view.getUint16(position + 30, true);
     const commentLength = view.getUint16(position + 32, true);
     const localOffset = view.getUint32(position + 42, true);
+    if (compressedSize === ZIP64_MARKER || declaredSize === ZIP64_MARKER) {
+      throw zipError("это zip64; такой архив прочитать нечем");
+    }
+    if (position + 46 + nameLength > view.byteLength) throw zipError("запись центрального каталога повреждена: имя обрезано");
     const name = decoder.decode(buffer.subarray(position + 46, position + 46 + nameLength));
-
+    // Смещение локального заголовка приходит из каталога, а каталог может быть
+    // собран из обрывка файла. Без проверки подписи `subarray` отдаёт пустой
+    // массив, и часть молча читается пустой — образец «прочитался», отчёт
+    // собрался, а в нём нет ни одной строки.
+    if (localOffset + 30 > view.byteLength || view.getUint32(localOffset, true) !== LOCAL_HEADER_SIGNATURE) {
+      throw zipError(`заголовок части «${name}» повреждён: смещение ${localOffset} не указывает на локальный заголовок`);
+    }
     const localNameLength = view.getUint16(localOffset + 26, true);
     const localExtraLength = view.getUint16(localOffset + 28, true);
     const dataStart = localOffset + 30 + localNameLength + localExtraLength;
-    const payload = buffer.subarray(dataStart, dataStart + compressedSize);
-    const data = method === METHOD_STORED
-      ? new Uint8Array(payload)
-      : new Uint8Array(inflateRawSync(payload));
-    entries.push({ name, data, stored: method === METHOD_STORED });
+    if (dataStart > view.byteLength) throw zipError(`часть «${name}» обрезана`);
+    planned.push({ name, method, localOffset, dataStart, compressedSize, checksum });
+    declaredTotal += declaredSize;
     position += 46 + nameLength + extraLength + commentLength;
+  }
+
+  // Первый рубеж: объявленные размеры. Каталог может соврать, но когда он не
+  // врёт, бомба отсекается до того, как что-то распаковано.
+  if (declaredTotal > ZIP_READ_LIMITS.maxTotalBytes) {
+    throw zipError(`архив распаковывается больше чем в ${megabytes(ZIP_READ_LIMITS.maxTotalBytes)} МБ — столько бот не разворачивает`);
+  }
+
+  // Граница физических данных части: локальный заголовок следующей части,
+  // начало центрального каталога или конец файла. Каталог вправе объявить длину
+  // больше фактической, и для части без сжатия `subarray` тогда молча отдаст
+  // байты соседней части — такой .docx Word называет повреждённым.
+  const entries: ZipReadEntry[] = [];
+  let inflatedTotal = 0;
+
+  for (const item of planned) {
+    let limit = Math.min(view.byteLength, centralOffset);
+    for (const other of planned) {
+      if (other.localOffset > item.localOffset && other.localOffset < limit) limit = other.localOffset;
+    }
+    const available = Math.max(0, limit - item.dataStart);
+    const payload = buffer.subarray(item.dataStart, item.dataStart + Math.min(item.compressedSize, available));
+    let data: Uint8Array;
+    if (item.method === METHOD_STORED) {
+      data = new Uint8Array(payload);
+    } else if (item.method === METHOD_DEFLATED) {
+      try {
+        data = new Uint8Array(inflateRawSync(payload, { maxOutputLength: ZIP_READ_LIMITS.maxEntryBytes }));
+      } catch (error) {
+        throw zipError(`часть «${item.name}» не распаковывается: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    } else {
+      throw zipError(`часть «${item.name}» сжата методом ${item.method}; читается только обычный zip`);
+    }
+    if (data.byteLength > ZIP_READ_LIMITS.maxEntryBytes) {
+      throw zipError(`часть «${item.name}» больше ${megabytes(ZIP_READ_LIMITS.maxEntryBytes)} МБ — столько бот не разворачивает`);
+    }
+    inflatedTotal += data.byteLength;
+    if (inflatedTotal > ZIP_READ_LIMITS.maxTotalBytes) {
+      throw zipError(`архив распаковывается больше чем в ${megabytes(ZIP_READ_LIMITS.maxTotalBytes)} МБ — столько бот не разворачивает`);
+    }
+    // Единственный честный признак того, что архив битый, — это CRC32.
+    // Без сверки Word такой файл не откроет, а бот соберёт из него отчёт
+    // и рапортует пользователю, что всё в порядке.
+    if (crc32(data) !== item.checksum) {
+      throw zipError(`часть «${item.name}» повреждена: контрольная сумма не сходится`);
+    }
+    entries.push({ name: item.name, data, stored: item.method === METHOD_STORED });
   }
 
   return entries;

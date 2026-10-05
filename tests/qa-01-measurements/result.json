@@ -1,0 +1,1134 @@
+{
+  "port": 9472,
+  "userDataDir": "C:\\Users\\lesab\\AppData\\Local\\Temp\\dbbot-qa-theme-VofllG",
+  "outDir": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-fixtures\\live-run-03",
+  "attempts": 1,
+  "pid": 31564,
+  "themes": {
+    "light-white": {
+      "applied": {
+        "preference": "light-white",
+        "resolved": "light-white"
+      },
+      "read": {
+        "dataTheme": "light-white",
+        "colorScheme": "light",
+        "computedColorScheme": "light",
+        "tokens": {
+          "--sand-bg-base": "#ffffff",
+          "--sand-bg-subtle": "#f6f6f6",
+          "--sand-bg-elevated": "#ffffff",
+          "--sand-text-primary": "#141414",
+          "--sand-text-secondary": "#14141499",
+          "--sand-text-tertiary": "#14141466",
+          "--sand-text-disabled": "#1414144d",
+          "--sand-text-accent": "#0c64c1",
+          "--sand-text-success": "#009957",
+          "--sand-text-warning": "#c27400",
+          "--sand-text-danger": "#c21d2e",
+          "--sand-text-on-primary": "#ffffff",
+          "--sand-fill-ghost-selected": "#7878782b",
+          "--sand-fill-ghost-hover": "#78787817",
+          "--sand-fill-accent": "#1084fe",
+          "--sand-fill-accent-hover": "#0c64c1",
+          "--sand-fill-secondary": "#78787817",
+          "--sand-fill-elevated": "#ffffff",
+          "--sand-border-default": "#14141426",
+          "--cursor-text-primary": "#141414",
+          "--cursor-text-secondary": "#14141499",
+          "--cursor-text-tertiary": "#14141466",
+          "--cursor-text-accent": "#0c64c1",
+          "--cursor-bg-base": "",
+          "--cursor-bg-editor": "#ffffff",
+          "--cursor-bg-chrome": "#f6f6f6"
+        },
+        "sampling": {
+          "bodyBg": "rgba(0, 0, 0, 0)",
+          "bodyColor": "rgb(20, 20, 20)",
+          "htmlBg": "rgb(255, 255, 255)",
+          "canvasFromBodyVar": {
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(20, 20, 20)"
+          },
+          "surfaceFromSubtle": {
+            "background": "rgb(246, 246, 246)",
+            "color": "rgb(20, 20, 20)"
+          },
+          "secondaryOnBase": {
+            "background": "rgb(255, 255, 255)",
+            "color": "rgba(20, 20, 20, 0.6)"
+          },
+          "tertiaryOnBase": {
+            "background": "rgb(255, 255, 255)",
+            "color": "rgba(20, 20, 20, 0.4)"
+          },
+          "disabledOnBase": {
+            "background": "rgb(255, 255, 255)",
+            "color": "rgba(20, 20, 20, 0.3)"
+          },
+          "accentOnBase": {
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(12, 100, 193)"
+          },
+          "successOnBase": {
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(0, 153, 87)"
+          },
+          "warningOnBase": {
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(194, 116, 0)"
+          },
+          "dangerOnBase": {
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(194, 29, 46)"
+          },
+          "selectedText": {
+            "background": "rgba(120, 120, 120, 0.17)",
+            "color": "rgb(20, 20, 20)"
+          },
+          "hoverText": {
+            "background": "rgba(120, 120, 120, 0.09)",
+            "color": "rgb(20, 20, 20)"
+          },
+          "onAccent": {
+            "background": "rgb(16, 132, 254)",
+            "color": "rgb(255, 255, 255)"
+          }
+        },
+        "sheetLength": 143206,
+        "mediaDark": [],
+        "bodyTextSample": "\n\n\n\nПоиск\n\nРасширения\nВ\nВойти\nDB Bot\n\nКоманда помощников, которым можно поручить настоящую работу.\n\nВойти",
+        "htmlLength": 150877,
+        "styleSheets": 3,
+        "darkMatches": 0
+      },
+      "screenshot": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-fixtures\\live-run-03\\light-white.png",
+      "stripPixels": {
+        "primary-on-base": {
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "fg": [
+            20,
+            20,
+            20
+          ]
+        },
+        "secondary-on-base": {
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "fg": [
+            114,
+            114,
+            114
+          ]
+        },
+        "tertiary-on-base": {
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "fg": [
+            161,
+            161,
+            161
+          ]
+        },
+        "secondary-on-subtle": {
+          "bg": [
+            246,
+            246,
+            246
+          ],
+          "fg": [
+            110,
+            110,
+            110
+          ]
+        },
+        "primary-on-subtle": {
+          "bg": [
+            246,
+            246,
+            246
+          ],
+          "fg": [
+            20,
+            20,
+            20
+          ]
+        },
+        "primary-on-selected": {
+          "bg": [
+            232,
+            232,
+            232
+          ],
+          "fg": [
+            20,
+            20,
+            20
+          ]
+        },
+        "secondary-on-selected": {
+          "bg": [
+            232,
+            232,
+            232
+          ],
+          "fg": [
+            105,
+            105,
+            105
+          ]
+        },
+        "primary-on-elevated": {
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "fg": [
+            20,
+            20,
+            20
+          ]
+        },
+        "secondary-on-elevated": {
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "fg": [
+            114,
+            114,
+            114
+          ]
+        },
+        "primary-on-hover": {
+          "bg": [
+            243,
+            243,
+            243
+          ],
+          "fg": [
+            20,
+            20,
+            20
+          ]
+        },
+        "accent-on-base": {
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "fg": [
+            12,
+            100,
+            193
+          ]
+        },
+        "danger-on-base": {
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "fg": [
+            194,
+            29,
+            46
+          ]
+        },
+        "success-on-base": {
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "fg": [
+            0,
+            153,
+            87
+          ]
+        },
+        "warning-on-base": {
+          "bg": [
+            255,
+            255,
+            255
+          ],
+          "fg": [
+            194,
+            116,
+            0
+          ]
+        },
+        "on-accent": {
+          "bg": [
+            16,
+            132,
+            254
+          ],
+          "fg": [
+            255,
+            255,
+            255
+          ]
+        }
+      }
+    },
+    "milk": {
+      "applied": {
+        "preference": "milk",
+        "resolved": "milk"
+      },
+      "read": {
+        "dataTheme": "milk",
+        "colorScheme": "light",
+        "computedColorScheme": "light",
+        "tokens": {
+          "--sand-bg-base": "#fbf7f1",
+          "--sand-bg-subtle": "#f4efe5",
+          "--sand-bg-elevated": "#fefcf8",
+          "--sand-text-primary": "#2b2620",
+          "--sand-text-secondary": "#2b262099",
+          "--sand-text-tertiary": "#2b262066",
+          "--sand-text-disabled": "#2b26204d",
+          "--sand-text-accent": "#0c64c1",
+          "--sand-text-success": "#009957",
+          "--sand-text-warning": "#c27400",
+          "--sand-text-danger": "#c21d2e",
+          "--sand-text-on-primary": "#fbf7f1",
+          "--sand-fill-ghost-selected": "#847f792b",
+          "--sand-fill-ghost-hover": "#847f7917",
+          "--sand-fill-accent": "#1084fe",
+          "--sand-fill-accent-hover": "#0c64c1",
+          "--sand-fill-secondary": "#847f7917",
+          "--sand-fill-elevated": "#fefcf8",
+          "--sand-border-default": "#2b262026",
+          "--cursor-text-primary": "#2b2620",
+          "--cursor-text-secondary": "#2b262099",
+          "--cursor-text-tertiary": "#2b262066",
+          "--cursor-text-accent": "#0c64c1",
+          "--cursor-bg-base": "",
+          "--cursor-bg-editor": "#fbf7f1",
+          "--cursor-bg-chrome": "#f4efe5"
+        },
+        "sampling": {
+          "bodyBg": "rgba(0, 0, 0, 0)",
+          "bodyColor": "rgb(43, 38, 32)",
+          "htmlBg": "rgb(251, 247, 241)",
+          "canvasFromBodyVar": {
+            "background": "rgb(251, 247, 241)",
+            "color": "rgb(43, 38, 32)"
+          },
+          "surfaceFromSubtle": {
+            "background": "rgb(244, 239, 229)",
+            "color": "rgb(43, 38, 32)"
+          },
+          "secondaryOnBase": {
+            "background": "rgb(251, 247, 241)",
+            "color": "rgba(43, 38, 32, 0.6)"
+          },
+          "tertiaryOnBase": {
+            "background": "rgb(251, 247, 241)",
+            "color": "rgba(43, 38, 32, 0.4)"
+          },
+          "disabledOnBase": {
+            "background": "rgb(251, 247, 241)",
+            "color": "rgba(43, 38, 32, 0.3)"
+          },
+          "accentOnBase": {
+            "background": "rgb(251, 247, 241)",
+            "color": "rgb(12, 100, 193)"
+          },
+          "successOnBase": {
+            "background": "rgb(251, 247, 241)",
+            "color": "rgb(0, 153, 87)"
+          },
+          "warningOnBase": {
+            "background": "rgb(251, 247, 241)",
+            "color": "rgb(194, 116, 0)"
+          },
+          "dangerOnBase": {
+            "background": "rgb(251, 247, 241)",
+            "color": "rgb(194, 29, 46)"
+          },
+          "selectedText": {
+            "background": "rgba(132, 127, 121, 0.17)",
+            "color": "rgb(43, 38, 32)"
+          },
+          "hoverText": {
+            "background": "rgba(132, 127, 121, 0.09)",
+            "color": "rgb(43, 38, 32)"
+          },
+          "onAccent": {
+            "background": "rgb(16, 132, 254)",
+            "color": "rgb(251, 247, 241)"
+          }
+        },
+        "sheetLength": 143206,
+        "mediaDark": [],
+        "bodyTextSample": "\n\n\n\nПоиск\n\nРасширения\nВ\nВойти\nDB Bot\n\nКоманда помощников, которым можно поручить настоящую работу.\n\nВойти",
+        "htmlLength": 150863,
+        "styleSheets": 3,
+        "darkMatches": 0
+      },
+      "screenshot": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-fixtures\\live-run-03\\milk.png",
+      "stripPixels": {
+        "primary-on-base": {
+          "bg": [
+            251,
+            247,
+            241
+          ],
+          "fg": [
+            43,
+            38,
+            32
+          ]
+        },
+        "secondary-on-base": {
+          "bg": [
+            251,
+            247,
+            241
+          ],
+          "fg": [
+            126,
+            122,
+            115
+          ]
+        },
+        "tertiary-on-base": {
+          "bg": [
+            251,
+            247,
+            241
+          ],
+          "fg": [
+            167,
+            163,
+            157
+          ]
+        },
+        "secondary-on-subtle": {
+          "bg": [
+            244,
+            239,
+            229
+          ],
+          "fg": [
+            124,
+            119,
+            111
+          ]
+        },
+        "primary-on-subtle": {
+          "bg": [
+            244,
+            239,
+            229
+          ],
+          "fg": [
+            43,
+            38,
+            32
+          ]
+        },
+        "primary-on-selected": {
+          "bg": [
+            230,
+            226,
+            220
+          ],
+          "fg": [
+            43,
+            38,
+            32
+          ]
+        },
+        "secondary-on-selected": {
+          "bg": [
+            230,
+            226,
+            220
+          ],
+          "fg": [
+            118,
+            113,
+            107
+          ]
+        },
+        "primary-on-elevated": {
+          "bg": [
+            254,
+            252,
+            248
+          ],
+          "fg": [
+            43,
+            38,
+            32
+          ]
+        },
+        "secondary-on-elevated": {
+          "bg": [
+            254,
+            252,
+            248
+          ],
+          "fg": [
+            128,
+            124,
+            118
+          ]
+        },
+        "primary-on-hover": {
+          "bg": [
+            240,
+            235,
+            230
+          ],
+          "fg": [
+            43,
+            38,
+            32
+          ]
+        },
+        "accent-on-base": {
+          "bg": [
+            251,
+            247,
+            241
+          ],
+          "fg": [
+            12,
+            100,
+            193
+          ]
+        },
+        "danger-on-base": {
+          "bg": [
+            251,
+            247,
+            241
+          ],
+          "fg": [
+            194,
+            29,
+            46
+          ]
+        },
+        "success-on-base": {
+          "bg": [
+            251,
+            247,
+            241
+          ],
+          "fg": [
+            0,
+            153,
+            87
+          ]
+        },
+        "warning-on-base": {
+          "bg": [
+            251,
+            247,
+            241
+          ],
+          "fg": [
+            194,
+            116,
+            0
+          ]
+        },
+        "on-accent": {
+          "bg": [
+            16,
+            132,
+            254
+          ],
+          "fg": [
+            251,
+            247,
+            241
+          ]
+        }
+      }
+    },
+    "smoke": {
+      "applied": {
+        "preference": "smoke",
+        "resolved": "smoke"
+      },
+      "read": {
+        "dataTheme": "smoke",
+        "colorScheme": "light",
+        "computedColorScheme": "light",
+        "tokens": {
+          "--sand-bg-base": "#f2f4f6",
+          "--sand-bg-subtle": "#e9ecef",
+          "--sand-bg-elevated": "#fafbfc",
+          "--sand-text-primary": "#23282e",
+          "--sand-text-secondary": "#23282e99",
+          "--sand-text-tertiary": "#23282e66",
+          "--sand-text-disabled": "#23282e4d",
+          "--sand-text-accent": "#0c64c1",
+          "--sand-text-success": "#009957",
+          "--sand-text-warning": "#c27400",
+          "--sand-text-danger": "#c21d2e",
+          "--sand-text-on-primary": "#f2f4f6",
+          "--sand-fill-ghost-selected": "#7b7f832b",
+          "--sand-fill-ghost-hover": "#7b7f8317",
+          "--sand-fill-accent": "#1084fe",
+          "--sand-fill-accent-hover": "#0c64c1",
+          "--sand-fill-secondary": "#7b7f8317",
+          "--sand-fill-elevated": "#fafbfc",
+          "--sand-border-default": "#23282e26",
+          "--cursor-text-primary": "#23282e",
+          "--cursor-text-secondary": "#23282e99",
+          "--cursor-text-tertiary": "#23282e66",
+          "--cursor-text-accent": "#0c64c1",
+          "--cursor-bg-base": "",
+          "--cursor-bg-editor": "#f2f4f6",
+          "--cursor-bg-chrome": "#e9ecef"
+        },
+        "sampling": {
+          "bodyBg": "rgba(0, 0, 0, 0)",
+          "bodyColor": "rgb(35, 40, 46)",
+          "htmlBg": "rgb(242, 244, 246)",
+          "canvasFromBodyVar": {
+            "background": "rgb(242, 244, 246)",
+            "color": "rgb(35, 40, 46)"
+          },
+          "surfaceFromSubtle": {
+            "background": "rgb(233, 236, 239)",
+            "color": "rgb(35, 40, 46)"
+          },
+          "secondaryOnBase": {
+            "background": "rgb(242, 244, 246)",
+            "color": "rgba(35, 40, 46, 0.6)"
+          },
+          "tertiaryOnBase": {
+            "background": "rgb(242, 244, 246)",
+            "color": "rgba(35, 40, 46, 0.4)"
+          },
+          "disabledOnBase": {
+            "background": "rgb(242, 244, 246)",
+            "color": "rgba(35, 40, 46, 0.3)"
+          },
+          "accentOnBase": {
+            "background": "rgb(242, 244, 246)",
+            "color": "rgb(12, 100, 193)"
+          },
+          "successOnBase": {
+            "background": "rgb(242, 244, 246)",
+            "color": "rgb(0, 153, 87)"
+          },
+          "warningOnBase": {
+            "background": "rgb(242, 244, 246)",
+            "color": "rgb(194, 116, 0)"
+          },
+          "dangerOnBase": {
+            "background": "rgb(242, 244, 246)",
+            "color": "rgb(194, 29, 46)"
+          },
+          "selectedText": {
+            "background": "rgba(123, 127, 131, 0.17)",
+            "color": "rgb(35, 40, 46)"
+          },
+          "hoverText": {
+            "background": "rgba(123, 127, 131, 0.09)",
+            "color": "rgb(35, 40, 46)"
+          },
+          "onAccent": {
+            "background": "rgb(16, 132, 254)",
+            "color": "rgb(242, 244, 246)"
+          }
+        },
+        "sheetLength": 143206,
+        "mediaDark": [],
+        "bodyTextSample": "\n\n\n\nПоиск\n\nРасширения\nВ\nВойти\nDB Bot\n\nКоманда помощников, которым можно поручить настоящую работу.\n\nВойти",
+        "htmlLength": 150865,
+        "styleSheets": 3,
+        "darkMatches": 0
+      },
+      "screenshot": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-fixtures\\live-run-03\\smoke.png",
+      "stripPixels": {
+        "primary-on-base": {
+          "bg": [
+            242,
+            244,
+            246
+          ],
+          "fg": [
+            35,
+            40,
+            46
+          ]
+        },
+        "secondary-on-base": {
+          "bg": [
+            242,
+            244,
+            246
+          ],
+          "fg": [
+            118,
+            122,
+            126
+          ]
+        },
+        "tertiary-on-base": {
+          "bg": [
+            242,
+            244,
+            246
+          ],
+          "fg": [
+            159,
+            162,
+            165
+          ]
+        },
+        "secondary-on-subtle": {
+          "bg": [
+            233,
+            236,
+            239
+          ],
+          "fg": [
+            114,
+            118,
+            124
+          ]
+        },
+        "primary-on-subtle": {
+          "bg": [
+            233,
+            236,
+            239
+          ],
+          "fg": [
+            35,
+            40,
+            46
+          ]
+        },
+        "primary-on-selected": {
+          "bg": [
+            222,
+            224,
+            226
+          ],
+          "fg": [
+            35,
+            40,
+            46
+          ]
+        },
+        "secondary-on-selected": {
+          "bg": [
+            222,
+            224,
+            226
+          ],
+          "fg": [
+            110,
+            114,
+            118
+          ]
+        },
+        "primary-on-elevated": {
+          "bg": [
+            250,
+            251,
+            252
+          ],
+          "fg": [
+            35,
+            40,
+            46
+          ]
+        },
+        "secondary-on-elevated": {
+          "bg": [
+            250,
+            251,
+            252
+          ],
+          "fg": [
+            121,
+            124,
+            129
+          ]
+        },
+        "primary-on-hover": {
+          "bg": [
+            231,
+            233,
+            235
+          ],
+          "fg": [
+            35,
+            40,
+            46
+          ]
+        },
+        "accent-on-base": {
+          "bg": [
+            242,
+            244,
+            246
+          ],
+          "fg": [
+            12,
+            100,
+            193
+          ]
+        },
+        "danger-on-base": {
+          "bg": [
+            242,
+            244,
+            246
+          ],
+          "fg": [
+            194,
+            29,
+            46
+          ]
+        },
+        "success-on-base": {
+          "bg": [
+            242,
+            244,
+            246
+          ],
+          "fg": [
+            0,
+            153,
+            87
+          ]
+        },
+        "warning-on-base": {
+          "bg": [
+            242,
+            244,
+            246
+          ],
+          "fg": [
+            194,
+            116,
+            0
+          ]
+        },
+        "on-accent": {
+          "bg": [
+            16,
+            132,
+            254
+          ],
+          "fg": [
+            242,
+            244,
+            246
+          ]
+        }
+      }
+    },
+    "sky": {
+      "applied": {
+        "preference": "sky",
+        "resolved": "sky"
+      },
+      "read": {
+        "dataTheme": "sky",
+        "colorScheme": "light",
+        "computedColorScheme": "light",
+        "tokens": {
+          "--sand-bg-base": "#eff5fd",
+          "--sand-bg-subtle": "#e5eefa",
+          "--sand-bg-elevated": "#f8fbff",
+          "--sand-text-primary": "#1d2a37",
+          "--sand-text-secondary": "#1d2a3799",
+          "--sand-text-tertiary": "#1d2a3766",
+          "--sand-text-disabled": "#1d2a374d",
+          "--sand-text-accent": "#0c64c1",
+          "--sand-text-success": "#009957",
+          "--sand-text-warning": "#c27400",
+          "--sand-text-danger": "#c21d2e",
+          "--sand-text-on-primary": "#eff5fd",
+          "--sand-fill-ghost-selected": "#77818b2b",
+          "--sand-fill-ghost-hover": "#77818b17",
+          "--sand-fill-accent": "#1084fe",
+          "--sand-fill-accent-hover": "#0c64c1",
+          "--sand-fill-secondary": "#77818b17",
+          "--sand-fill-elevated": "#f8fbff",
+          "--sand-border-default": "#1d2a3726",
+          "--cursor-text-primary": "#1d2a37",
+          "--cursor-text-secondary": "#1d2a3799",
+          "--cursor-text-tertiary": "#1d2a3766",
+          "--cursor-text-accent": "#0c64c1",
+          "--cursor-bg-base": "",
+          "--cursor-bg-editor": "#eff5fd",
+          "--cursor-bg-chrome": "#e5eefa"
+        },
+        "sampling": {
+          "bodyBg": "rgba(0, 0, 0, 0)",
+          "bodyColor": "rgb(29, 42, 55)",
+          "htmlBg": "rgb(239, 245, 253)",
+          "canvasFromBodyVar": {
+            "background": "rgb(239, 245, 253)",
+            "color": "rgb(29, 42, 55)"
+          },
+          "surfaceFromSubtle": {
+            "background": "rgb(229, 238, 250)",
+            "color": "rgb(29, 42, 55)"
+          },
+          "secondaryOnBase": {
+            "background": "rgb(239, 245, 253)",
+            "color": "rgba(29, 42, 55, 0.6)"
+          },
+          "tertiaryOnBase": {
+            "background": "rgb(239, 245, 253)",
+            "color": "rgba(29, 42, 55, 0.4)"
+          },
+          "disabledOnBase": {
+            "background": "rgb(239, 245, 253)",
+            "color": "rgba(29, 42, 55, 0.3)"
+          },
+          "accentOnBase": {
+            "background": "rgb(239, 245, 253)",
+            "color": "rgb(12, 100, 193)"
+          },
+          "successOnBase": {
+            "background": "rgb(239, 245, 253)",
+            "color": "rgb(0, 153, 87)"
+          },
+          "warningOnBase": {
+            "background": "rgb(239, 245, 253)",
+            "color": "rgb(194, 116, 0)"
+          },
+          "dangerOnBase": {
+            "background": "rgb(239, 245, 253)",
+            "color": "rgb(194, 29, 46)"
+          },
+          "selectedText": {
+            "background": "rgba(119, 129, 139, 0.17)",
+            "color": "rgb(29, 42, 55)"
+          },
+          "hoverText": {
+            "background": "rgba(119, 129, 139, 0.09)",
+            "color": "rgb(29, 42, 55)"
+          },
+          "onAccent": {
+            "background": "rgb(16, 132, 254)",
+            "color": "rgb(239, 245, 253)"
+          }
+        },
+        "sheetLength": 143206,
+        "mediaDark": [],
+        "bodyTextSample": "\n\n\n\nПоиск\n\nРасширения\nВ\nВойти\nDB Bot\n\nКоманда помощников, которым можно поручить настоящую работу.\n\nВойти",
+        "htmlLength": 150861,
+        "styleSheets": 3,
+        "darkMatches": 0
+      },
+      "screenshot": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-fixtures\\live-run-03\\sky.png",
+      "stripPixels": {
+        "primary-on-base": {
+          "bg": [
+            239,
+            245,
+            253
+          ],
+          "fg": [
+            29,
+            42,
+            55
+          ]
+        },
+        "secondary-on-base": {
+          "bg": [
+            239,
+            245,
+            253
+          ],
+          "fg": [
+            113,
+            123,
+            134
+          ]
+        },
+        "tertiary-on-base": {
+          "bg": [
+            239,
+            245,
+            253
+          ],
+          "fg": [
+            155,
+            164,
+            174
+          ]
+        },
+        "secondary-on-subtle": {
+          "bg": [
+            229,
+            238,
+            250
+          ],
+          "fg": [
+            109,
+            120,
+            133
+          ]
+        },
+        "primary-on-subtle": {
+          "bg": [
+            229,
+            238,
+            250
+          ],
+          "fg": [
+            29,
+            42,
+            55
+          ]
+        },
+        "primary-on-selected": {
+          "bg": [
+            218,
+            225,
+            233
+          ],
+          "fg": [
+            29,
+            42,
+            55
+          ]
+        },
+        "secondary-on-selected": {
+          "bg": [
+            218,
+            225,
+            233
+          ],
+          "fg": [
+            104,
+            115,
+            126
+          ]
+        },
+        "primary-on-elevated": {
+          "bg": [
+            248,
+            251,
+            255
+          ],
+          "fg": [
+            29,
+            42,
+            55
+          ]
+        },
+        "secondary-on-elevated": {
+          "bg": [
+            248,
+            251,
+            255
+          ],
+          "fg": [
+            116,
+            125,
+            135
+          ]
+        },
+        "primary-on-hover": {
+          "bg": [
+            228,
+            234,
+            243
+          ],
+          "fg": [
+            29,
+            42,
+            55
+          ]
+        },
+        "accent-on-base": {
+          "bg": [
+            239,
+            245,
+            253
+          ],
+          "fg": [
+            12,
+            100,
+            193
+          ]
+        },
+        "danger-on-base": {
+          "bg": [
+            239,
+            245,
+            253
+          ],
+          "fg": [
+            194,
+            29,
+            46
+          ]
+        },
+        "success-on-base": {
+          "bg": [
+            239,
+            245,
+            253
+          ],
+          "fg": [
+            0,
+            153,
+            87
+          ]
+        },
+        "warning-on-base": {
+          "bg": [
+            239,
+            245,
+            253
+          ],
+          "fg": [
+            194,
+            116,
+            0
+          ]
+        },
+        "on-accent": {
+          "bg": [
+            16,
+            132,
+            254
+          ],
+          "fg": [
+            239,
+            245,
+            253
+          ]
+        }
+      }
+    }
+  },
+  "stderr": "\r\nDevTools listening on ws://127.0.0.1:9472/devtools/browser/1206cdcd-04ba-46b2-9638-99eaab6c12d5\r\n(node:31564) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.\n(Use `DB Bot --trace-deprecation ...` to show where the warning was created)\n"
+}

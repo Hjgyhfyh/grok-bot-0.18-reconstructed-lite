@@ -1,0 +1,87 @@
+{
+  "userDataDir": "C:\\Users\\lesab\\AppData\\Local\\Temp\\dbbot-qa-theme-KBRUrq",
+  "outDir": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-01-measurements\\titlebar",
+  "steps": [
+    {
+      "step": "boot-1",
+      "geom": {
+        "x": 440,
+        "y": 136,
+        "w": 1056,
+        "h": 768
+      },
+      "state": {
+        "get": {
+          "preference": "light-white",
+          "resolved": "light-white"
+        },
+        "dataTheme": "light-white",
+        "bg": "#ffffff"
+      }
+    },
+    {
+      "step": "switch-live",
+      "result": {
+        "s": {
+          "preference": "sky",
+          "resolved": "sky"
+        },
+        "t": "sky",
+        "bg": "#eff5fd"
+      }
+    },
+    {
+      "step": "before-close",
+      "state": {
+        "get": {
+          "preference": "sky",
+          "resolved": "sky"
+        },
+        "dataTheme": "sky",
+        "bg": "#eff5fd"
+      }
+    },
+    {
+      "step": "closed"
+    },
+    {
+      "step": "boot-2",
+      "state": {
+        "get": {
+          "preference": "sky",
+          "resolved": "sky"
+        },
+        "dataTheme": "sky",
+        "bg": "#eff5fd"
+      }
+    },
+    {
+      "step": "titlebar-light-white",
+      "ui": "#ffffff",
+      "applied": "light-white",
+      "file": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-01-measurements\\titlebar\\screen-light-white.png",
+      "error": "qa-01-grab-screen.ps1 code=1: D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-01-grab-screen.ps1 : Cannot convert argument \"blockRegionSize\", with val\r\nue: \"SourceCopy\", for \"CopyFromScreen\" to type \"System.Drawing.Size\": \"Cannot convert value \"SourceCopy\" to type \"Syste\r\nm.Drawing.Size\". Error: \"Invalid cast from 'System.Drawing.CopyPixelOperation' to 'System.Drawing.Size'.\"\"\r\n    + CategoryInfo          : NotSpecified: (:) [qa-01-grab-screen.ps1], MethodException\r\n    + FullyQualifiedErrorId : MethodArgumentConversionInvalidCastArgument,qa-01-grab-screen.ps1"
+    },
+    {
+      "step": "titlebar-milk",
+      "ui": "#fbf7f1",
+      "applied": "milk",
+      "file": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-01-measurements\\titlebar\\screen-milk.png",
+      "error": "qa-01-grab-screen.ps1 code=1: D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-01-grab-screen.ps1 : Cannot convert argument \"blockRegionSize\", with val\r\nue: \"SourceCopy\", for \"CopyFromScreen\" to type \"System.Drawing.Size\": \"Cannot convert value \"SourceCopy\" to type \"Syste\r\nm.Drawing.Size\". Error: \"Invalid cast from 'System.Drawing.CopyPixelOperation' to 'System.Drawing.Size'.\"\"\r\n    + CategoryInfo          : NotSpecified: (:) [qa-01-grab-screen.ps1], MethodException\r\n    + FullyQualifiedErrorId : MethodArgumentConversionInvalidCastArgument,qa-01-grab-screen.ps1"
+    },
+    {
+      "step": "titlebar-smoke",
+      "ui": "#f2f4f6",
+      "applied": "smoke",
+      "file": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-01-measurements\\titlebar\\screen-smoke.png",
+      "error": "qa-01-grab-screen.ps1 code=1: D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-01-grab-screen.ps1 : Cannot convert argument \"blockRegionSize\", with val\r\nue: \"SourceCopy\", for \"CopyFromScreen\" to type \"System.Drawing.Size\": \"Cannot convert value \"SourceCopy\" to type \"Syste\r\nm.Drawing.Size\". Error: \"Invalid cast from 'System.Drawing.CopyPixelOperation' to 'System.Drawing.Size'.\"\"\r\n    + CategoryInfo          : NotSpecified: (:) [qa-01-grab-screen.ps1], MethodException\r\n    + FullyQualifiedErrorId : MethodArgumentConversionInvalidCastArgument,qa-01-grab-screen.ps1"
+    },
+    {
+      "step": "titlebar-sky",
+      "ui": "#eff5fd",
+      "applied": "sky",
+      "file": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-01-measurements\\titlebar\\screen-sky.png",
+      "error": "qa-01-grab-screen.ps1 code=1: D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\tests\\qa-01-grab-screen.ps1 : Cannot convert argument \"blockRegionSize\", with val\r\nue: \"SourceCopy\", for \"CopyFromScreen\" to type \"System.Drawing.Size\": \"Cannot convert value \"SourceCopy\" to type \"Syste\r\nm.Drawing.Size\". Error: \"Invalid cast from 'System.Drawing.CopyPixelOperation' to 'System.Drawing.Size'.\"\"\r\n    + CategoryInfo          : NotSpecified: (:) [qa-01-grab-screen.ps1], MethodException\r\n    + FullyQualifiedErrorId : MethodArgumentConversionInvalidCastArgument,qa-01-grab-screen.ps1"
+    }
+  ]
+}

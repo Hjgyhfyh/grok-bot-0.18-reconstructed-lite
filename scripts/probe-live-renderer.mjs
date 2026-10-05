@@ -143,11 +143,19 @@ function evaluate(webSocketUrl, expression) {
  * Опрашивает страницу, пока интерфейс не отрисуется.
  *
  * Зачем повторять. CDP отдаёт цель `page` в момент создания окна, а React
- * монтируется позже: между этими событиями `document.documentElement.
- * outerHTML` пуст. Раньше это не мешало — окно появлялось на 8-й секунде и
- * успевало наполниться. После мер для слабой машины окно появляется на 2-й,
- * и одна проверка сразу после `Runtime.evaluate` ловит пустую страницу и
- * объявляет неработающей работающую программу.
+ * монтируется позже. Раньше повтор срабатывал по пустому
+ * `document.documentElement.outerHTML`, но после мер для слабой машины окно
+ * появляется на 2-й секунде, и проверка «`html` больше нуля» стала проходить
+ * с первой попытки — на пустой странице. Доказательство: прогон 2026-10-06 на
+ * порту 9471 отпечатал «Интерфейс отрисован с 1-й попытки» при
+ * `rootChildren: 0`, `bodyText: ""`, `html: 852`. 852 байта — это сама оболочка
+ * `index.html`, она есть до монтирования React, поэтому условие выполнялось
+ * всегда, и повторный опрос не выполнялся ни разу.
+ *
+ * Готовность проверяется по `#root`: у смонтированного приложения есть дети,
+ * и в `body.innerText` есть текст. Пока этого нет — окно создано, но интерфейса
+ * в нём ещё нет, и называть это отрисованным нельзя: на голом `#root`
+ * проверка правок интерфейса проходит, ничего не показав человеку.
  *
  * Возвращает последний ответ: каким бы он ни был, он честный — на выходе
  * видно, сколько попыток понадобилось.
@@ -155,13 +163,19 @@ function evaluate(webSocketUrl, expression) {
 async function evaluateWhenRendered(webSocketUrl, expression, attempts = 20) {
   let last = null;
   let lastError = null;
+  const rendered = (value) => value != null
+    && typeof value.html === "number"
+    && typeof value.rootChildren === "number"
+    && value.rootChildren > 0
+    && typeof value.bodyText === "string"
+    && value.bodyText.trim().length > 0;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       last = await evaluate(webSocketUrl, expression);
     } catch (error) {
       lastError = error;
     }
-    if (last != null && typeof last.html === "number" && last.html > 0) {
+    if (rendered(last)) {
       return { attempt, value: last };
     }
     await sleep(1000);
@@ -228,7 +242,16 @@ for (const target of poll.pages) {
   say(`--- Runtime.evaluate: ${target.url}`);
   try {
     const probed = await evaluateWhenRendered(target.webSocketDebuggerUrl, PROBE_EXPRESSION);
-    say(`Интерфейс отрисован с ${probed.attempt}-й попытки (1 попытка в секунду).`);
+    // `attempt === 20` — это не «отрисован с двадцатой попытки», а «двадцать
+    // попыток и ни одной удачной». Раньше строка печатала «Интерфейс отрисован»
+    // в обоих случаях, и прогон с пустым окном выглядел как успешный.
+    const rendered = typeof probed.value?.rootChildren === "number"
+      && probed.value.rootChildren > 0
+      && typeof probed.value?.bodyText === "string"
+      && probed.value.bodyText.trim().length > 0;
+    say(rendered
+      ? `Интерфейс отрисован с ${probed.attempt}-й попытки (1 попытка в секунду).`
+      : `ИНТЕРФЕЙС НЕ ОТРИСОВАН: ${probed.attempt} попыток, у #root ${probed.value?.rootChildren ?? "нет"} детей, текста в body нет.`);
     say(JSON.stringify(probed.value, null, 2));
   } catch (error) {
     say(`ОШИБКА ВЫЧИСЛЕНИЯ: ${error.message}`);

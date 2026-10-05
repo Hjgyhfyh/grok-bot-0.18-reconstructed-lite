@@ -49,6 +49,45 @@ const ROUTED_TITLE_INSTRUCTION = [
 // is not a conversation. Bounding it keeps one enormous paste from becoming the whole prompt.
 const ROUTED_TITLE_SOURCE_CHARS = 600;
 
+// How long a naming request may occupy its slot in the queue.
+//
+// This request used to go out with no deadline and no cancel signal at all: `streamText` waits
+// on `result.fullStream` until the HTTP stack gives up on its own, which on Node is about five
+// minutes. Every later naming for that agent was chained behind it in `queues`, so one slow or
+// stuck DeepSeek took conversation naming out for the whole session — silently, because the
+// queue's `.catch` threw the reason away and the user only ever saw an empty title in the chat
+// list. For comparison, the agent's own turn holds the first token to 150 s
+// (`host/runner/stream-attempt.ts`) and the model list to 5 s
+// (`shared/node/inference-endpoint-models.ts`).
+//
+// 2.5 s is the point where a short JSON naming request is not going to arrive at all on any
+// connection that is merely slow: the reply is at most five words, the turn is already on its
+// way to the box, and the naming is a courtesy whose only result is a title. Dropping it costs
+// a blank title and nothing else — the next message names the conversation again, because
+// `nameConversation` bails out early only once a title exists. `SAND_ROUTED_TITLE_TIMEOUT_MS`
+// raises the ceiling for a genuinely slow line, the way `SAND_DEEPSEEK_MAX_TOKENS` and
+// `SAND_ROUTED_TEMPERATURE` already do.
+const ROUTED_TITLE_TIMEOUT_MS = 2_500;
+
+function routedTitleTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const override = Number.parseInt(env.SAND_ROUTED_TITLE_TIMEOUT_MS?.trim() ?? "", 10);
+  if (Number.isFinite(override) && override > 0) return override;
+  return ROUTED_TITLE_TIMEOUT_MS;
+}
+
+/**
+ * What the user is told when the naming request is abandoned. Russian, because the product's
+ * diagnostics are read by the librarian and not by the engineer. It names the deadline, what
+ * was lost, and the one knob that changes it — and it is a fixed string on purpose: the cause
+ * object of a provider failure can carry the request that was signed, so nothing from the
+ * failure itself is ever put into this line.
+ */
+function routedTitleTimeoutMessage(deadlineMs: number): string {
+  return `[sand:inference-router] DeepSeek не ответил за ${deadlineMs} мс — имя беседы пропущено, `
+    + "беседа пока останется без названия. Проверьте интернет или поднимите этот предел "
+    + "переменной окружения SAND_ROUTED_TITLE_TIMEOUT_MS; следующее сообщение попробует снова.";
+}
+
 export interface RoutedControlEnvelope {
   readonly isNewTopic: boolean;
   readonly title: string | null;
@@ -197,10 +236,27 @@ export function createCoordinatorInferenceRouter(options: {
     const current = asRecord(roster.find(raw => asRecord(raw)?.id === agentId));
     if (current == null || typeof current.name !== "string" || current.name.trim().length === 0) return;
     if (typeof current.title === "string" && current.title.trim().length > 0) return;
-    const reply = await runRoutedProviderText(
-      provider,
-      [{ role: "user", content: `${ROUTED_TITLE_INSTRUCTION}\n\n${prompt.slice(0, ROUTED_TITLE_SOURCE_CHARS)}` }],
-    );
+    const deadlineMs = routedTitleTimeoutMs();
+    const controller = new AbortController();
+    let deadlineExpired = false;
+    const timer = setTimeout(() => { deadlineExpired = true; controller.abort(); }, deadlineMs);
+    let reply: string;
+    try {
+      reply = await runRoutedProviderText(
+        provider,
+        [{ role: "user", content: `${ROUTED_TITLE_INSTRUCTION}\n\n${prompt.slice(0, ROUTED_TITLE_SOURCE_CHARS)}` }],
+        { abortSignal: controller.signal },
+      );
+    } catch (error) {
+      // A dead deadline is the one failure the user has to hear about: it is the difference
+      // between "the conversation has no name" and "the connection is out". Every other failure
+      // stays as quiet as it was, because no title is an acceptable outcome and not one of them
+      // is worth a bubble in the chat.
+      if (deadlineExpired) console.warn(routedTitleTimeoutMessage(deadlineMs));
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
     const envelope = parseRoutedControlEnvelope(reply);
     if (envelope == null) return;
     await applyRoutedControlEnvelope(agentId, envelope);

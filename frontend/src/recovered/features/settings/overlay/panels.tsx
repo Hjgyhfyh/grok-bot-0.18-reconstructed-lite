@@ -515,7 +515,7 @@ export function RouterSettingsPanel({ provider, pending = false, modelId, onMode
             <small>
               {apiKeyConfigured
                 ? "Ключ сохранён в настройках на этом компьютере. Он не попадает в интернет иначе, чем в запросы к api.deepseek.com."
-                : apiKeyMessage ?? "Не задан ключ DeepSeek API. Открой Настройки → DeepSeek и вставь ключ вида sk-…"}
+                : apiKeyMessage ?? "Не задан ключ DeepSeek API. Открой Настройки → Провайдер и вставь ключ вида sk-…"}
             </small>
           </span>
         </div>

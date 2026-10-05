@@ -1,0 +1,20 @@
+{
+  "asarPath": "D:\\ТЕСТЫ\\DeepSeek-Harness\\db-bot-lite\\dist\\DB Bot\\resources\\app.asar",
+  "scannedEntries": [
+    "\\dist\\box-exec-daemon\\main.cjs",
+    "\\dist\\electron-main\\main.cjs",
+    "\\dist\\electron-preload\\preload-dev-controls.cjs",
+    "\\dist\\electron-preload\\preload-vnc.cjs",
+    "\\dist\\electron-preload\\preload-webview.cjs",
+    "\\dist\\electron-preload\\preload.cjs",
+    "\\dist\\host\\agent-isolation\\agent-store-worker.cjs",
+    "\\dist\\host\\agent-isolation\\transcript-mirror-worker.cjs",
+    "\\dist\\host\\extensions\\box-store-sync\\box-store-vacuum-worker.cjs",
+    "\\dist\\host\\extensions\\content-search\\search-index-worker.cjs",
+    "\\dist\\host\\host-main.cjs",
+    "\\dist\\local-exec-daemon\\main.cjs",
+    "\\dist\\node-agent-coordinator\\main.cjs",
+    "\\package.json"
+  ],
+  "hosts": []
+}

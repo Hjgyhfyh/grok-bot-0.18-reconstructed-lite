@@ -26,24 +26,51 @@ function isWidePrintable(code: number): boolean {
   return false;
 }
 
+/**
+ * Тот же признак, но без «печатного» ограничения снизу: в UTF-16 русская буква
+ * лежит в 0x0400..0x04FF, и её младший байт — 0x04 или 0x10, а не ноль. Раньше
+ * пара байт проверялась по отдельности, и текст Word 97–2003 не находился вовсе.
+ */
+function isWideCode(code: number): boolean {
+  return isWidePrintable(code);
+}
+
 interface Segment {
   readonly start: number;
   readonly text: string;
 }
 
+/**
+ * Сколько пар байт в файле похожи на текст в UTF-16 с заданным порядком байтов.
+ * Word 97–2003 пишет текст блоками UTF-16LE, поэтому порядок определяется по
+ * самому файлу, а не предполагается.
+ */
+function widePairCount(bytes: Uint8Array, littleEndian: boolean): number {
+  let found = 0;
+  const limit = Math.min(bytes.length, 64 * 1024) - 1;
+  for (let index = 0; index + 1 <= limit; index += 2) {
+    const code = littleEndian
+      ? (bytes[index] as number) | ((bytes[index + 1] as number) << 8)
+      : ((bytes[index] as number) << 8) | (bytes[index + 1] as number);
+    if (isWideCode(code)) found += 1;
+  }
+  return found;
+}
+
 function wideRuns(bytes: Uint8Array): Segment[] {
+  const littleEndian = widePairCount(bytes, true) >= widePairCount(bytes, false);
   const segments: Segment[] = [];
   let index = 0;
   while (index + 1 < bytes.length) {
-    if (!isWidePrintable(bytes[index + 1] as number) || (bytes[index + 1] as number) === 0) { index += 1; continue; }
+    const first = wideCodeAt(bytes, index, littleEndian);
+    if (first == null) { index += 1; continue; }
     let text = "";
     const start = index;
     let length = 0;
     while (index + 1 < bytes.length && length < MAX_RUN) {
-      const high = bytes[index] as number;
-      const low = bytes[index + 1] as number;
-      if (low !== 0 || !isWidePrintable(high)) break;
-      text += String.fromCharCode(high);
+      const code = wideCodeAt(bytes, index, littleEndian);
+      if (code == null) break;
+      text += String.fromCharCode(code);
       index += 2;
       length += 1;
     }
@@ -51,6 +78,14 @@ function wideRuns(bytes: Uint8Array): Segment[] {
     else index = start + 2;
   }
   return segments;
+}
+
+/** Код символа UTF-16 по двум байтам, либо `null`, если это не текст. */
+function wideCodeAt(bytes: Uint8Array, index: number, littleEndian: boolean): number | null {
+  const first = bytes[index] as number;
+  const second = bytes[index + 1] as number;
+  const code = littleEndian ? first | (second << 8) : (first << 8) | second;
+  return isWideCode(code) ? code : null;
 }
 
 function narrowRuns(bytes: Uint8Array, skip: ReadonlySet<number>): Segment[] {

@@ -13,7 +13,18 @@ import { type ReportBlock } from "./markdown-to-blocks.js";
 import { writeZip } from "./zip.js";
 import { xmlEscape } from "./xml.js";
 
-/** Ширины колонок пропорциональны длине текста, с потолком 60 символов. */
+/** Минимальная ширина колонки, ниже которой Word переверстывает таблицу. */
+const MIN_COLUMN_WIDTH = 400;
+
+/**
+ * Ширины колонок пропорциональны длине текста.
+ *
+ * Сумма обязана помещаться в полосу набора, иначе таблица уезжает за правое
+ * поле и часть колонок не попадает на печать. Потолок `MIN_COLUMN_WIDTH`
+ * поэтому ставится не всегда, а только когда он влезает: на 23 и более колонках
+ * `23 * 400` уже шире полосы, и удержать потолок можно было бы только уронив
+ * таблицу за поля. В этом случае колонки делят полосу поровну — узко, но целиком.
+ */
 export function columnWidths(
   rows: readonly (readonly string[])[],
   total: number,
@@ -28,7 +39,9 @@ export function columnWidths(
     });
   }
   const sum = Math.max(1, weights.reduce((total, weight) => total + weight, 0));
-  return weights.map((weight) => Math.max(Math.floor((weight * total) / sum), 400));
+  const widths = weights.map((weight) => Math.floor((weight * total) / sum));
+  if (columns * MIN_COLUMN_WIDTH > total) return widths;
+  return widths.map((width) => Math.max(width, MIN_COLUMN_WIDTH));
 }
 
 const DOCUMENT_HEAD =

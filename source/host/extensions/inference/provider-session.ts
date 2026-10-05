@@ -99,16 +99,29 @@ export function isDeepSeekThinkingEnabled(env: NodeJS.ProcessEnv = process.env):
  */
 export function deepSeekFetch(env: NodeJS.ProcessEnv = process.env): typeof fetch {
   return async (input, init) => {
+    // Preparing the request is separated from sending it, and the send happens exactly once.
+    //
+    // The two used to be one statement: `return await fetch(...)` sat INSIDE the `try` below, so
+    // the catch could not tell "this body is not JSON" from "the socket died". A transport
+    // failure — no network, a closed connection, a proxy that dropped the stream before the
+    // headers — was read as the first, and the whole chat completion was sent to DeepSeek a
+    // second time, with no pause, no counter and no `Retry-After`. The provider had already
+    // accepted and already billed the first body, so one dropped connection cost the user twice
+    // for one answer, and the error that escaped was the SECOND attempt's, not the real one.
+    //
+    // `maxRetries: 0` below is what makes that a defect rather than a belt: retries belong to
+    // `stream-attempt.ts`, which has the ladder, the backoff and the attempt counter.
+    let outgoing: RequestInit | undefined = init;
     if (typeof init?.body === "string") {
       try {
         const body = JSON.parse(init.body) as Loose;
         if (body.thinking === undefined) {
           body.thinking = { type: isDeepSeekThinkingEnabled(env) ? "enabled" : "disabled" };
-          return await fetch(input, { ...init, body: JSON.stringify(body) });
+          outgoing = { ...init, body: JSON.stringify(body) };
         }
       } catch { /* not the JSON body of a chat completion — send it untouched */ }
     }
-    return await fetch(input, init);
+    return await fetch(input, outgoing);
   };
 }
 
@@ -262,11 +275,23 @@ export async function runRoutedProviderText(_provider: SandInferenceProvider | u
   const callOptions = options?.abortSignal === undefined ? undefined : { abortSignal: options.abortSignal };
   const result = deepSeekExecutor(messages, invocationId, options?.tools, options?.executeTool, onUsage, undefined, callOptions);
   let text = "";
+  let failure: { readonly error: unknown } | null = null;
   for await (const event of result.fullStream) {
     if (event.type === "text-delta" && typeof event.textDelta === "string") {
       text += event.textDelta;
       options?.onTextDelta?.(event.textDelta, text);
+    } else if (event.type === "error") {
+      failure ??= { error: event.error };
     }
+  }
+  // `result.response` is one of the SDK's delayed promises, and AI SDK v4 resolves those only on
+  // the success path. A stream that ended with an `error` part — a dropped connection, a
+  // cancelled socket, a refusal — leaves it pending for good, so the `await` below used to turn
+  // one failed turn into a caller that waits forever: the turn had already failed, its socket
+  // had already been closed, and the loop that came back was never going to end. That is what
+  // kept a naming request standing in its queue after its own deadline had killed it.
+  if (failure != null) {
+    throw failure.error instanceof Error ? failure.error : new Error(`DeepSeek answered with an error: ${String(failure.error)}`);
   }
   await result.response;
   return text;
