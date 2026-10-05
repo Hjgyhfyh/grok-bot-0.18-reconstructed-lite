@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -8,7 +7,6 @@ import test from "node:test";
 import { createPackage, extractFile, listPackage } from "@electron/asar";
 
 import { fromArchiveEntry, listArchiveFiles, toArchiveRelative } from "../scripts/lib/asar-paths.mjs";
-import { readRendererExtensionChunks } from "../scripts/lib/macos-package-verification.mjs";
 import {
   DARWIN_SYSTEM_TOOLS,
   SYSTEM_TOOLS,
@@ -17,7 +15,6 @@ import {
 } from "../scripts/lib/system-tools.mjs";
 
 const isWindowsHost = process.platform === "win32";
-const sha256 = value => createHash("sha256").update(value).digest("hex");
 
 // Builds a small but structurally real ASAR so the archive helpers are exercised
 // through the same separator-native API that packaged verification uses.
@@ -60,54 +57,17 @@ test("archive addressing follows the host separator in both directions", async (
   }
 });
 
-test("an unpatched packaged renderer reports no router settings extension", async () => {
-  const { scratch, archive } = await packFixture({ "dist/renderer/index.html": "<!doctype html>" });
-  try {
-    const expectedFiles = new Map([["index.html", { path: "index.html", bytes: 15, sha256: sha256("<!doctype html>") }]]);
-    assert.equal(readRendererExtensionChunks({ archivePath: archive, expectedFiles }), null);
-  } finally {
-    rmSync(scratch, { recursive: true, force: true });
-  }
-});
-
-test("the router settings extension pins shipped and patched chunk identities", async () => {
-  const shipped = "export const wDn=[];";
-  const patched = "export const wDn=[{id:\"router\"}];";
-  const chunkRelative = "assets/index-BoDVc20G.js";
-  const chunkPath = `dist/renderer/${chunkRelative}`;
-  const shippedIdentity = { bytes: Buffer.byteLength(shipped), sha256: sha256(shipped) };
-  const record = {
-    schemaVersion: 1,
-    mode: "original-renderer-settings-extension",
-    chunks: [{
-      role: "panel",
-      path: chunkPath,
-      original: { ...shippedIdentity },
-      patched: { bytes: Buffer.byteLength(patched), sha256: sha256(patched) },
-    }],
-    features: ["settings-router-provider"],
-    transformations: ["settings-registry"],
-  };
-  const { scratch, archive } = await packFixture({
-    "dist/renderer/index.html": "<!doctype html>",
-    [chunkPath]: patched,
-    "dist/renderer-router-extension.json": `${JSON.stringify(record, null, 2)}\n`,
-  });
-  try {
-    const expectedFiles = new Map([[chunkRelative, { path: chunkRelative, ...shippedIdentity }]]);
-    const extension = readRendererExtensionChunks({ archivePath: archive, expectedFiles });
-    assert.equal(extension.chunks.size, 1);
-    assert.equal(extension.chunks.get(chunkRelative).patched.sha256, sha256(patched));
-    // The packaged bytes must satisfy the patched identity, not the shipped one.
-    assert.equal(extractFile(archive, toArchiveRelative(chunkPath)).toString("utf8"), patched);
-
-    // An extension that re-baselines a chunk it did not come from is rejected.
-    const drifted = new Map([[chunkRelative, { path: chunkRelative, bytes: 1, sha256: sha256("x") }]]);
-    assert.throws(() => readRendererExtensionChunks({ archivePath: archive, expectedFiles: drifted }), /source identity drift/);
-  } finally {
-    rmSync(scratch, { recursive: true, force: true });
-  }
-});
+// The two `readRendererExtensionChunks` cases that used to live here — "an unpatched
+// packaged renderer reports no router settings extension" and "the router settings
+// extension pins shipped and patched chunk identities" — were removed with the
+// fidelity build. The sidecar they pinned (`dist/renderer-router-extension.json`,
+// original bytes versus patched bytes) was only ever written by
+// `scripts/lib/router-renderer-patch.mjs`, which byte-patched the shipped
+// minified 0.18 chunk. `scripts/build-from-source.mjs` never produced that file and
+// never called the helper, so after `src/app/dist/**` was deleted no code could
+// produce the subject those assertions measured. The four portable cases that
+// remain cover what the Lite build really does: separator-native ASAR addressing
+// and the host system-tool table.
 
 test("a member name with a space and non-ASCII characters survives the round trip", async () => {
   // Separator handling is exactly where non-ASCII breaks: the archive header is

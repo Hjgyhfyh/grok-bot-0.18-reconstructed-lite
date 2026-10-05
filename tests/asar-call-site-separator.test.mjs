@@ -328,10 +328,18 @@ test("every archive API call site addresses members through the platform separat
     handed.length > 0,
     "the scan located no archive API handed to another function, so its reference branch is unexercised and `unscanned` above cannot fail for the right reason",
   );
-  assert.ok(importing.length >= 8, `expected the repo's archive consumers to be found, found ${importing.length}`);
-
-  // A parser that silently stopped matching would make the assertion above
-  // vacuous, so prove the scan still sees real call sites.
+  // A fixed count of consumer FILES is not a guard: it cannot tell a tree that
+  // legitimately shrank from a scan that stopped looking, and this suite had
+  // exactly that bug before (it used to demand "at least 17"). The seven
+  // archive consumers it used to see became four when the fidelity packaging
+  // scripts were deleted — a correct removal, not a regression.
+  //
+  // What actually proves the scan works is structural, and all three checks are
+  // below and stay: `sites.length >= 20` fails if the parser stopped matching
+  // call syntax, the `byApi` loop fails if it stopped seeing each API, and
+  // `unscanned` fails if a file that imports the archive module yields nothing
+  // the scan could judge. A fourth file can therefore never enter unexamined,
+  // and the seventh can never leave silently — whatever the number of files is.
   assert.ok(sites.length >= 20, `expected the scan to find the repo's archive call sites, found ${sites.length}`);
   const byApi = new Map();
   for (const site of sites) byApi.set(site.api, (byApi.get(site.api) ?? 0) + 1);

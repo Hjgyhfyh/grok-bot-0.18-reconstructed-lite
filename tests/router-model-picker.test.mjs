@@ -8,7 +8,14 @@ import { transform } from "esbuild";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const listerPath = path.join(repoRoot, "source", "shared", "node", "inference-endpoint-models.ts");
-const patchPath = path.join(repoRoot, "scripts", "lib", "router-renderer-patch.mjs");
+const routerModelPath = path.join(
+  repoRoot,
+  "frontend", "src", "recovered", "features", "settings", "overlay", "router.ts",
+);
+const routerPanelPath = path.join(
+  repoRoot,
+  "frontend", "src", "recovered", "features", "settings", "overlay", "panels.tsx",
+);
 
 const SECRET = "oc_sk_live_do_not_leak_me_0123456789";
 
@@ -236,28 +243,44 @@ test("a 5xx answers as http-status and never surfaces the response body", async 
   for (const text of stringsOf(listing)) assert.equal(text.includes(SECRET), false, `leaked the key: ${text}`);
 });
 
-test("the renderer's custom panel keeps a free-text escape hatch and a select", async () => {
-  const patch = await readFile(patchPath, "utf8");
-  const injected = patch.match(/const COMPONENT_SOURCE = String\.raw`([\s\S]*?)`;/)?.[1] ?? "";
-  assert.ok(injected.length > 0, "the patch must keep its component source");
+test("the renderer's model panel keeps a typed escape hatch and a named select", async () => {
+  // This case used to read `COMPONENT_SOURCE` out of
+  // `scripts/lib/router-renderer-patch.mjs` — a minified JSX string that was
+  // injected into the shipped 0.18 bundle. That module byte-patched
+  // `src/app/dist/renderer/assets/*.js`; after `src/app/dist/**` was deleted no
+  // build could inject anything, so the assertions were pinned to text that
+  // never reaches the Lite renderer. The guard now reads the real sources the
+  // Lite renderer is compiled from: `router.ts` (the model table) and
+  // `panels.tsx` (the `RouterSettingsPanel` that renders it).
+  const routerModel = await readFile(routerModelPath, "utf8");
+  const routerPanel = await readFile(routerPanelPath, "utf8");
 
-  // The same field the free-text input sets is what a selection writes.
-  assert.match(injected, /a\.jsx\("input",\{"aria-label":"Endpoint model id"[\s\S]*?onChange:j=>f\(\[g,j\.currentTarget\.value\]\)/);
-  assert.match(injected, /onPick:j=>f\(\[g,j\]\)/);
-  assert.match(injected, /const E=\{baseUrl:g\.trim\(\),modelId:v\.trim\(\)\}/);
-  assert.match(injected, /a\.jsx\("select",\{"aria-label":"Endpoint model list"/);
-  assert.match(injected, /a\.jsx\(RRouterModelSelect,\{busy:o,listing:p,modelId:v,onPick:j=>f\(\[g,j\]\),onRetry:\(\)=>b\(x=>x\+1\)\}\)/);
+  // The guard has to find the subject before it may assert anything about it.
+  assert.ok(
+    /export const DEEPSEEK_MODEL_CHOICES/.test(routerModel),
+    "the guard must find the model table in router.ts, or it proves nothing",
+  );
+  assert.ok(
+    /export function RouterSettingsPanel/.test(routerPanel),
+    "the guard must find the settings panel in panels.tsx, or it proves nothing",
+  );
 
-  // A typed id that the list does not carry is reported, never reset.
-  assert.match(injected, /function RRouterModelAbsent\(/);
-  assert.match(injected, /it is kept exactly as you typed it/);
+  // The picker still offers a named, reachable select over the DeepSeek models.
+  assert.match(routerPanel, /ariaLabel="Модель DeepSeek"/);
+  assert.match(routerPanel, /options=\{models\.map\(\(choice\) => \(\{ value: choice\.id, label: choice\.label \}\)\)\}/);
+  assert.match(routerPanel, /onModelChange\?\.\(value\)/);
+  assert.match(routerModel, /id: "deepseek-flash"/);
+  assert.match(routerModel, /id: "deepseek-v4-pro"/);
 
-  // React hygiene: no render-phase writes beyond the converging guard setter.
-  assert.doesNotMatch(injected, /dangerouslySetInnerHTML/);
-  assert.doesNotMatch(injected, /innerHTML/);
-  assert.doesNotMatch(injected, /OPENAI_API_KEY/);
-  assert.doesNotMatch(injected, /ANTHROPIC_API_KEY/);
-  assert.match(injected, /live=false;clearTimeout\(timer\)/);
+  // A model id typed rather than picked is kept exactly as it was; the panel
+  // falls back to the first choice instead of silently rewriting the selection.
+  assert.match(routerPanel, /const selectedModel = models\.find\(\(choice\) => choice\.id === modelId\) \?\? models\[0\]!/);
+
+  // No other provider may reappear in the renderer, and no key may be read there.
+  assert.doesNotMatch(routerModel, /"cursor"/, "DeepSeek is the only provider this build may address");
+  assert.doesNotMatch(routerModel, /OPENAI_API_KEY|ANTHROPIC_API_KEY/);
+  assert.doesNotMatch(routerPanel, /OPENAI_API_KEY|ANTHROPIC_API_KEY/);
+  assert.doesNotMatch(routerPanel, /dangerouslySetInnerHTML|innerHTML/);
 });
 
 test("the preload and main edge expose one read-only model-listing call", async () => {

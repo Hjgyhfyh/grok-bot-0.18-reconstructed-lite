@@ -120,6 +120,13 @@ export function createDesktopPreloadBridge(options: {
     stageAttachmentBytes: (filename: string, bytes: Uint8Array) => edge("stageAttachmentBytes", { filename, bytes }),
     commitStagedAttachments: (paths: readonly string[], filenames: readonly string[]) => edge("commitStagedAttachments", { paths, filenames }),
     async discardStagedAttachment(path: string) { await edge("discardStagedAttachment", { path }); },
+    // «Сохранить» и «Печать» под готовым отчётом. Отчёт приходит в ленту
+    // обычным сообщением, а сохранить его и отправить на принтер должна сама
+    // пользовательница — одной кнопкой в ленте, без помощи агента.
+    reports: {
+      saveFile: (title: string, markdown: string, format?: string) => edge("saveReportFile", { title, markdown, format }),
+      print: (title: string, markdown: string) => edge("printReport", { title, markdown }),
+    },
     mcp: {
       list: () => ipc.invoke("sand:mcp-list"),
       effectivePlugins: () => ipc.invoke("sand:mcp-effective-plugins"),

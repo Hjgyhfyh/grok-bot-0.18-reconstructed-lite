@@ -1,0 +1,16 @@
+.sand-report-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+
+.sand-report-actions__button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 5px 12px; color: var(--sand-text-primary); background: var(--sand-fill-elevated); border: 1px solid var(--sand-border-default); border-radius: 8px; cursor: pointer; font: inherit; font-size: 12px; }
+
+.sand-report-actions__button:hover,
+.sand-report-actions__button:focus-visible { background: var(--sand-fill-neutral-subtle); outline: 1px solid var(--sand-fill-accent); outline-offset: 1px; }
+
+.sand-report-actions__button:disabled { color: var(--sand-text-secondary); cursor: default; opacity: .6; }
+
+.sand-report-actions__button [data-icon-name] { display: inline-flex; width: 14px; height: 14px; }
+
+.sand-report-actions__hint { color: var(--sand-text-secondary); font-size: 11px; }
+
+.sand-report-actions__status { flex-basis: 100%; color: var(--sand-text-secondary); font-size: 11px; overflow-wrap: anywhere; }
+
+.sand-report-actions__status[data-tone="error"] { color: var(--sand-text-primary); }

@@ -3,7 +3,6 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { build } from "esbuild";
@@ -274,52 +273,103 @@ test("a provider choice left by an older build is rewritten onto DeepSeek", () =
 });
 
 // --- Renderer -----------------------------------------------------------------
-// The renderer is checksum-pinned, so these are guards over the injected source
-// rather than edits. A guard that finds nothing is a failing test, so each one
-// counts its matches first.
+// The two renderer guards below used to parse `COMPONENT_SOURCE`, a minified JSX
+// string exported by `scripts/lib/router-renderer-patch.mjs`. That module injected
+// the string into the shipped 0.18 bundle at `src/app/dist/renderer/assets/*.js`.
+// The fidelity build is gone — its LFS objects were deleted from the server and
+// `src/app/dist/**` was removed — so no build produces those bytes and nothing can
+// inject the component. The guards now read the sources the Lite renderer is
+// actually compiled from, so a returning Cursor entry fails here too.
 
-const require = createRequire(path.join(repoRoot, "package.json"));
-const acorn = require("acorn");
-const { COMPONENT_SOURCE } = await import(
-  pathToFileURL(path.join(repoRoot, "scripts", "lib", "router-renderer-patch.mjs")).href
+const routerSourcePath = path.join(
+  repoRoot,
+  "frontend", "src", "recovered", "features", "settings", "overlay", "router.ts",
+);
+const routerPanelPath = path.join(
+  repoRoot,
+  "frontend", "src", "recovered", "features", "settings", "overlay", "panels.tsx",
 );
 
-test("the injected Router panel offers no Cursor provider and mounts no billing panel", () => {
-  acorn.parse(COMPONENT_SOURCE, { ecmaVersion: "latest" });
+/**
+ * The body of one top-level declaration in `panels.tsx`.
+ *
+ * `panels.tsx` holds several panels, and `UsageSettingsPanel` still types its
+ * props with `CursorUsageSummary`. A whole-file grep would therefore match a
+ * symbol the Router panel never touches and fail for an unrelated reason, so the
+ * guard is scoped to the declaration it is actually about.
+ */
+function topLevelDeclaration(source, signature) {
+  const start = source.indexOf(signature);
+  assert.ok(start > 0, `the guard must find \`${signature}\` in panels.tsx, or it proves nothing`);
+  const after = source.slice(start + signature.length);
+  const next = after.search(/\n(?:export )?(?:function|const|class|interface|type) /);
+  return next === -1 ? source.slice(start) : source.slice(start, start + signature.length + next);
+}
+
+test("the Router settings panel offers no Cursor provider and mounts no billing panel", () => {
+  const routerSource = readFileSync(routerSourcePath, "utf8");
+  const routerPanelSource = readFileSync(routerPanelPath, "utf8");
+  const routerPanel = topLevelDeclaration(routerPanelSource, "export function RouterSettingsPanel(");
+
+  // A guard that finds nothing is a passing test that proves nothing.
   assert.ok(
-    COMPONENT_SOURCE.includes("RRouterProviders"),
+    /export const ROUTER_PROVIDERS/.test(routerSource),
     "the guard must find the provider table it is about to inspect, or it proves nothing",
   );
   assert.ok(
-    COMPONENT_SOURCE.includes('de.useState({provider:"custom"'),
-    "the panel must open on the local provider; it used to flash \"Cursor\" before the async read resolved",
+    /export type RouterProviderId = "deepseek"/.test(routerSource),
+    "the provider id type must be the single DeepSeek literal",
   );
+
+  // Exactly one provider, and it is DeepSeek.
+  const providerIds = [...routerSource.matchAll(/^\s*id: "([^"]+)",$/gm)].map(match => match[1]);
+  assert.deepEqual(
+    providerIds,
+    ["deepseek"],
+    "the panel must offer exactly one provider: another entry routes a turn into an account-backed endpoint that can never answer",
+  );
+
+  // The Cursor provider entry and the account slot it selected are both gone.
   assert.equal(
-    COMPONENT_SOURCE.includes('value:"cursor"'),
+    routerSource.includes('"cursor"'),
     false,
     "the Cursor provider entry routes a turn into an account-backed endpoint that can never answer",
   );
   assert.equal(
-    COMPONENT_SOURCE.includes("a.jsx(Na,{})"),
-    false,
-    "the original Cursor usage/billing panel must not be mounted",
-  );
-  assert.equal(
-    /provider:"cursor"/.test(COMPONENT_SOURCE),
+    /provider: "cursor"/.test(routerSource),
     false,
     "no Router state may be seeded with the Cursor provider",
   );
+  assert.doesNotMatch(
+    routerPanel,
+    /CursorUsageSummary|getUsageSummary|UsageMeter/,
+    "the Cursor usage/billing panel must not be mounted by the Router panel",
+  );
+  // What it does show is DeepSeek's own description of where the tokens are metered.
+  assert.match(routerPanel, /selectedProvider\.usageDescription/);
 });
 
-test("the endpoint model picker survives the provider removal", () => {
-  assert.equal(
-    COMPONENT_SOURCE.includes("Endpoint model list"),
-    true,
-    "the model picker's aria-label is a shipped invariant and must survive removing the Cursor entry",
+test("the DeepSeek model picker survives the provider removal", () => {
+  const routerSource = readFileSync(routerSourcePath, "utf8");
+  const routerPanel = topLevelDeclaration(
+    readFileSync(routerPanelPath, "utf8"),
+    "export function RouterSettingsPanel(",
+  );
+
+  assert.ok(
+    /export const DEEPSEEK_MODEL_CHOICES/.test(routerSource),
+    "the model table must survive removing the Cursor entry",
   );
   assert.ok(
-    COMPONENT_SOURCE.includes("RRouterFallbackModels"),
-    "the fallback model list is a shipped invariant and must survive removing the Cursor entry",
+    /id: "deepseek-flash"/.test(routerSource) && /id: "deepseek-v4-pro"/.test(routerSource),
+    "both shipped DeepSeek models must survive removing the Cursor entry",
+  );
+  // The panel still renders a named, reachable select over that table.
+  assert.match(routerPanel, /ariaLabel="Модель DeepSeek"/);
+  assert.match(
+    routerPanel,
+    /const selectedModel = models\.find\(\(choice\) => choice\.id === modelId\) \?\? models\[0\]!/,
+    "a model id the table does not carry must fall back, never be rewritten",
   );
 });
 

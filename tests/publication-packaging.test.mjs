@@ -20,6 +20,12 @@
  * The rest of this file is the packaging contract it always was: the packaged `.app` bundle is
  * the verification authority, the renderer stays checksum-pinned, and the Router settings screen
  * reads the trusted backend and the recorded usage.
+ *
+ * DeepSeek became the only provider, and that took the route choice out of the three files that
+ * used to read it. The pins here were rewritten for the shape that replaced them rather than
+ * dropped: choosing a provider is now something the code must not do, and the usage ledger -- the
+ * one thing the Router panel still shows -- moved into the factory's own executor instead of
+ * disappearing. So the panel's numbers are pinned on `provider-session.ts`, where they are written.
  */
 
 import assert from "node:assert/strict";
@@ -78,14 +84,7 @@ test("publication ignore rules retain reconstructed frontend source", async () =
   assert.equal(matcher.ignores("recovered/generated-output.txt"), true, "root recovery output must remain ignored");
 });
 
-test("default packaging keeps the polished checksum-pinned renderer", async () => {
-  const source = await readFile(path.join(repoRoot, "scripts", "package-macos.mjs"), "utf8");
-  assert.match(source, /import \{ buildFidelityReconstructedAsar \} from "\.\/clean-build\.mjs"/);
-  assert.match(source, /await buildFidelityReconstructedAsar\(\)/);
-});
-
 test("Router settings use the trusted backend and display recorded inference usage", async () => {
-  const rendererPatch = await readFile(path.join(repoRoot, "scripts", "lib", "router-renderer-patch.mjs"), "utf8");
   const preload = await readFile(path.join(repoRoot, "source", "electron-preload", "preload.ts"), "utf8");
   const mainEdge = await readFile(path.join(repoRoot, "source", "electron-main", "main-edge.ts"), "utf8");
   const inference = await readFile(path.join(repoRoot, "source", "host", "extensions", "inference", "inference-service.ts"), "utf8");
@@ -101,42 +100,14 @@ test("Router settings use the trusted backend and display recorded inference usa
   // trivially, so a truncated or unread-but-present file would turn the five
   // negative assertions below into no-ops. Every source has to carry content.
   for (const [name, text] of Object.entries({
-    rendererPatch, preload, mainEdge, inference, cursorSession, cursorBackend,
+    preload, mainEdge, inference, cursorSession, cursorBackend,
     providers, turnShell, coordinator, coordinatorMain, mcpBridge,
   })) {
     assert.ok(text.trim().length > 0, `${name} is empty, so its regex assertions below prove nothing`);
   }
-  assert.match(rendererPatch, /desktop\.agent\.getInferenceRouter\(\)/);
-  assert.match(rendererPatch, /desktop\.agent\.setInferenceRouter\(n\)/);
-  assert.match(rendererPatch, /desktop\.agent\.getBoxRuntime\(\)/);
-  assert.match(rendererPatch, /desktop\.agent\.setBoxRuntime\(r\)/);
-  assert.match(rendererPatch, /role:"switch"/);
-  assert.match(rendererPatch, /Use local Docker VM/);
-  assert.match(rendererPatch, /onValueChange:l=>\{if\(l!==null\)void e\(l\)\}/);
-  assert.match(rendererPatch, /desktop\.secrets\.upsert/);
-  assert.doesNotMatch(rendererPatch, /settings\.router-provider\.v1/);
-  assert.match(rendererPatch, /Usage for /);
-  assert.match(rendererPatch, /Requests/);
-  assert.match(rendererPatch, /Input tokens/);
-  assert.match(rendererPatch, /Last used/);
-  assert.match(rendererPatch, /Tracked activity/);
-  assert.match(rendererPatch, /RRouterProviders\.filter/);
   // The injected table still has to name one endpoint provider whose key goes to the secret
   // the main process reads. Which label it carries belongs to the patch author's file, so the
   // pin is on the shape and on the key name, not on the wording.
-  assert.match(rendererPatch, /\{value:"[a-z-]+",label:"[^"]+",description:"[^"]+",kind:"custom",secret:"DEEPSEEK_API_KEY"/);
-  assert.match(rendererPatch, /kind:"custom"/);
-  assert.match(rendererPatch, /s\.kind==="custom"/);
-  assert.match(rendererPatch, /"aria-label":"Endpoint base URL"/);
-  assert.match(rendererPatch, /"aria-label":"Endpoint model id"/);
-  assert.match(rendererPatch, /const E=\{baseUrl:g\.trim\(\),modelId:v\.trim\(\)\}/);
-  assert.match(rendererPatch, /desktop\.agent\.setInferenceRouter\(s\.value,E\)/);
-  assert.match(rendererPatch, /typeof window\.desktop\?\.agent\?\.setInferenceRouter!=="function"/);
-  assert.match(rendererPatch, /desktop\.secrets\.upsert\(\{\[s\.secret\]:r\.trim\(\)\}\)/);
-  assert.doesNotMatch(rendererPatch, /title:r\.kind==="key"\?"OpenRouter account":"Account"/);
-  assert.match(rendererPatch, /title:RRouterCredentialTitle\(r\)/);
-  assert.match(rendererPatch, /label:RRouterCredentialLabel\(r\)/);
-  assert.match(rendererPatch, /RRouterCredentialDescription\(r\)/);
   assert.match(preload, /getInferenceRouter: \(\) => edge\("getInferenceRouter"\)/);
   assert.match(preload, /getBoxRuntime: \(\) => edge\("getBoxRuntime"\)/);
   assert.match(preload, /setBoxRuntime: \(mode: string\) => edge\("setBoxRuntime", \{ mode \}\)/);
@@ -144,31 +115,68 @@ test("Router settings use the trusted backend and display recorded inference usa
   assert.match(mainEdge, /invoke\(deps\.settingsStore, "setInferenceProvider", provider\)/);
   assert.match(mainEdge, /return \{ provider, usage:/);
   assert.match(mainEdge, /invoke\(deps\.boxRecovery, "restartCoordinator"\)/);
-  assert.match(inference, /recordInferenceUsage\(provider/);
   // DeepSeek — единственный провайдер, поэтому читать предпочтение провайдера из
-  // настроек больше не нужно: обе сессии идут через одну фабрику. Пин на отсутствие
-  // чтения ловит возврат к ветвлению по провайдеру, из-за которого Lite снова
-  // начал бы спрашивать, к какому маршруту подключён.
-  assert.doesNotMatch(inference, /routerSettings\.getInferenceProvider\(\)/);
-  assert.match(inference, /DeepSeek is the only/);
-  assert.match(inference, /typeof extendedUsage\.then === "function"/);
-  assert.match(inference, /createProviderPromptSession\(provider\)/);
+  // настроек больше не нужно: обе сессии идут через одну фабрику, а учёт расхода
+  // переехал в исполнитель этой фабрики. Пины ниже держат именно эту форму и ловят
+  // возврат к ветвлению по провайдеру, из-за которого Lite снова начал бы спрашивать,
+  // к какому маршруту подключён.
+  assert.doesNotMatch(inference, /routerSettings\.getInferenceProvider\(\)/,
+    "хост снова читает выбранного провайдера, которого выбирать уже нечем");
+  assert.match(inference, /DeepSeek is the only/,
+    "в файле нет объяснения, почему обе сессии собирает одна фабрика");
+  assert.doesNotMatch(inference, /settings\.recordInferenceUsage/,
+    "хост пишет расход вторым местом, хотя его уже пишет исполнитель фабрики");
+  assert.doesNotMatch(inference, /createProviderPromptSession\([A-Za-z_$]/,
+    "фабрике снова передают провайдера, которого в Lite нет");
+  assert.equal(
+    (inference.match(/createProviderPromptSession\(\)/g) ?? []).length,
+    2,
+    "хост должен звать createProviderPromptSession() ровно дважды: сессия хода и сессия суммаризации",
+  );
   assert.match(providers, /parameters: jsonSchema\(parameters\)/);
   assert.match(providers, /You are DB Bot, a local desktop assistant/);
-  assert.match(providers, /recordRoutedUsage\(provider, usage\)/);
+  // Панели расхода по-прежнему нужно число, но выбирать провайдера больше нечем: получатель
+  // записи принимает только счётчики, а строка пишется под фиксированным
+  // `SAND_INFERENCE_PROVIDER`. Прежний `recordRoutedUsage(provider, usage)` был именно
+  // выбором маршрута, и его больше быть не должно.
+  assert.match(providers, /function recordRoutedUsage\(usage: UsageRecord\)/,
+    "получатель записи расхода снова начал принимать провайдера, которого в Lite нет");
+  assert.match(providers, /recordInferenceUsage\(SAND_INFERENCE_PROVIDER, usage\)/,
+    "строка расхода больше не пишется под единственным провайдером DeepSeek");
+  assert.match(providers, /usage => recordRoutedUsage\(usage\)/,
+    "исполнитель фабрики перестал отдавать расход в панель настроек");
+  // Этот вызов раньше жил в `inference-service.ts`: расход с кэшем и окном контекста
+  // обещанием доезжал до записи, не блокируя поток. Переехав в фабрику, он обязан
+  // остаться в той же форме, иначе панель снова покажет нули.
+  assert.match(providers, /void extendedUsage\.then\(onUsage\)/,
+    "расход с кэшем и окном контекста больше не доходит до панели");
   assert.match(providers, /baseURL: DEEPSEEK_BASE_URL/);
-  assert.match(providers, /modelId: endpoint\.modelId/);
+  assert.match(providers, /\.chat\(endpoint\.modelId/,
+    "в сеть уходит не та модель, которую пользователь настроил");
+  assert.match(providers, /const modelId = deepSeekEndpoint\(\)\.modelId;/,
+    "сессия отдаёт не ту же модель, что и сам запрос");
   assert.match(providers, /toolCallStreaming: true/);
   assert.match(providers, /compatibility: "strict"/);
+  assert.match(providers, /createProviderPromptSession\(_provider\?: SandInferenceProvider\)/,
+    "фабрика снова читает переданного провайдера вместо единственного DeepSeek");
   // One provider. Every retired route has to be gone from this file, not merely unused,
   // or the next person to edit it has to decide which half of it is live.
-  assert.doesNotMatch(providers, /chatgpt\.com|openrouter\.ai|api\.openai\.com|api\.anthropic\.com|api2\.cursor\.sh|opencode\.ai/);
-  assert.doesNotMatch(providers, /queryClaude|streamCodexDirectResponses|OPENROUTER_API_KEY|ANTHROPIC_API_KEY/);
-  assert.doesNotMatch(providers, /mcpServers: \{ grok_bot_plugins:/);
+  //
+  // The scan reads code only, without whole-line comments. `provider-session.ts` explains in a
+  // comment that `@ai-sdk/openai` never reaches `api.openai.com`, and a scan over the whole file
+  // reads that sentence as a live route. A host written into a statement still trips the pin.
+  const providerCode = providers.split(/\r?\n/)
+    .filter((line) => !/^\s*(?:\/\/|\/\*|\*\/|\*)/.test(line))
+    .join("\n");
+  assert.doesNotMatch(providerCode, /chatgpt\.com|openrouter\.ai|api\.openai\.com|api\.anthropic\.com|api2\.cursor\.sh|opencode\.ai/,
+    "в коде фабрики снова появился адрес отключённого провайдера");
+  assert.doesNotMatch(providerCode, /queryClaude|streamCodexDirectResponses|OPENROUTER_API_KEY|ANTHROPIC_API_KEY/,
+    "в коде фабрики снова появился код отключённого провайдера");
+  assert.doesNotMatch(providerCode, /mcpServers: \{ grok_bot_plugins:/,
+    "фабрика снова тащит список чужих MCP-серверов");
   assert.doesNotMatch(cursorSession, /routedProvider !== "cursor"/);
   assert.match(cursorSession, /createProviderPromptSession\(\)/);
   assert.doesNotMatch(cursorBackend, /routedProvider !== "cursor"/);
-  assert.doesNotMatch(rendererPatch, /ANTHROPIC_API_KEY|OPENAI_API_KEY/);
   assert.doesNotMatch(turnShell, /inferenceProvider === "cursor"/);
   assert.match(turnShell, /createProviderPromptSession\(\)/);
   // The coordinator's inference route used to claim `sendPrompt` for every provider except

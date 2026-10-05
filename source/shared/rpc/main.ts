@@ -46,6 +46,11 @@ export const MAIN_METHOD_TABLE = {
   readAttachmentBytes: { args: "object" },
   stageAttachmentBytes: { args: "object" },
   downloadAttachment: { args: "object" },
+  // «Сохранить» и «Печать» под готовым отчётом. Отчёт приходит в интерфейс
+  // обычным сообщением (`report_preview` шлёт `send-message`), и без этих двух
+  // методов у пользователя нет ни файла, ни принтера: звонить в `save_report`
+  // должен агент, а не заведующая библиотеки.
+  printReport: { args: "object" },
   commitStagedAttachments: { args: "object" },
   discardStagedAttachment: { args: "object" },
   forceRecreateComputer: { args: "none" },

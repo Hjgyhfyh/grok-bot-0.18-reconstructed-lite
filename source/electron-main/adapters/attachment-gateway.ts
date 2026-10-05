@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+
 import { attachmentByteLimitForName } from "../../shared/media/attachment-limits.js";
 import { getFilePreviewKind, previewKindNeedsBytes, type FilePreviewKind } from "../../shared/media/file-preview-kind.js";
 import { readWebpOrHeicDimensions } from "../../shared/media/image-dimensions.js";
@@ -13,6 +15,7 @@ import { fetchLinkMetadata } from "../../host/extensions/attachments/attachments
 import { resolveDefaultDownloadPath, resolveSuggestedDownloadName } from "../downloads/download-path.js";
 import { boundPreviewImageDataUrl } from "../../host/extensions/attachments/link-preview-image-bounds.js";
 import { buildSandMediaUrl } from "../media/media-protocol.js";
+import { createReportFilePort, type ReportPrintWindow } from "../reports/report-file-port.js";
 import type { ElectronProductionAdapterBindings } from "../production-adapters.js";
 import type { ProductionServiceContext } from "../main-production-services.js";
 import { requireFunction, requireObject } from "./provider-guards.js";
@@ -23,9 +26,9 @@ export interface ProductionAttachmentGatewayPorts {
 
 export interface ElectronAttachmentGatewayCompositionPorts {
   readonly app: { getPath(name: "userData" | "downloads"): string };
-  readonly BrowserWindow: new(options: { readonly show: false }) => unknown;
+  readonly BrowserWindow: new(options: { readonly show: false; readonly webPreferences?: { readonly javascript: boolean; readonly nodeIntegration: boolean; readonly contextIsolation: boolean; readonly sandbox: boolean } }) => unknown;
   readonly dialog: {
-    showSaveDialog(window: unknown, options: { readonly defaultPath: string }): Promise<{ readonly canceled: boolean; readonly filePath?: string }>;
+    showSaveDialog(window: unknown, options: { readonly defaultPath: string; readonly filters?: readonly { readonly name: string; readonly extensions: readonly string[] }[] }): Promise<{ readonly canceled: boolean; readonly filePath?: string }>;
     showMessageBox(windowOrOptions: unknown, options?: { readonly type: "error"; readonly title: string; readonly message: string }): Promise<unknown>;
   };
   readonly nativeImage: AttachmentEdgeDeps["nativeImage"] & {
@@ -43,6 +46,17 @@ const REQUIRED_FUNCTIONS = [
   "showErrorMessage", "getUserDataDir",
 ] as const;
 
+/**
+ * Окно печати отчёта. Создаётся скрытым и убирается сразу после печати:
+ * пользователь видит только системное окно печати, а не второе окно программы.
+ */
+function createReportPrintWindow(BrowserWindow: ElectronAttachmentGatewayCompositionPorts["BrowserWindow"]): ReportPrintWindow {
+  return new BrowserWindow({
+    show: false,
+    webPreferences: { javascript: false, nodeIntegration: false, contextIsolation: true, sandbox: true },
+  }) as unknown as ReportPrintWindow;
+}
+
 function validateAttachmentDeps(deps: AttachmentEdgeDeps): AttachmentEdgeDeps {
   requireObject(deps, "attachmentGateway.deps");
   requireObject(deps.legs, "attachmentGateway.legs");
@@ -52,6 +66,9 @@ function validateAttachmentDeps(deps: AttachmentEdgeDeps): AttachmentEdgeDeps {
   requireObject(deps.nativeImage, "attachmentGateway.nativeImage");
   requireFunction(deps.nativeImage.createFromDataURL, "attachmentGateway.nativeImage.createFromDataURL");
   for (const method of REQUIRED_FUNCTIONS) requireFunction(deps[method], `attachmentGateway.${method}`);
+  requireObject(deps.reports, "attachmentGateway.reports");
+  requireFunction(deps.reports.saveFile, "attachmentGateway.reports.saveFile");
+  requireFunction(deps.reports.printReport, "attachmentGateway.reports.printReport");
   if (typeof deps.downloadsDir !== "string" || deps.downloadsDir.length === 0) throw new TypeError("Missing Electron production adapter port: attachmentGateway.downloadsDir.");
   if (!Number.isSafeInteger(deps.previewByteCap) || deps.previewByteCap <= 0) throw new TypeError("Invalid Electron production adapter port: attachmentGateway.previewByteCap.");
   return deps;
@@ -129,6 +146,19 @@ export function createProductionAttachmentGatewayBinding(
           if (window == null) await electron.dialog.showMessageBox(options);
           else await electron.dialog.showMessageBox(window, options);
         },
+        // «Сохранить» и «Печать» под отчётом: то же окно выбора места и то же
+        // скрытое окно, только в них лежит документ, а не вложение.
+        reports: createReportFilePort({
+          getMainWindow: context.getMainWindow,
+          createHiddenWindow: (options) => new electron.BrowserWindow(options),
+          showSaveDialog: (window, options) => electron.dialog.showSaveDialog(window, options),
+          writeFile: async (path, bytes) => { await writeFile(path, bytes); },
+          createPrintWindow: () => createReportPrintWindow(electron.BrowserWindow),
+          downloadsDir: electron.app.getPath("downloads"),
+          onEdgeFailure: (leg, error) => {
+            context.readTelemetry()?.telemetry.reportAttachmentEdgeFailure?.({ leg, errorClass: error instanceof Error ? error.name || "Error" : typeof error });
+          },
+        }),
       };
     },
   });

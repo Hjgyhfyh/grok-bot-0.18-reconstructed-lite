@@ -2,6 +2,7 @@ import { open, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 
 import { posixPathFromFileUrl } from "../../shared/node/paths.js";
+import type { ReportFileActions } from "../reports/report-file-port.js";
 
 export const GATEWAY_READ_CHUNK_BYTES = 4 * 1024 * 1024;
 export const LINK_PREVIEW_PHOTO_MAX_DIMENSION = 1280;
@@ -43,6 +44,12 @@ export interface AttachmentEdgeDeps {
   readonly showSaveDialog: (window: unknown | null, options: { defaultPath: string }) => Promise<{ canceled: boolean; filePath?: string }>;
   readonly createHiddenWindow: (options: { readonly show: false }) => unknown;
   readonly showErrorMessage: (window: unknown | null, options: { type: "error"; title: string; message: string }) => Promise<void>;
+  /**
+   * Кнопки «Сохранить» и «Печать» под отчётом. Живут в этом порту, потому что
+   * он уже владеет и окном выбора места, и скрытым окном: отдельная ветка
+   * сборки означала бы второе место, где главный процесс достаёт Electron.
+   */
+  readonly reports: ReportFileActions;
   readonly now?: () => number;
   readonly randomUUID?: () => string;
 }
@@ -96,6 +103,15 @@ export function createAttachmentEdgePort(deps: AttachmentEdgeDeps) {
       return committed;
     },
     async discardStaged(stagedPath: unknown): Promise<void> { if (typeof stagedPath !== "string" || stagedPath.length === 0 || !deps.isWithinStagingDir(stagedPath)) return; await rm(stagedPath, { force: true }).catch((error: unknown) => report("discard", error)); },
+    // Отчёт, который пользователь читает в ленте, сохраняется и печатается
+    // прямо из интерфейса: агент для этого звонить не должен. Ошибки порт
+    // уже отправил в телеметрию сам, здесь только ответ пользователю.
+    saveReportFile(request: { title?: unknown; markdown?: unknown; format?: unknown }) {
+      return deps.reports.saveFile(request);
+    },
+    printReport(request: { title?: unknown; markdown?: unknown }) {
+      return deps.reports.printReport(request);
+    },
     async getLinkMetadata(url: unknown) { if (typeof url !== "string") return null; const metadata = await deps.fetchLinkMetadata({ cacheDir: join(deps.getUserDataDir(), "link-preview-cache"), url }); if (metadata == null) return null; return { ...metadata, imageDataUrl: deps.boundPreviewImage(metadata.imageDataUrl, { maxDimension: LINK_PREVIEW_PHOTO_MAX_DIMENSION, encoding: "jpeg" }, (value, target, encoding) => resizePreviewImage(value, target, encoding, deps.nativeImage)), faviconDataUrl: deps.boundPreviewImage(metadata.faviconDataUrl, { maxDimension: LINK_PREVIEW_ICON_MAX_DIMENSION, encoding: "png" }, (value, target, encoding) => resizePreviewImage(value, target, encoding, deps.nativeImage)) }; },
     async download(source: unknown, suggestedName: unknown): Promise<boolean> {
       const path = normalizeAttachmentSource(source); if (path == null) return await failDownload("invalid-source");

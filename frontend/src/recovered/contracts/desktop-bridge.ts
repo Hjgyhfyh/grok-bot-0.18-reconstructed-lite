@@ -238,7 +238,7 @@ export type McpAuthenticationResult =
 export const DESKTOP_BRIDGE_TOP_LEVEL_KEYS = [
   "resolveAttachmentMedia", "readAttachmentText", "readAttachmentBytes", "downloadAttachment",
   "getLinkMetadata", "openExternal", "openCloudAgent", "stageAttachmentBytes",
-  "commitStagedAttachments", "discardStagedAttachment", "mcp", "forceGatewayReconnect",
+  "commitStagedAttachments", "discardStagedAttachment", "reports", "mcp", "forceGatewayReconnect",
   "pickAvatarSource", "pickAvatarFile", "generateAgentAvatarImage", "onFocusAgent",
   "onDeepLink", "deepLinksReady", "getBoxMigrationStatus", "onBoxMigration",
   "onDevBoxRebuild", "onOpenFeedback", "onOpenAbout", "submitFeedback", "onWidgetGallery",
@@ -261,6 +261,22 @@ export interface CoordinatorPortBridge {
     request(): void;
     release(): void;
   } | null;
+}
+
+/** Ответ на «Сохранить». `cancelled` — пользователь закрыл окно, это не ошибка. */
+export type DesktopReportSaveResult =
+  | { saved: true; path: string }
+  | { saved: false; reason: "cancelled" }
+  | { saved: false; reason: "empty" | "failed"; message: string };
+
+export type DesktopReportPrintResult =
+  | { printed: true }
+  | { printed: false; reason: "empty" | "failed"; message: string };
+
+/** Кнопки «Сохранить» и «Печать» под готовым отчётом. */
+export interface ReportsDesktopBridge {
+  saveFile(title: string, markdown: string, format?: string): Promise<DesktopReportSaveResult>;
+  print(title: string, markdown: string): Promise<DesktopReportPrintResult>;
 }
 
 export interface McpDesktopBridge {
@@ -390,6 +406,7 @@ export interface DesktopBridge {
   stageAttachmentBytes(filename: string, bytes: Uint8Array): Promise<StagedAttachmentResult>;
   commitStagedAttachments(paths: readonly string[], filenames: readonly string[]): Promise<string[] | null>;
   discardStagedAttachment(path: string): Promise<void>;
+  readonly reports: ReportsDesktopBridge;
   readonly mcp: McpDesktopBridge;
   forceGatewayReconnect(): Promise<void>;
   pickAvatarSource(): Promise<string | null>;
