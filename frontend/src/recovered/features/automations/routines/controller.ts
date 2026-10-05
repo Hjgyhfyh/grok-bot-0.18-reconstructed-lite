@@ -106,9 +106,9 @@ function parseAutomation(value: unknown): RoutineAutomation | null {
 }
 
 function parseAutomations(value: unknown): RoutineAutomation[] {
-  if (!Array.isArray(value)) throw new Error("Malformed routines response");
+  if (!Array.isArray(value)) throw new Error("Неверный ответ со списком задач");
   const parsed = value.map(parseAutomation);
-  if (parsed.some((automation): automation is null => automation === null)) throw new Error("Malformed routines response");
+  if (parsed.some((automation): automation is null => automation === null)) throw new Error("Неверный ответ со списком задач");
   return parsed as RoutineAutomation[];
 }
 

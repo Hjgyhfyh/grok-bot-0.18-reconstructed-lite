@@ -31,7 +31,95 @@ const UPDATE_PROVIDER = "github";
 const UPDATE_OWNER = "Hjgyhfyh";
 const UPDATE_REPO = "grok-bot-0.18-reconstructed-lite";
 
+// ---------------------------------------------------------------------------
+// Уменьшение пакета.
+//
+// Упаковщик раскладывает рядом с программой весь дистрибутив Electron, а
+// пользователю нужна его малая часть. Ниже список того, что убирается и почему.
+// Перечень вынесен в константы, а не зашит в вызовы, чтобы список ответа на
+// вопрос «что вырезали» был прочитываем целиком.
+// ---------------------------------------------------------------------------
+
+/**
+ * Языки интерфейса Chromium. Русский обязателен: пользователь работает по-русски.
+ * Английский оставлен запасным — в сообщениях Electron и в crashpad есть
+ * английские строки, которые не переведены.
+ */
+const KEPT_LOCALES = Object.freeze(["ru.pak", "en-US.pak"]);
+
+/**
+ * Файлы, которые не нужны при программном рендере.
+ *
+ * `dxcompiler.dll` и `dxil.dll` — компилятор HLSL в DXIL для D3D12. Его
+ * трогает только WebGPU, а он выключен флагом `WebGPU` в
+ * `collectWeakMachineSwitches`. `LICENSES.chromium.html` — текст лицензий,
+ * 19 МБ, которые никто не открывает.
+ */
+const REMOVED_FILES = Object.freeze(["LICENSES.chromium.html", "dxcompiler.dll", "dxil.dll"]);
+
+/**
+ * Файлы, без которых Electron не запустится. Список проверяется ПОСЛЕ
+ * урезания: молча удалённый не тот файл проявился бы только на компьютере
+ * пользователя.
+ */
+const REQUIRED_FILES = Object.freeze([
+  "icudtl.dat",
+  "resources.pak",
+  "snapshot_blob.bin",
+  "v8_context_snapshot.bin",
+  "libEGL.dll",
+  "libGLESv2.dll",
+  "d3dcompiler_47.dll",
+  "ffmpeg.dll",
+  "chrome_100_percent.pak",
+  "chrome_200_percent.pak",
+]);
+
 const electronDist = path.join(repoRoot, "node_modules", "electron", "dist");
+
+/**
+ * Убирает из пакета то, что программе не нужно.
+ *
+ * Проверка `resolved.startsWith(root)` обязательна: пути строятся из строк,
+ * и уехавший на один уровень вверх `rm` удалил бы что-то за пределами пакета.
+ */
+async function trimPackage(root, { keptLocales }) {
+  const rootResolved = path.resolve(root);
+  const assertInside = (target) => {
+    const resolved = path.resolve(target);
+    if (resolved !== rootResolved && !resolved.startsWith(rootResolved + path.sep)) {
+      throw new Error(`Отказ удалять файл вне пакета: ${resolved}`);
+    }
+    return resolved;
+  };
+
+  const localesDir = path.join(rootResolved, "locales");
+  let removedLocales = 0;
+  if (await exists(localesDir)) {
+    for (const name of await readdir(localesDir)) {
+      if (keptLocales.includes(name)) continue;
+      await rm(assertInside(path.join(localesDir, name)), { force: true });
+      removedLocales += 1;
+    }
+  }
+
+  let removedFiles = 0;
+  for (const name of REMOVED_FILES) {
+    const target = assertInside(path.join(rootResolved, name));
+    if (!(await exists(target))) continue;
+    await rm(target, { force: true });
+    removedFiles += 1;
+  }
+
+  const missing = [];
+  for (const name of REQUIRED_FILES) {
+    if (!(await exists(path.join(rootResolved, name)))) missing.push(name);
+  }
+  if (missing.length > 0) {
+    throw new Error(`После урезания пакета нет обязательных файлов: ${missing.join(", ")}`);
+  }
+  return { removedLocales, removedFiles };
+}
 
 if (!isWindowsRuntimeHost) {
   throw new Error("Пакет для Windows собирается только на Windows.");
@@ -141,7 +229,16 @@ if (await exists(builtAsarUnpacked)) {
   console.log(`${path.basename(builtAsarUnpacked)} отсутствует: сборка не вынесла нативные модули наружу`);
 }
 
-// 6. Конфигурация автообновления. electron-updater ожидает YAML без BOM.
+// 6. Урезание пакета. Порядок важен: идёт после раскладки и до проверки
+//    обязательных файлов, чтобы проверка видела уже итоговый пакет.
+const keptLocales = (process.env.DB_BOT_PACK_KEEP_LOCALES ?? KEPT_LOCALES.join(","))
+  .split(",")
+  .map(name => name.trim())
+  .filter(name => name.length > 0);
+const trimmed = await trimPackage(outputApp, { keptLocales });
+console.log(`Убрано языков: ${trimmed.removedLocales}, убрано лишних файлов: ${trimmed.removedFiles}`);
+
+// 7. Конфигурация автообновления. electron-updater ожидает YAML без BOM.
 const updateConfig = [
   `provider: ${UPDATE_PROVIDER}`,
   `owner: ${UPDATE_OWNER}`,
@@ -150,7 +247,7 @@ const updateConfig = [
 ].join("\n");
 await writeFile(path.join(path.dirname(packagedAsar), "app-update.yml"), updateConfig, "utf8");
 
-// 7. Проверка собранного пакета. Пустой архив или архив без `package.json`
+// 8. Проверка собранного пакета. Пустой архив или архив без `package.json`
 //    — это «упаковалось, но запускаться нечему», и это надо увидеть сразу.
 const archiveFiles = listArchiveFiles(packagedAsar, listPackage);
 if (archiveFiles.length === 0) throw new Error(`Архив ${packagedAsar} пуст`);

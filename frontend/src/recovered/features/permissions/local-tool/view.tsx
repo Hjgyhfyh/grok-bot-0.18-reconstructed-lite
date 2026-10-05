@@ -63,10 +63,10 @@ function ceilingBlocksAlways(ceiling: LocalToolPermissionCeilingSnapshot): boole
 }
 
 function outcomeText(status: LocalToolPermissionAskStatus): string {
-  if (status === "always") return "Grok Bot can run commands on your computer.";
-  if (status === "never") return "Grok Bot cannot run commands on your computer.";
-  if (status === "denied" || status === "expired") return "Grok Bot was not allowed to run commands on your computer.";
-  return "Grok Bot can run commands on your computer this time.";
+  if (status === "always") return "Grok Bot может запускать команды на вашем компьютере.";
+  if (status === "never") return "Grok Bot не может запускать команды на вашем компьютере.";
+  if (status === "denied" || status === "expired") return "Grok Bot не разрешили запускать команды на вашем компьютере.";
+  return "Grok Bot может запустить команды на вашем компьютере один раз.";
 }
 
 function isFormTarget(target: EventTarget | null): boolean {
@@ -147,19 +147,19 @@ export function LocalToolPermissionPrompt({ entryId, ask, agentId, store, resolv
 
   if (!pending) return <div className="sand-local-tool-permission-outcome" title={outcomeText(ask.status)}>{outcomeText(ask.status)}</div>;
   const alwaysTooltip = alwaysBlocked
-    ? ceiling.status === "ready" ? "Always allow is disabled by team policy" : "Always allow is disabled while team policy loads"
+    ? ceiling.status === "ready" ? "«Всегда разрешать» отключено политикой команды" : "«Всегда разрешать» отключено, пока загружается политика команды"
     : undefined;
   const disabled = !canAct;
   return (
-    <div aria-label="Local tool permission" className="sand-78zum5 sand-167g77z sand-h8yej3 sand-euugli" data-state={actionState} ref={promptRef} style={{ maxWidth: 560, gap: 8, padding: "14px 16px", color: "var(--cursor-text-primary, #ececec)", background: "var(--cursor-bg-elevated, #202020)", border: "1px solid var(--cursor-border-secondary, #414141)", borderRadius: 10, boxShadow: "0 12px 28px rgba(0, 0, 0, .25)", font: "13px/1.4 Inter, ui-sans-serif, system-ui, sans-serif" }}>
-      <strong>Allow Grok Bot and all agents to run commands on your local computer?</strong>
-      <span>This applies to Grok Bot and every agent. It can always be changed in Settings.</span>
-      {actionState === "failed" ? <span style={{ color: "#f87171" }}>Your answer didn&apos;t go through. Check your connection and try again.</span> : null}
+    <div aria-label="Разрешение на запуск команд" className="sand-78zum5 sand-167g77z sand-h8yej3 sand-euugli" data-state={actionState} ref={promptRef} style={{ maxWidth: 560, gap: 8, padding: "14px 16px", color: "var(--cursor-text-primary, #ececec)", background: "var(--cursor-bg-elevated, #202020)", border: "1px solid var(--cursor-border-secondary, #414141)", borderRadius: 10, boxShadow: "0 12px 28px rgba(0, 0, 0, .25)", font: "13px/1.4 Inter, ui-sans-serif, system-ui, sans-serif" }}>
+      <strong>Разрешить Grok Bot и всем помощникам запускать команды на вашем компьютере?</strong>
+      <span>Это касается Grok Bot и всех помощников. Настройку всегда можно изменить в Настройках.</span>
+      {actionState === "failed" ? <span style={{ color: "#f87171" }}>Ответ не дошёл. Проверьте подключение и попробуйте снова.</span> : null}
       <div role="group" style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
-        <button disabled={disabled || alwaysBlocked} onClick={() => submit("always")} style={{ padding: "6px 9px", color: "#161616", background: "#c5f467", border: "1px solid #c5f467", borderRadius: 6, font: "inherit", cursor: disabled || alwaysBlocked ? "default" : "pointer", opacity: disabled || alwaysBlocked ? .5 : 1 }} title={alwaysTooltip} type="button">Always allow</button>
-        <button disabled={disabled} onClick={() => submit("allow-once")} style={{ padding: "6px 9px", color: "inherit", background: "#353535", border: "1px solid #494949", borderRadius: 6, font: "inherit", cursor: disabled ? "default" : "pointer", opacity: disabled ? .5 : 1 }} type="button">Allow once</button>
-        <button disabled={disabled} onClick={() => submit("never")} style={{ padding: "6px 9px", color: "inherit", background: "#353535", border: "1px solid #494949", borderRadius: 6, font: "inherit", cursor: disabled ? "default" : "pointer", opacity: disabled ? .5 : 1 }} type="button">Never</button>
-        <button aria-label="Deny once (Esc)" disabled={disabled} onClick={() => submit("deny")} style={{ padding: "6px 9px", color: "inherit", background: "#353535", border: "1px solid #494949", borderRadius: 6, font: "inherit", cursor: disabled ? "default" : "pointer", opacity: disabled ? .5 : 1 }} title="Deny once (Esc)" type="button">Deny once</button>
+        <button disabled={disabled || alwaysBlocked} onClick={() => submit("always")} style={{ padding: "6px 9px", color: "#161616", background: "#c5f467", border: "1px solid #c5f467", borderRadius: 6, font: "inherit", cursor: disabled || alwaysBlocked ? "default" : "pointer", opacity: disabled || alwaysBlocked ? .5 : 1 }} title={alwaysTooltip} type="button">Всегда разрешать</button>
+        <button disabled={disabled} onClick={() => submit("allow-once")} style={{ padding: "6px 9px", color: "inherit", background: "#353535", border: "1px solid #494949", borderRadius: 6, font: "inherit", cursor: disabled ? "default" : "pointer", opacity: disabled ? .5 : 1 }} type="button">Разрешить один раз</button>
+        <button disabled={disabled} onClick={() => submit("never")} style={{ padding: "6px 9px", color: "inherit", background: "#353535", border: "1px solid #494949", borderRadius: 6, font: "inherit", cursor: disabled ? "default" : "pointer", opacity: disabled ? .5 : 1 }} type="button">Никогда</button>
+        <button aria-label="Отклонить один раз (Esc)" disabled={disabled} onClick={() => submit("deny")} style={{ padding: "6px 9px", color: "inherit", background: "#353535", border: "1px solid #494949", borderRadius: 6, font: "inherit", cursor: disabled ? "default" : "pointer", opacity: disabled ? .5 : 1 }} title="Отклонить один раз (Esc)" type="button">Отклонить</button>
       </div>
     </div>
   );
@@ -167,5 +167,5 @@ export function LocalToolPermissionPrompt({ entryId, ask, agentId, store, resolv
 
 export function LocalToolPermissionDock({ request, ...props }: { request: LocalToolPermissionRequest | null } & Omit<LocalToolPermissionPromptProps, "entryId" | "ask" | "agentId">) {
   if (request == null) return null;
-  return <div aria-label="Local tool permissions" className="sand-local-tool-permission-dock sand-78zum5 sand-dt5ytf sand-167g77z sand-h8yej3 sand-euugli" role="region"><LocalToolPermissionPrompt {...props} {...request} /></div>;
+  return <div aria-label="Разрешения на запуск команд" className="sand-local-tool-permission-dock sand-78zum5 sand-dt5ytf sand-167g77z sand-h8yej3 sand-euugli" role="region"><LocalToolPermissionPrompt {...props} {...request} /></div>;
 }

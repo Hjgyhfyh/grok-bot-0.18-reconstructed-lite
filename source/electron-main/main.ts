@@ -18,6 +18,7 @@ import {
 } from "./window-chrome.js";
 import type { SandWindowPlacement, WindowStatePersistenceWindow } from "./window-state-persistence.js";
 import { createElectronMainProductionComposition, type ElectronMainProductionBindings } from "./main-production-services.js";
+import { startAutomaticUpdates } from "./updater/auto-updates.js";
 
 export interface PreventableEvent {
   preventDefault(): void;
@@ -82,7 +83,7 @@ export interface MainBrowserWindow extends WindowStatePersistenceWindow {
 export interface ElectronMainApp {
   readonly isPackaged: boolean;
   disableHardwareAcceleration(): void;
-  readonly commandLine: { readonly appendSwitch: (name: string) => void };
+  readonly commandLine: { readonly appendSwitch: (name: string, value?: string) => void };
   requestSingleInstanceLock(): boolean;
   quit(): void;
   isReady(): boolean;
@@ -193,6 +194,14 @@ export interface MainBrowserWindowOptions {
     readonly preload: string;
     readonly sandbox: false;
     readonly webviewTag: true;
+    /**
+     * Проверка орфографии выключена намеренно. Chromium подгружает словарь
+     * Hunspell в память каждого рендерера (10–25 МБ) и гоняет разбор каждого
+     * нажатия. Интерфейс и так ставит `spellcheck="false"` на полях ввода
+     * (`rich-text-editor.tsx:730`), то есть пользователь от словаря ничего
+     * не получает.
+     */
+    readonly spellcheck: false;
   };
 }
 
@@ -229,6 +238,102 @@ export function isSameDocumentNavigation(target: string, current: string): boole
   }
 }
 
+// ---------------------------------------------------------------------------
+// Слабый компьютер пользователя: 8 ГБ RAM, RTX 1050 Ti 4 ГБ, Windows 10.
+// ---------------------------------------------------------------------------
+
+/** Потолок кучи V8 для каждого процесса Chromium. */
+export const WEAK_MACHINE_MAX_OLD_SPACE_MB = 1536;
+/** Молодое поколение V8. По умолчанию 16 МБ на scavenger, здесь 4 МБ. */
+export const WEAK_MACHINE_MAX_SEMI_SPACE_MB = 4;
+/** Функции Chromium, которые на слабой машине только отнимают ресурсы. */
+export const WEAK_MACHINE_DISABLED_FEATURES = [
+  // Нативный трекер оклюзии: отдельный поток и GetWindowRgn на каждом кадре.
+  "CalculateNativeWinOcclusion",
+  // Кэш «назад-вперёд» держит в памяти закрытые документы. У Lite их нет.
+  "BackForwardCache",
+  // MediaRouter поднимает слушающий сокет в сетевом процессе (трансляция на ТВ).
+  "MediaRouter",
+  // WebGPU уводит Chromium в D3D12-DXC, то есть в вырезанные из пакета
+  // dxcompiler.dll и dxil.dll.
+  "WebGPU",
+].join(",");
+
+export interface WeakMachineSwitch {
+  readonly name: string;
+  readonly value?: string;
+}
+
+/**
+ * Полный список переключателей Chromium для слабой машины.
+ *
+ * Функция чистая: она ничего не меняет и только считает. Так её можно проверить
+ * тестом и сравнить с тем, что реально ушло в командную строку.
+ *
+ * Два выключателя нужны для отката без пересборки:
+ *   `DB_BOT_GPU_MODE=hardware` — оставить аппаратное ускорение видеокарты;
+ *   `DB_BOT_DISABLE_WEAK_SWITCHES=1` — не добавлять ничего.
+ * Они существуют потому, что правильный выбор зависит не только от железа,
+ * но и от версии драйвера: у части машин с 1050 Ti программный рендер быстрее,
+ * у части — аппаратный.
+ */
+export function collectWeakMachineSwitches(env: NodeJS.ProcessEnv): WeakMachineSwitch[] {
+  if (env.DB_BOT_DISABLE_WEAK_SWITCHES === "1") return [];
+  const hardwareGpu = (env.DB_BOT_GPU_MODE ?? "software").trim().toLowerCase() === "hardware";
+  const switches: WeakMachineSwitch[] = [
+    // Потолок old-space. Без него 64-битный Chromium берёт около 2 ГБ на
+    // главный процесс, и на 8 ГБ это съедает память рендерера и демонов.
+    // Молодое поколение уменьшено отдельно: при большом транскрипте там
+    // живут долгоживущие объекты, и слишком маленькое значение даёт
+    // лишние сборки мусора.
+    {
+      name: "js-flags",
+      value: `--max-old-space-size=${WEAK_MACHINE_MAX_OLD_SPACE_MB} --max-semi-space-size=${WEAK_MACHINE_MAX_SEMI_SPACE_MB}`,
+    },
+    { name: "disable-features", value: WEAK_MACHINE_DISABLED_FEATURES },
+    // Кэш для `file://` почти не используется, но Chromium всё равно его
+    // создаёт и держит на диске без нужды.
+    { name: "disk-cache-size", value: "1048576" },
+    { name: "media-cache-size", value: "1048576" },
+    // Фоновые службы Chromium: пинги безопасности, проверка компонентов,
+    // статистика использования. Приложению нужен только исходящий HTTPS.
+    { name: "disable-background-networking" },
+    { name: "disable-component-update" },
+  ];
+  if (hardwareGpu) return switches;
+  return [
+    // Программный рендер. 1050 Ti — младшая карта, на которой Chromium
+    // проигрывает собственному программному растеризатору, а каждое
+    // переключение контекста на слабой машине стоит дороже отрисовки окна.
+    { name: "disable-gpu" },
+    { name: "disable-gpu-compositing" },
+    // Минус один процесс: при программном рендере GPU-процесс только
+    // перекладывает кадры и стоит 20–40 МБ RAM.
+    { name: "in-process-gpu" },
+    ...switches,
+  ];
+}
+
+/**
+ * Применяет список к Chromium. Вызывается строго до `whenReady()`: после
+ * готовности командная строка читается один раз и позже не меняется.
+ *
+ * Возвращает применённые имена переключателей — их пишет журнал запуска,
+ * чтобы по жалобе «тормозит» можно было сразу увидеть, что включено.
+ */
+export function applyWeakMachineSwitches(input: {
+  readonly app: Pick<ElectronMainApp, "disableHardwareAcceleration" | "commandLine">;
+  readonly env: NodeJS.ProcessEnv;
+}): string[] {
+  const switches = collectWeakMachineSwitches(input.env);
+  if (switches.some(entry => entry.name === "disable-gpu")) input.app.disableHardwareAcceleration();
+  for (const entry of switches) {
+    if (entry.value === undefined) input.app.commandLine.appendSwitch(entry.name);
+    else input.app.commandLine.appendSwitch(entry.name, entry.value);
+  }
+  return switches.map(entry => entry.name);
+}
+
 export function startElectronMain(deps: ElectronMainDependencies): ElectronMainRuntime {
   const platform = deps.platform ?? process.platform;
   const env = deps.env ?? process.env;
@@ -241,9 +346,12 @@ export function startElectronMain(deps: ElectronMainDependencies): ElectronMainR
   });
   deps.startup.bootstrapBeforeSingleInstance();
 
-  deps.app.disableHardwareAcceleration();
+  // `no-sandbox` не часть списка мер: он снимает песочницу вспомогательных
+  // процессов, и без неё Electron не стартует на Windows 10 без второй
+  // учётной записи. Остальные переключатели считаются функцией, чтобы их
+  // можно было проверить тестом и отключить переменной окружения.
   deps.app.commandLine.appendSwitch("no-sandbox");
-  deps.app.commandLine.appendSwitch("disable-gpu");
+  applyWeakMachineSwitches({ app: deps.app, env });
 
   const isPrimaryInstance = !deps.app.isPackaged || deps.app.requestSingleInstanceLock();
   if (!isPrimaryInstance) deps.app.quit();
@@ -307,6 +415,7 @@ export function startElectronMain(deps: ElectronMainDependencies): ElectronMainR
         preload: deps.preloadPath,
         sandbox: false,
         webviewTag: true,
+        spellcheck: false,
       },
     });
     services.hardenVncWebviewAttach?.(window.webContents);
@@ -384,6 +493,14 @@ export function startElectronMain(deps: ElectronMainDependencies): ElectronMainR
       if (moveDisposition === "stop-bootstrap") return;
       deps.startup.armStuckWatchdog();
       deps.startup.markPhase("services");
+      // Проверка обновлений идёт по сети и не должна задерживать окно,
+      // поэтому она запускается параллельно сбору сервисов, а не после него.
+      void startAutomaticUpdates({
+        app: deps.app,
+        env,
+        platform,
+        ...(deps.appVersion == null ? {} : { appVersion: deps.appVersion }),
+      });
       services = await deps.initializeServices({ routeHostInput: hostChords.routeHostInput });
 
       const membership = createDevToolsMembershipResolver({

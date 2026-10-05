@@ -323,7 +323,14 @@ export function createProductionUpdaterInstallerBinding(
           ? context.resources.metadata.sandTrack
           : null,
         disabledReason: computeUpdateDisabledReason({
-          envDisabled: env.SAND_DISABLE_UPDATES === "1",
+          // `SAND_DISABLE_UPDATES` больше не значит «выключить обновления DB Bot».
+          // Он остался рычагом для сервиса обновлений исходного Grok Bot, который
+          // опрашивает чужую ленту `api2.cursor.sh` и поднимает локальный
+          // HTTP-сервер Squirrel. Lite работает только с DeepSeek и наружу не
+          // ходит, поэтому эта лента выключена всегда. Автообновление самой
+          // программы живёт в `source/electron-main/updater/**`, читает
+          // `DB_BOT_AUTO_UPDATE` и этого флага не знает.
+          envDisabled: env.DB_BOT_DISABLE_RECONSTRUCTED_UPDATES === "1" || env.SAND_DISABLE_UPDATES === "1",
           isLabBuild: context.resources.metadata.sandLab,
           hasDevFeedOverride: (env.SAND_UPDATE_FEED_BASE_URL?.length ?? 0) > 0,
           isPackaged: context.native.app.isPackaged,

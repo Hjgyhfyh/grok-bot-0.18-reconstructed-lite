@@ -11,9 +11,9 @@ import { isLocalGroupAgent, type RendererAgent } from "../../../../production/mo
 
 export const GROUP_INFO_PANE_ROUTE = "overview" as const;
 export const GROUP_INFO_PANE_HEADER = {
-  ariaLabel: "Conversation details",
-  closeLabel: "Close details",
-  sectionLabel: "Members"
+  ariaLabel: "Сведения о диалоге",
+  closeLabel: "Закрыть сведения",
+  sectionLabel: "Участники"
 } as const;
 
 export interface GroupInfoPaneRoute {

@@ -9,11 +9,11 @@ import { SandButton } from "../../ui/sand-kit-primitives";
 export const PRIVACY_SETTINGS_URL = "https://cursor.com/dashboard/settings?openPrivacy=true";
 
 export const PRIVACY_BLOCK_LABELS = {
-  title: "Update Privacy Mode",
-  description: "Privacy Mode (Legacy) isn’t compatible with Grok Bot. Switch to Privacy Mode to start using Grok Bot — data still isn’t used for training.",
-  support: "This setting is shared with Cursor. Leaving Legacy can’t be undone.",
-  signOut: "Sign out",
-  openSettings: "Open Privacy Settings"
+  title: "Обновите режим приватности",
+  description: "Режим приватности (старый) несовместим с Grok Bot. Переключитесь на новый режим приватности — данные по-прежнему не используются для обучения.",
+  support: "Эта настройка общая с Cursor. Вернуться к старому режиму нельзя.",
+  signOut: "Выйти",
+  openSettings: "Открыть настройки приватности"
 } as const;
 
 export function isRosterPrivacyBlockFailure(value: unknown): boolean {

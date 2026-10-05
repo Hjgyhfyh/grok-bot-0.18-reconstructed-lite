@@ -33,7 +33,6 @@ import { builtinModules } from "node:module";
 import { build as esbuild } from "esbuild";
 
 import { packStagedAppWithIntegrity } from "./lib/asar-integrity.mjs";
-import { applyReconstructedUpdaterGuard } from "./lib/build-asar.mjs";
 import { builtAsar, builtAsarUnpacked, repoRoot, sourceAppDir, stagedAppDir } from "./lib/config.mjs";
 import { electronMainExternalRuntimePackageSpecs, requiredElectronMainProductionBindings } from "./electron-main-production-activation.mjs";
 import { hostProductionBindingInventorySpecs, requiredHostProductionBindings } from "./host-production-activation.mjs";
@@ -54,6 +53,48 @@ const builtinSet = new Set(builtinModules.flatMap(name => [
   name.replace(/^node:/, ""),
   `node:${name.replace(/^node:/, "")}`,
 ]));
+
+/**
+ * Префикс, который ставится в начало бандля основного процесса.
+ *
+ * Раньше здесь стоял `applyReconstructedUpdaterGuard` из `scripts/lib/build-asar.mjs`:
+ * он безусловно выставлял `SAND_DISABLE_UPDATES=1`. Для Lite это неверно —
+ * пользователь требует, чтобы обновления приезжали сами, а с этим флагом
+ * выключался и штатный апдейтер, и новый `source/electron-main/updater/**`.
+ *
+ * Что осталось и почему:
+ *   * Sentry и телеметрия наружу не уходят никогда (`AGENTS.md` §3). Это
+ *     два фоновых таймера в главном процессе, а не только запрет на сеть.
+ *   * `DB_BOT_DISABLE_RECONSTRUCTED_UPDATES` выключает сервис обновлений
+ *     исходного Grok Bot: он опрашивает чужую ленту `api2.cursor.sh` и
+ *     поднимает локальный HTTP-сервер Squirrel. Своего апдейтера Lite он не
+ *     касается — тот читает `DB_BOT_AUTO_UPDATE`.
+ */
+export const liteServiceGuard = [
+  "// DB Bot Lite guard: no external telemetry, no upstream update feed.",
+  "process.env.SAND_DISABLE_SENTRY ??= \"1\";",
+  "process.env.SAND_DISABLE_TELEMETRY ??= \"1\";",
+  "process.env.DB_BOT_DISABLE_RECONSTRUCTED_UPDATES ??= \"1\";",
+  ""
+].join("\n");
+
+/**
+ * Минификация бандлов.
+ *
+ * Причина: у пользователя 8 ГБ RAM, а V8 на старте разбирает весь бандл.
+ * Минификация срезает примерно четверть объёма, и столько же не достаётся до
+ * кучи. `keepNames` оставлен специально: проект проверяет имена функций, и
+ * без него минификатор переименует их.
+ *
+ * `drop: console` не включается: `console.error` в упакованном Electron на
+ * Windows уходит в заглушку process.stderr, но `scripts/verify.mjs` и
+ * диагностика читают вывод, и молчащий бандл хуже большого.
+ */
+const nodeBuildOptions = Object.freeze({
+  minify: true,
+  keepNames: true,
+  legalComments: "none",
+});
 
 const normalize = value => value.split(path.sep).join("/");
 
@@ -321,13 +362,17 @@ async function runEsbuild({ outfile, stdin, entryPoints, external, label }) {
   await mkdir(path.dirname(outfile), { recursive: true });
   const result = await esbuild({
     absWorkingDir: repoRoot,
+    // `supports-color` приходит транзитивно из `debug` и в упакованном
+    // приложении всё равно ничего не проверяет: stdout в Electron на Windows
+    // заглушка. Подмена описана в `scripts/lib/stubs/supports-color.cjs`.
+    alias: { "supports-color": path.join(repoRoot, "scripts/lib/stubs/supports-color.cjs") },
     banner: { js: bundleBanner(label) },
     bundle: true,
     define: { "import.meta.url": "__cleanImportMetaUrl" },
     entryPoints: entryPoints?.map(entry => path.join(repoRoot, entry)),
     external,
     format: "cjs",
-    legalComments: "none",
+    ...nodeBuildOptions,
     logLevel: "silent",
     metafile: true,
     outfile,
@@ -509,7 +554,7 @@ export async function buildFromSource({
     });
     if (bundle.kind === "electron-main") {
       const bundled = await readFile(outfile, "utf8");
-      await writeFile(outfile, applyReconstructedUpdaterGuard(bundled));
+      await writeFile(outfile, bundled.startsWith(liteServiceGuard) ? bundled : `${liteServiceGuard}${bundled}`);
     }
     const leaked = built.inputs.filter(input => input.startsWith("src/app/") || input.startsWith("dist/") || input.startsWith(".build/"));
     if (leaked.length > 0) {
@@ -542,6 +587,14 @@ export async function buildFromSource({
 
   console.log(`Renderer: ${rendererProductionEntrypoint} -> ${rendererProductionOutput}`);
   const renderer = await buildProductionRenderer({ outputRoot: stageRoot });
+
+  // Отчётные скиллы — содержимое, а не код: без них в установленной программе
+  // skill_list честно ответит «скиллов нет», и агент не сможет собрать отчёт.
+  const stagedSkills = path.join(stageRoot, "skills");
+  await rm(stagedSkills, { recursive: true, force: true });
+  await cp(path.join(repoRoot, "skills"), stagedSkills, { recursive: true, preserveTimestamps: true });
+  const skillFiles = (await walkFiles(stagedSkills)).map(relative => `skills/${relative}`);
+  console.log(`Report skills staged: ${skillFiles.length} files`);
 
   const files = await walkFiles(stageRoot);
   const outputs = [];

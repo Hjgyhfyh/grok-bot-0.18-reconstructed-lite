@@ -1,15 +1,15 @@
-Порт отладки: 9381
+Порт отладки: 9391
 Запуск:       D:\ТЕСТЫ\DeepSeek-Harness\db-bot-lite\dist\DB Bot\DB Bot.exe
-PID:          29776
+PID:          20120
 
 Хроника опроса:
   0 с: CDP недоступен (ECONNREFUSED)
-  2 с: целей 0, окон нет
 
-Окно найдено через 6 с. Все цели:
+Окно найдено через 2 с. Все цели:
   [page] Grok Bot <- file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html
 
 --- Runtime.evaluate: file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html
+Интерфейс отрисован с 1-й попытки (1 попытка в секунду).
 {
   "title": "Grok Bot",
   "rootChildren": 1,
@@ -25,8 +25,8 @@ PID:          29776
 --- stdout ---
 [sand] using isolated user-data dir: D:\ТЕСТЫ\DeepSeek-Harness\db-bot-lite\.tmp-probe-userdata
 --- stderr ---
-DevTools listening on ws://127.0.0.1:9381/devtools/browser/92f57f65-29b5-4292-b702-d422bfb4dad1
-(node:29776) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+DevTools listening on ws://127.0.0.1:9391/devtools/browser/54847564-36e5-4375-8837-6160d3ef7865
+(node:20120) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 (Use `DB Bot --trace-deprecation ...` to show where the warning was created)
-Приложение всё ещё работает. ЗАКРОЙ ЧЕРЕЗ: (Get-Process -Id 29776).CloseMainWindow()
-PROBE_PID=29776
+Приложение всё ещё работает. ЗАКРОЙ ЧЕРЕЗ: (Get-Process -Id 20120).CloseMainWindow()
+PROBE_PID=20120

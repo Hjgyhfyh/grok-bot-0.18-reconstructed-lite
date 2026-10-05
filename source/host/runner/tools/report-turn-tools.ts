@@ -208,9 +208,16 @@ export function resolveReportSkillsDir(
     ?? (process as NodeJS.Process & { readonly resourcesPath?: string }).resourcesPath;
   const execPath = runtime.execPath ?? process.execPath;
   const cwd = runtime.cwd ?? process.cwd();
+  const archive = resourcesPath === undefined
+    ? undefined
+    : join(resourcesPath, "app.asar");
   for (const root of [
     dataRoot,
     resourcesPath,
+    // В упакованной сборке скиллы лежат внутри app.asar, а process.resourcesPath
+    // указывает на resources/ — на один уровень выше. Без этой строки skill_list
+    // в установленной программе отвечает «скиллов нет».
+    archive,
     cwd,
     execPath === undefined ? undefined : dirname(execPath),
     execPath === undefined ? undefined : dirname(dirname(execPath)),

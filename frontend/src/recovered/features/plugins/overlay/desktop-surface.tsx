@@ -162,8 +162,8 @@ export function PluginsDesktopSurface({ bridge, githubAuth, activeAgentId = null
   useEffect(() => () => privateSkillEnableController?.dispose(), [privateSkillEnableController]);
 
   const deletePrivateSkill = useCallback(async (workflowId: string) => {
-    if (activeAgentId == null || privateSkillSource == null) throw new Error("No active agent is available");
-    const skillName = privateSkills.find((skill) => skill.id === workflowId)?.name ?? "skill";
+    if (activeAgentId == null || privateSkillSource == null) throw new Error("Нет активного помощника");
+    const skillName = privateSkills.find((skill) => skill.id === workflowId)?.name ?? "навык";
     const nextSkills = await deletePrivatePluginSkill(privateSkillSource, activeAgentId, workflowId);
     if (mountedRef.current) {
       setPrivateSkills(nextSkills);
@@ -172,39 +172,39 @@ export function PluginsDesktopSurface({ bridge, githubAuth, activeAgentId = null
   }, [activeAgentId, onNotice, onStatus, privateSkillSource, privateSkills]);
 
   const updatePrivateSkill = useCallback(async (workflowId: string, spec: Parameters<typeof updatePrivatePluginSkill>[3]) => {
-    if (activeAgentId == null || privateSkillSource == null) throw new Error("No active agent is available");
+    if (activeAgentId == null || privateSkillSource == null) throw new Error("Нет активного помощника");
     const nextSkills = await updatePrivatePluginSkill(privateSkillSource, activeAgentId, workflowId, spec);
     if (mountedRef.current) {
       setPrivateSkills(nextSkills);
-      publishSurfaceNotice({ kind: "success", operation: "plugins-private-skill-update", message: `Saved ${spec.name}` }, onNotice, onStatus);
+      publishSurfaceNotice({ kind: "success", operation: "plugins-private-skill-update", message: `Навык «${spec.name}» сохранён` }, onNotice, onStatus);
     }
   }, [activeAgentId, onNotice, onStatus, privateSkillSource]);
 
   const loadPrivatePublishTargets = useCallback(async (): Promise<PluginSkillPublishTargets> => {
-    if (privateSkillSource == null) return { kind: "unavailable", reason: "No team is available to publish to." };
+    if (privateSkillSource == null) return { kind: "unavailable", reason: "Опубликовать некуда: нет ни одной команды." };
     return pluginSkillPublishTargetsFromCoordinator(await loadPrivateSkillPublishTargets(privateSkillSource));
   }, [privateSkillSource]);
 
   const publishPrivateSkill = useCallback(async (workflowId: string, teamId: string) => {
-    if (activeAgentId == null || privateSkillSource == null) throw new Error("No active agent is available");
-    const skillName = privateSkills.find((skill) => skill.id === workflowId)?.name ?? "skill";
+    if (activeAgentId == null || privateSkillSource == null) throw new Error("Нет активного помощника");
+    const skillName = privateSkills.find((skill) => skill.id === workflowId)?.name ?? "навык";
     const result = await publishPrivatePluginSkill(privateSkillSource, workflowId, teamId);
     if (typeof result !== "object" || result == null || typeof (result as Record<string, unknown>).promotedWorkflowId !== "string") {
-      throw new Error(`Published ${skillName}, but kept your private copy because the shared one has not arrived here yet. Edit the private copy until it does.`);
+      throw new Error(`Навык «${skillName}» опубликован, но личная копия пока оставлена: общая ещё не дошла. Пока правьте личную копию.`);
     }
     const nextSkills = await privateSkillSource.getAgentWorkflows(activeAgentId);
     if (mountedRef.current) setPrivateSkills(pluginPrivateSkillsFromCoordinator(nextSkills));
   }, [activeAgentId, privateSkillSource, privateSkills]);
 
   const resyncPrivateSkill = useCallback(async (workflowId: string) => {
-    if (activeAgentId == null || privateSkillSource == null) throw new Error("No active agent is available");
+    if (activeAgentId == null || privateSkillSource == null) throw new Error("Нет активного помощника");
     await resyncPublishedPluginSkill(privateSkillSource, workflowId);
     const nextSkills = await privateSkillSource.getAgentWorkflows(activeAgentId);
     if (mountedRef.current) setPrivateSkills(pluginPrivateSkillsFromCoordinator(nextSkills));
   }, [activeAgentId, privateSkillSource]);
 
   const unpublishPrivateSkill = useCallback(async (workflowId: string): Promise<string | null> => {
-    if (activeAgentId == null || privateSkillSource == null) throw new Error("No active agent is available");
+    if (activeAgentId == null || privateSkillSource == null) throw new Error("Нет активного помощника");
     const result = await unpublishPublishedPluginSkill(privateSkillSource, workflowId);
     const restoredWorkflowId = typeof result === "object" && result != null && typeof (result as Record<string, unknown>).restoredWorkflowId === "string"
       ? (result as Record<string, unknown>).restoredWorkflowId as string
@@ -276,11 +276,11 @@ export function PluginsDesktopSurface({ bridge, githubAuth, activeAgentId = null
 
   if (snapshot == null) {
     return (
-      <div aria-label="Plugins" aria-modal="true" className="sand-plugins-dialog" role="dialog">
-        <button aria-label="Close" className="sand-plugins-dialog__close" onClick={onClose} type="button">×</button>
+      <div aria-label="Плагины" aria-modal="true" className="sand-plugins-dialog" role="dialog">
+        <button aria-label="Закрыть" className="sand-plugins-dialog__close" onClick={onClose} type="button">×</button>
         <div aria-live="polite" role={error == null ? "status" : "alert"}>
-          {error == null ? "Loading the marketplace…" : error}
-          {error == null ? null : <button onClick={() => void load()} type="button">Retry</button>}
+          {error == null ? "Загружаем каталог…" : error}
+          {error == null ? null : <button onClick={() => void load()} type="button">Повторить</button>}
         </div>
       </div>
     );

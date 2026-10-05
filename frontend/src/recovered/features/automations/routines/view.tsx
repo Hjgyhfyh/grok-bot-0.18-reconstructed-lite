@@ -87,32 +87,32 @@ function RoutineFields({
 
   return (
     <div className="sand-automation-detail sand-78zum5 sand-dt5ytf sand-1iyjqo2 sand-s83m0k sand-dl72j9" aria-busy={pending ? "true" : undefined}>
-      {saveError == null ? null : <div aria-live="polite" role="status">Couldn't save this routine.</div>}
-      <label htmlFor={nameId}>Name</label>
+      {saveError == null ? null : <div aria-live="polite" role="status">Не удалось сохранить правило.</div>}
+      <label htmlFor={nameId}>Имя</label>
       <input
-        aria-label="Name"
+        aria-label="Имя"
         aria-invalid={nameInvalid || undefined}
         autoFocus={create}
         id={nameId}
         onBlur={commitName}
         onChange={(event) => onNameChange(event.currentTarget.value)}
-        placeholder="Name this routine"
+        placeholder="Например: утренняя сводка"
         required
         type="text"
         value={name}
       />
-      <label htmlFor={promptId}>Instruction</label>
+      <label htmlFor={promptId}>Задание</label>
       <textarea
-        aria-label="Instruction"
+        aria-label="Задание"
         aria-invalid={promptInvalid || undefined}
         id={promptId}
         onBlur={commitPrompt}
         onChange={(event) => onPromptChange(event.currentTarget.value)}
-        placeholder="What should this routine do each time it runs?"
+        placeholder="Что помощник должен делать при каждом запуске?"
         required
         value={prompt}
       />
-      <label htmlFor={triggerId}>When to run</label>
+      <label htmlFor={triggerId}>Когда запускать</label>
       <div aria-invalid={triggerInvalid || undefined} className="sand-trigger-card" id={triggerId}>
         <RoutineTriggerDraftEditor onCommit={onTriggerChange} pending={pending} trigger={trigger} />
       </div>
@@ -132,9 +132,9 @@ function RoutineRunHistory({ snapshot }: { snapshot: RoutineRunHistorySnapshot }
   const presentation = { empty: snapshot.rows.length === 0, rows: snapshot.rows };
   return (
     <div className="sand-78zum5 sand-dt5ytf">
-      <span>Run history</span>
-      {presentation.empty ? <div className={RUN_HISTORY_EMPTY_CLASS}><span>No runs yet</span></div> : (
-        <ul aria-label="Run history" className={RUN_HISTORY_LIST_CLASS}>
+      <span>История запусков</span>
+      {presentation.empty ? <div className={RUN_HISTORY_EMPTY_CLASS}><span>Запусков пока нет</span></div> : (
+        <ul aria-label="История запусков" className={RUN_HISTORY_LIST_CLASS}>
           {presentation.rows.map((row) => <li className={RUN_HISTORY_ROW_CLASS} key={row.id} title={row.title}><span>{row.timestampLabel}</span>{runStatus(row)}</li>)}
         </ul>
       )}
@@ -227,9 +227,9 @@ function RoutineEditor({
   return (
     <div className="sand-automation-detail sand-78zum5 sand-dt5ytf sand-1iyjqo2 sand-s83m0k sand-dl72j9" onKeyDown={onKeyDown} ref={focusRef} tabIndex={-1}>
       <div className="sand-1n2onr6 sand-1vjfegm sand-78zum5 sand-1qughib sand-167g77z">
-        {automation == null ? null : <label><input checked={automation.isEnabled} disabled={pending} onChange={(event) => toggle(event.currentTarget.checked)} type="checkbox" />Active</label>}
-        {automation == null ? null : <button disabled={pending} onClick={remove} type="button">Delete</button>}
-        {automation == null ? null : <button disabled={pending || running} onClick={run} type="button">{running ? "Running…" : "Test run"}</button>}
+        {automation == null ? null : <label><input checked={automation.isEnabled} disabled={pending} onChange={(event) => toggle(event.currentTarget.checked)} type="checkbox" />Включено</label>}
+        {automation == null ? null : <button disabled={pending} onClick={remove} type="button">Удалить</button>}
+        {automation == null ? null : <button disabled={pending || running} onClick={run} type="button">{running ? "Выполняется…" : "Проверить запуск"}</button>}
       </div>
       <RoutineFields
         automation={automation}
@@ -264,8 +264,8 @@ function RoutineList({
   onCreate(): void;
 }) {
   const ordered = [...routines].sort((left, right) => Number(right.isEnabled) - Number(left.isEnabled));
-  if (ordered.length === 0) return <div className="sand-routine__empty"><p>Routines are recurring tasks this agent runs on a schedule.</p><button data-routine-row="new" disabled={controller.createPending(agentId)} onClick={onCreate} type="button">Create Routine</button></div>;
-  return <ul aria-label="Routines" className="sand-routine__list">{ordered.map((routine) => <li key={routine.id}><button className="sand-routine__row" data-routine-row={routine.id} onClick={() => onOpen(routine.id)} type="button"><span aria-hidden="true" data-icon-name={routine.isEnabled ? routine.runs[0]?.status === "running" ? "loading" : "clock" : "pause-circle"} /><span>{routine.name}</span><small>{routine.isEnabled ? routine.triggerDescription : "Paused"}</small></button></li>)}</ul>;
+  if (ordered.length === 0) return <div className="sand-routine__empty"><p>Регламентные задачи — то, что помощник выполняет по расписанию.</p><button data-routine-row="new" disabled={controller.createPending(agentId)} onClick={onCreate} type="button">Создать задачу</button></div>;
+  return <ul aria-label="Регламентные задачи" className="sand-routine__list">{ordered.map((routine) => <li key={routine.id}><button className="sand-routine__row" data-routine-row={routine.id} onClick={() => onOpen(routine.id)} type="button"><span aria-hidden="true" data-icon-name={routine.isEnabled ? routine.runs[0]?.status === "running" ? "loading" : "clock" : "pause-circle"} /><span>{routine.name}</span><small>{routine.isEnabled ? routine.triggerDescription : "На паузе"}</small></button></li>)}</ul>;
 }
 
 export function RoutinesInfoPane({ agentId, automationId = null, controller, accountKey = null, timeZone, reconnectKey, onBack, onClose, disposeOnUnmount = false }: RoutinesInfoPaneProps) {
@@ -299,8 +299,8 @@ export function RoutinesInfoPane({ agentId, automationId = null, controller, acc
   const selected = selectedId == null ? null : snapshot.value.find((routine) => routine.id === selectedId) ?? null;
   const open = (id: string) => { setCreate(false); setSelectedId(id); };
   const closeEditor = () => { setCreate(false); setSelectedId(null); onBack?.(); };
-  const body = selected != null || create ? <RoutineEditor agentId={agentId} automation={selected} controller={controller} runHistory={historySnapshot} onBack={closeEditor} onCreated={(id) => { setCreate(false); setSelectedId(id); }} onDeleted={closeEditor} /> : snapshot.status === "loading" ? <div aria-busy="true" aria-label="Routines" role="status" /> : snapshot.status === "failed" && snapshot.value.length === 0 ? <div aria-label="Routines" role="status" /> : <RoutineList agentId={agentId} controller={controller} onCreate={() => { setCreate(true); setSelectedId(null); }} onOpen={open} routines={snapshot.value} />;
-  return <section aria-label="Routines" className="sand-automation-detail" onKeyDown={(event) => { if (event.key === "Escape" && (selected != null || create)) closeEditor(); }}><header><button aria-label="Back to Routines" onClick={closeEditor} type="button">{selected != null || create ? null : "Routines"}</button><button aria-label="Close details" onClick={onClose} type="button" /></header>{body}</section>;
+  const body = selected != null || create ? <RoutineEditor agentId={agentId} automation={selected} controller={controller} runHistory={historySnapshot} onBack={closeEditor} onCreated={(id) => { setCreate(false); setSelectedId(id); }} onDeleted={closeEditor} /> : snapshot.status === "loading" ? <div aria-busy="true" aria-label="Регламентные задачи" role="status" /> : snapshot.status === "failed" && snapshot.value.length === 0 ? <div aria-label="Регламентные задачи" role="status" /> : <RoutineList agentId={agentId} controller={controller} onCreate={() => { setCreate(true); setSelectedId(null); }} onOpen={open} routines={snapshot.value} />;
+  return <section aria-label="Регламентные задачи" className="sand-automation-detail" onKeyDown={(event) => { if (event.key === "Escape" && (selected != null || create)) closeEditor(); }}><header><button aria-label="Назад к списку задач" onClick={closeEditor} type="button">{selected != null || create ? null : "Задачи"}</button><button aria-label="Закрыть" onClick={onClose} type="button" /></header>{body}</section>;
 }
 
 export function mountRoutinesInfoPane(input: RoutinesInfoPaneMount): ReactNode {

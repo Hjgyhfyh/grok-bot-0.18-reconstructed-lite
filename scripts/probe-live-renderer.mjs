@@ -139,6 +139,37 @@ function evaluate(webSocketUrl, expression) {
   });
 }
 
+/**
+ * Опрашивает страницу, пока интерфейс не отрисуется.
+ *
+ * Зачем повторять. CDP отдаёт цель `page` в момент создания окна, а React
+ * монтируется позже: между этими событиями `document.documentElement.
+ * outerHTML` пуст. Раньше это не мешало — окно появлялось на 8-й секунде и
+ * успевало наполниться. После мер для слабой машины окно появляется на 2-й,
+ * и одна проверка сразу после `Runtime.evaluate` ловит пустую страницу и
+ * объявляет неработающей работающую программу.
+ *
+ * Возвращает последний ответ: каким бы он ни был, он честный — на выходе
+ * видно, сколько попыток понадобилось.
+ */
+async function evaluateWhenRendered(webSocketUrl, expression, attempts = 20) {
+  let last = null;
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      last = await evaluate(webSocketUrl, expression);
+    } catch (error) {
+      lastError = error;
+    }
+    if (last != null && typeof last.html === "number" && last.html > 0) {
+      return { attempt, value: last };
+    }
+    await sleep(1000);
+  }
+  if (last == null && lastError != null) throw lastError;
+  return { attempt: attempts, value: last };
+}
+
 const port = await findFreePort(Number(argument("port", "9341")));
 say(`Порт отладки: ${port}`);
 say(`Запуск:       ${executable}`);
@@ -196,8 +227,9 @@ for (const target of poll.pages) {
   say("");
   say(`--- Runtime.evaluate: ${target.url}`);
   try {
-    const value = await evaluate(target.webSocketDebuggerUrl, PROBE_EXPRESSION);
-    say(JSON.stringify(value, null, 2));
+    const probed = await evaluateWhenRendered(target.webSocketDebuggerUrl, PROBE_EXPRESSION);
+    say(`Интерфейс отрисован с ${probed.attempt}-й попытки (1 попытка в секунду).`);
+    say(JSON.stringify(probed.value, null, 2));
   } catch (error) {
     say(`ОШИБКА ВЫЧИСЛЕНИЯ: ${error.message}`);
   }

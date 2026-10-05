@@ -1,0 +1,140 @@
+# electron-updater забирает обновление из релизов этого репозитория.
+# Единственное, что делает процесс, — создаёт релиз; содержимое ветки `main`
+# он не меняет.
+name: Релиз DB Bot Lite
+
+# Работает по тегу вида `v1.2.3` и вручную. Публикация идёт только в релиз:
+# компьютер пользователя слабый, запускать сборку на нём нельзя, а релиз —
+# это то, что electron-updater читает на его компьютере.
+on:
+  push:
+    tags:
+      - "v*"
+  # Ручной запуск для проверки: тег берётся из поля ввода.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег релиза, например v1.0.1"
+        required: true
+
+# Релиз создаётся через API GitHub, а не коммитом: содержимое `main` этот
+# процесс не меняет ничем.
+permissions:
+  contents: write
+
+# Два тега подряд не должны собирать один релиз одновременно.
+concurrency:
+  group: db-bot-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Сборка и публикация
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      # electron-updater ищет эту переменную сам. Токен нужен, только если
+      # репозиторий закрыт: публичный читается без авторизации.
+      DB_BOT_RELEASE_VERSION: ${{ github.event.inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Исходники
+        uses: actions/checkout@v4
+
+      - name: Node.js 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: "26.x"
+          cache: npm
+
+      # Версия в `.build/app/package.json` берётся из `src/app/package.json`.
+      # Без этого шага подписанная сборка и манифест релизов говорили бы
+      # о разных версиях, и обновление не предлагалось бы никогда.
+      - name: Версия релиза из тега
+        shell: pwsh
+        run: node scripts/ci/set-release-version.mjs
+
+      # `npm ci` не выполняет postinstall проекта — в этом репозитории он
+      # прописан вручную и патчит `@connectrpc/connect` и `binding.gyp`.
+      - name: Зависимости
+        run: npm ci --no-audit --no-fund --ignore-scripts
+
+      - name: Сторонние правки
+        run: npm run postinstall
+
+      # `node node_modules/electron/install.js` на Node 26 зависает:
+      # extract-zip@2.0.1 не заканчивает разбор. Поэтому дистрибутив
+      # Electron скачивается напрямую и распаковывается средствами Windows.
+      - name: Кэш дистрибутива Electron
+        uses: actions/cache@v4
+        with:
+          path: .electron-cache
+          key: electron-win32-x64-${{ hashFiles('package.json') }}
+
+      - name: Установка Electron без install.js
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).devDependencies.electron
+          if (-not $version) { throw 'electron не указан в devDependencies' }
+          $cache = Join-Path $env:GITHUB_WORKSPACE '.electron-cache'
+          New-Item -ItemType Directory -Force -Path $cache | Out-Null
+          $zip = Join-Path $cache "electron-v$version-win32-x64.zip"
+          if (-not (Test-Path $zip)) {
+            $url = "https://github.com/electron/electron/releases/download/v$version/electron-v$version-win32-x64.zip"
+            Write-Host "Скачиваю $url"
+            Invoke-WebRequest -Uri $url -OutFile $zip
+          }
+          $module = Join-Path $env:GITHUB_WORKSPACE 'node_modules\electron'
+          $dist = Join-Path $module 'dist'
+          if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $dist -Force
+          # `install.js` кроме распаковки пишет path.txt. Без него
+          # `require('electron')` падает с "Electron failed to install correctly".
+          [System.IO.File]::WriteAllText(
+            (Join-Path $module 'path.txt'),
+            'electron.exe',
+            (New-Object System.Text.UTF8Encoding($false)))
+          if (-not (Test-Path (Join-Path $dist 'electron.exe'))) { throw 'electron.exe не распакован' }
+          Write-Host "Electron $version готов"
+
+      - name: Сборка из исходников
+        run: npm run build
+
+      - name: Упаковка для Windows
+        run: npm run package:win
+
+      # Собирает `db-bot-<версия>-win32-x64.zip` и `latest.yml`. Имя архива
+      # без пробелов: GitHubProvider заменяет пробелы на дефисы при сборке
+      # адреса, и архив с пробелом искался бы под другим именем.
+      - name: Архив обновления и манифест
+        shell: pwsh
+        run: node scripts/ci/make-release.mjs
+
+      # Проверка перед публикацией: манифест без архива, на который он
+      # ссылается, уехал бы пользователю и ломал бы обновление навсегда.
+      - name: Проверка манифеста
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $release = 'release'
+          $latest = Get-Content (Join-Path $release 'latest.yml') -Raw
+          $match = [regex]::Match($latest, '(?m)^\s*- url: (.+)$')
+          if (-not $match.Success) { throw 'В latest.yml нет ни одного файла' }
+          $name = $match.Groups[1].Value.Trim()
+          if ($name -notmatch '^[A-Za-z0-9._-]+$') { throw "Имя файла архива небезопасно: $name" }
+          $asset = Join-Path $release $name
+          if (-not (Test-Path $asset)) { throw "Архива нет: $asset" }
+          Write-Host "Манифест ссылается на $name, файл на месте"
+
+      - name: Публикация релиза
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: DB Bot Lite ${{ github.event.inputs.tag || github.ref_name }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          files: |
+            release/latest.yml
+            release/db-bot-*-win32-x64.zip

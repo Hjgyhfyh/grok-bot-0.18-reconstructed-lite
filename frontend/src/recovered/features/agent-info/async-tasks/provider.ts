@@ -176,7 +176,7 @@ export function createAsyncTasksProvider(coordinator: AsyncTasksCoordinator): As
     const attempt = entry.fetchAttempt;
     const request = coordinator.getAsyncTasks({ id: entry.agentId }).then((raw) => {
       const tasks = parseTasks(raw);
-      if (tasks == null) throw new Error("malformed async tasks reply");
+      if (tasks == null) throw new Error("Неверный ответ со списком фоновых задач");
       if (disposed || attempt !== entry.fetchAttempt) return;
       entry.installed = tasks;
       entry.failure = null;

@@ -50,7 +50,7 @@ function encodeAccountSlot(accountSlot: string): string {
 }
 
 export function rosterSelectionPersistenceKey(accountSlot: string): string {
-  if (accountSlot.length === 0) throw new Error("accountSlot must not be empty");
+  if (accountSlot.length === 0) throw new Error("Пустой идентификатор аккаунта");
   return `sand.client.slice.account.${encodeAccountSlot(accountSlot)}.${ROSTER_SELECTION_SLICE.slice}`;
 }
 
