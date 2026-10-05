@@ -28,7 +28,7 @@ export interface TranscriptCardLeafResolver extends TranscriptCardRegistry {
 
 function fallbackView() {
   return {
-    default: () => createElement("div", { "aria-live": "polite", className: "sand-transcript-card-fallback", role: "note" }, "Это сообщение нельзя показать в этой версии Grok Bot"),
+    default: () => createElement("div", { "aria-live": "polite", className: "sand-transcript-card-fallback", role: "note" }, "Это сообщение нельзя показать в этой версии DB Bot"),
   };
 }
 

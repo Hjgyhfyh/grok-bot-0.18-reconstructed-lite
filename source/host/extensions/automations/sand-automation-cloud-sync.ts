@@ -404,7 +404,7 @@ export class SandAutomationCloudSync {
     if (this.routinesWaitingForCredential === 0) return { state: "idle" };
     return {
       state: "error",
-      detail: `${this.routinesWaitingForCredential} routine(s) are saved, but nothing can fire them: schedules and event listeners are run by the user's Cursor account, and Grok Bot is not connected to one. Connect the Cursor account — until then no scheduled or event routine runs.`,
+      detail: `${this.routinesWaitingForCredential} routine(s) are saved, but nothing can fire them: schedules and event listeners are run by the user's Cursor account, and DB Bot is not connected to one. Connect the Cursor account — until then no scheduled or event routine runs.`,
     };
   }
 

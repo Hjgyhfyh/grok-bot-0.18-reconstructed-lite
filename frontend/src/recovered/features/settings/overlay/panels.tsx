@@ -102,7 +102,7 @@ export function GeneralSettingsPanel({ account, accountPending = false, accountE
     return () => window.clearTimeout(timeout);
   }, [emailCopied]);
   const title = signedIn ? account.name : account.kind === "logging-in" ? "Выполняется вход" : "Вход не выполнен";
-  const detail = signedIn ? account.email ?? "Вход выполнен в Cursor" : account.kind === "logging-in" ? "Закончите вход в браузере" : "Подключите аккаунт Cursor к Grok Bot";
+  const detail = signedIn ? account.email ?? "Вход выполнен в Cursor" : account.kind === "logging-in" ? "Закончите вход в браузере" : "Подключите аккаунт Cursor к DB Bot";
   const action = signedIn ? "Выйти" : account.kind === "logging-in" ? "Отмена" : "Войти через Cursor";
   // @evidence recovered/frontend/app/assets/index-BlqerJhg.js#L40-L50
   const copyEmail = async () => {
@@ -170,7 +170,7 @@ export function SecurityKeySettingsGroup({ enabled, platform, onChange }: Securi
   const isPending = action.isPending;
   const supported = SECURITY_KEY_PLATFORMS.includes(platform);
   const description = supported
-    ? "Разрешить Grok Bot использовать ключ безопасности (например, YubiKey) с вашего компьютера."
+    ? "Разрешить DB Bot использовать ключ безопасности (например, YubiKey) с вашего компьютера."
     : "Ключи безопасности на этой системе пока не поддерживаются.";
   const handleChange = () => {
     if (!supported || isPending) return;
@@ -349,11 +349,11 @@ export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onC
   const upgrade = summary?.upgradeCta ?? null;
   const upgradeSupportingText = summary == null ? null : upgrade == null ? null
     : !summary.hasNonZeroIncludedLimit && summary.hasAvailableUsage && summary.sandUsagePercent != null && summary.sandUsagePercent < 100
-      ? "Купить больше запросов Grok Bot"
+      ? "Купить больше запросов DB Bot"
       : summary.isSandTrial
         ? "Пробные запросы закончились"
         : summary.hasEndedSandTrial
-          ? "Пробный период закончился. Купите доступ, чтобы продолжить работу с Grok Bot."
+          ? "Пробный период закончился. Купите доступ, чтобы продолжить работу с DB Bot."
           : null;
   const canCancelTrial = summary?.isSandTrial === true && summary.canCancelSandTrial && onCancelTrial != null;
 
@@ -616,7 +616,7 @@ export function UpdatesSettingsPanel({
       <div className="sand-settings-beta-stack">
         <SettingsGroup title="Обновления">
           <div className="sand-settings-beta__status" role="status">
-            <span>Grok Bot не смог получить сведения об обновлении. Нажмите, чтобы повторить.</span>
+            <span>DB Bot не смог получить сведения об обновлении. Нажмите, чтобы повторить.</span>
             <SandButton disabled={checkPending} onClick={() => runPendingAction(onCheck, setCheckPending)} size="md" variant="secondary">{checkPending ? "Проверяем…" : "Проверить обновления"}</SandButton>
           </div>
         </SettingsGroup>
@@ -625,8 +625,8 @@ export function UpdatesSettingsPanel({
           description={egressTunnel.enabled
             ? egressTunnelStatusDescription(egressTunnel.status)
             : egressTunnel.available
-              ? "Интернет с компьютера Grok Bot пойдёт через этот компьютер, а не через облако. Касается только новых соединений."
-              : "Туннель не настроен для компьютера Grok Bot. Начните новый, чтобы включить эту опцию."}
+              ? "Интернет с компьютера DB Bot пойдёт через этот компьютер, а не через облако. Касается только новых соединений."
+              : "Туннель не настроен для компьютера DB Bot. Начните новый, чтобы включить эту опцию."}
           enabled={egressTunnel.enabled}
           onChange={egressTunnel.onChange}
         /> : null}
@@ -651,8 +651,8 @@ export function UpdatesSettingsPanel({
   const egressDescription = egressTunnel?.enabled === true
     ? egressTunnelStatusDescription(egressTunnel.status)
     : egressAvailable
-      ? "Интернет с компьютера Grok Bot пойдёт через этот компьютер, а не через облако. Касается только новых соединений."
-      : "Туннель не настроен для компьютера Grok Bot. Начните новый, чтобы включить эту опцию.";
+      ? "Интернет с компьютера DB Bot пойдёт через этот компьютер, а не через облако. Касается только новых соединений."
+      : "Туннель не настроен для компьютера DB Bot. Начните новый, чтобы включить эту опцию.";
   return (
     <div className="sand-settings-beta-stack">
       <SettingsGroup title="Обновления">
@@ -669,7 +669,7 @@ export function UpdatesSettingsPanel({
           />
         </div> : null}
         <div className="sand-settings-row">
-          <span className="sand-settings-copy"><strong>Grok Bot {status.currentVersion}</strong><small>Обновления приходят по каналу «{UPDATE_TRACK_LABELS[status.currentTrack]}»</small></span>
+          <span className="sand-settings-copy"><strong>DB Bot {status.currentVersion}</strong><small>Обновления приходят по каналу «{UPDATE_TRACK_LABELS[status.currentTrack]}»</small></span>
           {status.state.type === "ready" ? (
             <SandButton disabled={installPending || onInstall == null} onClick={() => onInstall == null ? undefined : runPendingAction(onInstall, setInstallPending)} size="md" variant="primary">Перезапустить и обновить</SandButton>
           ) : (

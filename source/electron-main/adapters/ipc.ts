@@ -58,14 +58,13 @@ export function createProductionExperimentsIpcRegistrar(): ProductionIpcRegistra
   };
 }
 
-/** Exact four-channel settings registration after the root egress controller exists. */
+/** Settings registration. The egress-tunnel channel stays, and always answers "off". */
 export function createProductionSettingsIpcRegistrar(): ProductionIpcRegistrar {
   return (context, ipc) => {
     registerSettingsIpc({
       ipcMain: ipc,
       settingsStore: context.settings.settingsStore,
       themeController: context.settings.getThemeController(),
-      egressTunnelController: context.requireEgressTunnelController(),
     });
   };
 }

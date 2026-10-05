@@ -29,13 +29,19 @@
  * `SandLocalToolPermissionController` behind it and only the model Agent replaced by a seam. Both
  * production call sites are measured: the parent's own shell (the assignment near the end of
  * `createRunner`) and the shell of a `Task` subagent, which the composition builds inside a turn
- * from its own scope. The falsifications at the bottom answer `host-runner-composition.ts` from
- * `git show HEAD:…` and from two single-line source mutations — the tree is never written to — and
- * each one shows the same probe against exactly the code that breaks it.
+ * from its own scope. The falsifications at the bottom answer two single-line source mutations
+ * through esbuild's `onLoad` — the tree is never written to — and each one shows the same probe
+ * against exactly the code that breaks it.
+ *
+ * There was once a third falsification here that answered `host-runner-composition.ts` from
+ * `git show 18fe9fc:…`. That commit belongs to the upstream Grok Bot repository; this repository was
+ * reconstructed with its own history (`17e388c` is its root) in which the composition always handed
+ * the live controller over, so the control could only ever fail on `fatal: invalid object name`. The
+ * two mutations below cover the same two obligations — the projection passed instead of the
+ * controller, and the inherited epoch dropped — against code that really exists in this tree.
  */
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -43,12 +49,6 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
-
-// The baseline these tests read the defect from. It is a fixed commit, not HEAD:
-// reading HEAD only proves anything while the fix is uncommitted, and once it is
-// committed HEAD holds the fixed code and every falsification inverts.
-const DEFECT_BASELINE = "18fe9fc";
-
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceRoot = path.join(repoRoot, "source");
@@ -149,32 +149,6 @@ function mutationOn(relativePath, before, after) {
           );
         }
         return { contents: text.replace(before, after), loader: "ts" };
-      });
-    },
-  };
-}
-
-/** Answers the listed files from the committed blob instead of the working tree. */
-function gitHeadOn(relatives) {
-  const targets = new Set(relatives.map(relative => path.resolve(repoRoot, relative)));
-  return {
-    name: "direction-epoch-wiring-git-head",
-    setup(loadBuild) {
-      loadBuild.onLoad({ filter: /\.ts$/ }, args => {
-        if (!targets.has(path.resolve(args.path))) return undefined;
-        const relative = path.relative(repoRoot, args.path).split(path.sep).join("/");
-        const env = { ...process.env };
-        delete env.GIT_CONFIG_COUNT;
-        return {
-          contents: execFileSync("git", ["show", `${DEFECT_BASELINE}:${relative}`], {
-            cwd: repoRoot,
-            encoding: "utf8",
-            env,
-            windowsHide: true,
-            maxBuffer: 32 * 1024 * 1024,
-          }),
-          loader: "ts",
-        };
       });
     },
   };
@@ -568,36 +542,6 @@ test("a host with no permission extension builds a shell that opens no direction
 // the test asserts that the obligation is broken there. A test that cannot fail on the code it
 // claims to describe proves nothing. The repository is never written to; only esbuild's view of it
 // changes.
-
-test("the committed composition builds both shells with no controller at all", async () => {
-  const head = await load([gitHeadOn([COMPOSITION_RELATIVE])]);
-  try {
-    const measured = await probeWiring(head.loaded);
-
-    assert.equal(
-      measured.parent.controller.present,
-      false,
-      "this is the defect: `createProductionTurnRunShellHostInput` is called without `localToolPermission`, so `SandAgentRunner.localToolPermission` is undefined and every turn runs under epoch 0",
-    );
-    assert.equal(
-      measured.parent.runnerController.present,
-      false,
-      "the runner reads the same absent field, so the shell's `beginLocalToolPermissionTurn` hook is never bound and no direction is ever opened",
-    );
-    assert.equal(
-      measured.epochAfterFirstTurn,
-      undefined,
-      "with nothing bound the fixture cannot even open a direction, which is the silence this defect hid behind",
-    );
-    assert.equal(
-      measured.firstChild.inheritedDirectionEpoch,
-      undefined,
-      "and the subagent has neither a controller nor a direction to inherit",
-    );
-  } finally {
-    head.dispose();
-  }
-});
 
 test("passing the toolset projection is caught: it has neither method a turn calls", async () => {
   const mutated = await load([

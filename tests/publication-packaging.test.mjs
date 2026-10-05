@@ -23,7 +23,7 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -96,14 +96,13 @@ test("Router settings use the trusted backend and display recorded inference usa
   const coordinator = await readFile(path.join(repoRoot, "source", "node-agent-coordinator", "inference-router.ts"), "utf8");
   const coordinatorMain = await readFile(path.join(repoRoot, "source", "node-agent-coordinator", "main.ts"), "utf8");
   const mcpBridge = await readFile(path.join(repoRoot, "source", "node-agent-coordinator", "routed-mcp-bridge.ts"), "utf8");
-  const localDocker = await readFile(path.join(repoRoot, "source", "electron-main", "box", "local-docker-host-connector.ts"), "utf8");
   // Every assertion below is a regex against one of these files. `assert.match` on
   // an empty string fails, but `assert.doesNotMatch` on an empty string passes
   // trivially, so a truncated or unread-but-present file would turn the five
   // negative assertions below into no-ops. Every source has to carry content.
   for (const [name, text] of Object.entries({
     rendererPatch, preload, mainEdge, inference, cursorSession, cursorBackend,
-    providers, turnShell, coordinator, coordinatorMain, mcpBridge, localDocker,
+    providers, turnShell, coordinator, coordinatorMain, mcpBridge,
   })) {
     assert.ok(text.trim().length > 0, `${name} is empty, so its regex assertions below prove nothing`);
   }
@@ -145,15 +144,13 @@ test("Router settings use the trusted backend and display recorded inference usa
   assert.match(mainEdge, /invoke\(deps\.settingsStore, "setInferenceProvider", provider\)/);
   assert.match(mainEdge, /return \{ provider, usage:/);
   assert.match(mainEdge, /invoke\(deps\.boxRecovery, "restartCoordinator"\)/);
-  assert.match(mainEdge, /mode === "local-docker"\) await startLocalDockerBox\(settingsPath\); else await stopLocalDockerBox\(\)/);
-  assert.match(mainEdge, /setBoxRuntime", mode === "local-docker" \? "remote" : "local-docker"/);
-  assert.match(localDocker, /public\.ecr\.aws\/k0i0n2g5\/cursorenvironments\/universal:sand-box-latest/);
-  assert.match(localDocker, /"127\.0\.0\.1:1340:1340"/);
-  assert.match(localDocker, /SAND_BOX_AUTO_UPDATE=0/);
-  assert.match(localDocker, /dst=\/home\/box\/sand-host\/host-main\.cjs,readonly/);
-  assert.match(localDocker, /\.getBoxRuntime\(\) === "local-docker" \? await localConnect\(\) : await remote\.connect\(\)/);
   assert.match(inference, /recordInferenceUsage\(provider/);
-  assert.match(inference, /routerSettings\.getInferenceProvider\(\)/);
+  // DeepSeek — единственный провайдер, поэтому читать предпочтение провайдера из
+  // настроек больше не нужно: обе сессии идут через одну фабрику. Пин на отсутствие
+  // чтения ловит возврат к ветвлению по провайдеру, из-за которого Lite снова
+  // начал бы спрашивать, к какому маршруту подключён.
+  assert.doesNotMatch(inference, /routerSettings\.getInferenceProvider\(\)/);
+  assert.match(inference, /DeepSeek is the only/);
   assert.match(inference, /typeof extendedUsage\.then === "function"/);
   assert.match(inference, /createProviderPromptSession\(provider\)/);
   assert.match(providers, /parameters: jsonSchema\(parameters\)/);
@@ -216,4 +213,44 @@ test("Router settings use the trusted backend and display recorded inference usa
   assert.match(coordinatorMain, /createCoordinatorInferenceRouter/);
   assert.match(coordinatorMain, /command\(commands, "listRoutedMcpTools", args\)/);
   assert.match(coordinatorMain, /routed\.handled/);
+});
+
+/**
+ * The agent's computer used to be selectable between the Cursor broker and a Docker VM
+ * the desktop started itself, pulling `cursorenvironments/universal:sand-box-latest` and
+ * publishing ports 1337, 1339, 1340, 6080, 6081 and 8790. A single user on one machine has
+ * no second computer to switch to, so the VM module was deleted.
+ *
+ * `getBoxRuntime` and `setBoxRuntime` stayed in `MAIN_METHOD_TABLE` and in `preload.ts`,
+ * because `bridgeRpcEdge` builds wrappers only from that table and a missing entry throws
+ * while the preload is constructed. That is the trap this test closes: the two methods can
+ * keep their names, report a runtime nobody chose, and shell out to Docker again, and
+ * every screen would still look healthy. It also stands alone, because the Router pins
+ * above fail for an unrelated reason and would otherwise never reach these lines.
+ */
+test("the agent's computer is this machine, and nothing in the main process starts a container", async () => {
+  const mainEdge = await readFile(path.join(repoRoot, "source", "electron-main", "main-edge.ts"), "utf8");
+  const coordinatorGateway = await readFile(path.join(repoRoot, "source", "electron-main", "adapters", "coordinator-gateway.ts"), "utf8");
+
+  // A negative scan proves nothing unless the same file is shown to carry real code, so
+  // the positive pins come first and the absence checks follow.
+  assert.ok(mainEdge.trim().length > 0, "main-edge.ts came back empty, so the absence checks below would pass for free");
+  assert.match(mainEdge, /getBoxRuntime: async \(\) => \(\{ mode: LOCAL_BOX_RUNTIME, status: LOCAL_BOX_RUNTIME_STATUS \}\)/,
+    "getBoxRuntime no longer answers with the single runtime that exists");
+  assert.match(mainEdge, /detail: "The agent's computer is this computer\./,
+    "the runtime status no longer says where the agent actually runs");
+  assert.match(mainEdge, /setBoxRuntime: async \(raw\) => \{ const mode = req\(raw\)\.mode; invariant\(isSandBoxRuntime\(mode\), "Unknown box runtime\."\); return \{ mode: LOCAL_BOX_RUNTIME, status: LOCAL_BOX_RUNTIME_STATUS \}; \}/,
+    "setBoxRuntime no longer validates the request and answers with the truth");
+
+  assert.doesNotMatch(mainEdge, /startLocalDockerBox|stopLocalDockerBox|getLocalDockerStatus/,
+    "the main process reached for the deleted Docker VM module again");
+  assert.doesNotMatch(mainEdge, /127\.0\.0\.1:1340/,
+    "the main process still names the container gateway port");
+  assert.doesNotMatch(coordinatorGateway, /createSettingsRoutedHostConnector|local-docker-host-connector/,
+    "the coordinator wraps the host connector in the deleted settings router again");
+  assert.equal(
+    existsSync(path.join(repoRoot, "source", "electron-main", "box", "local-docker-host-connector.ts")),
+    false,
+    "the local Docker VM module came back, so the agent can be pointed at a container again",
+  );
 });

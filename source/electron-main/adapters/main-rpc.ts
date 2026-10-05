@@ -80,13 +80,6 @@ export function createElectronProductionMainRpcBinding(
             return null;
           }
         },
-        readEgressTunnelController: () => {
-          try {
-            return context.requireEgressTunnelController() as unknown as ReturnType<MainEdgeWiringDeps["readEgressTunnelController"]>;
-          } catch {
-            return null;
-          }
-        },
         readHostSettingsFromBox: async () => {
           const settings = await context.coordinatorResync.readHostSettings();
           if (typeof settings !== "object" || settings == null || Array.isArray(settings)) {
@@ -94,7 +87,6 @@ export function createElectronProductionMainRpcBinding(
           }
           return settings as Record<string, unknown>;
         },
-        emitEgressTunnelChanged: (enabled) => context.requireMainEdge().emit("egress-tunnel-changed", enabled),
         emitWebauthnProxyChanged: (enabled) => context.requireMainEdge().emit("webauthn-proxy-changed", enabled),
         getTrustedContents: () => {
           const contents = context.getTrustedContents();

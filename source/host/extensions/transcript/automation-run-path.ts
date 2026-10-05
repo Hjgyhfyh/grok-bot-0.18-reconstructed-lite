@@ -144,7 +144,7 @@ export class AutomationRunPath {
         this.tm.trayErrors.pushError({
           agentId: args.agentId,
           title: `Routine "${args.automation.name}" could not start`,
-          detail: `Grok Bot could not open a session for this agent, so this routine did not run: ${errorMessage(error)}`,
+          detail: `DB Bot could not open a session for this agent, so this routine did not run: ${errorMessage(error)}`,
           dedupeKey: `automation-session-unavailable:${args.agentId}:${args.automation.id}`,
         });
         return undefined;

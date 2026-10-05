@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -78,7 +78,6 @@ async function bundle(entries) {
 const { loaded, dispose } = await bundle([
   { label: "cursor-auth", path: ["electron-main", "account", "cursor-auth.ts"] },
   { label: "box-host-connector", path: ["electron-main", "box", "box-host-connector.ts"] },
-  { label: "local-docker-host-connector", path: ["electron-main", "box", "local-docker-host-connector.ts"] },
   { label: "control-port-client", path: ["node-agent-coordinator", "control-port-client.ts"] },
   { label: "gateway-client", path: ["node-agent-coordinator", "gateway", "gateway-client.ts"] },
   { label: "coordinator-gateway-reachability", path: ["node-agent-coordinator", "gateway", "gateway-reachability.ts"] },
@@ -95,7 +94,6 @@ const {
   createRemoteHostConnector,
   isSignInRequiredFailure,
 } = loaded["box-host-connector"];
-const { createSettingsRoutedHostConnector } = loaded["local-docker-host-connector"];
 const { ControlPortCallError } = loaded["control-port-client"];
 const {
   CREDENTIALS_REFUSAL_CAUSE_SUMMARY,
@@ -285,20 +283,20 @@ test("the env connector answers the credential issuer the production binding req
 
   // `adapters/coordinator-gateway.ts` calls `requireFunction` on exactly these two.
   // A missing method there threw during wiring, before `createWindow()`.
-  assert.equal(typeof connector.connect, "function", "the settings-routed connector has no connect() for the binding to require");
+  assert.equal(typeof connector.connect, "function", "the connector has no connect() for the binding to require");
   assert.equal(typeof connector.issueLocalExecDaemonCredential, "function", "the binding still throws because the local-exec credential issuer is absent");
-  assert.equal(await connector.issueLocalExecDaemonCredential(), undefined, "an external host claimed to mint a local-exec credential it cannot mint");
-  assert.equal(typeof connector.issueInferenceCredential, "function", "the local-Docker path loses its inference-credential probe");
+  assert.equal(await connector.issueLocalExecDaemonCredential(), undefined, "the connector claimed to mint a local-exec credential it cannot mint");
+  assert.equal(typeof connector.issueInferenceCredential, "function", "the connector loses its inference-credential probe");
 
-  // The same two members must survive the settings router that wraps this connector.
-  const routed = createSettingsRoutedHostConnector(connector, {
-    settingsPath: path.join(repoRoot, "settings-under-test.json"),
-    getBoxRuntime: () => "remote",
-  });
-  assert.equal(typeof routed.issueLocalExecDaemonCredential, "function", "the settings router dropped the issuer the binding requires");
-  assert.equal(await routed.issueLocalExecDaemonCredential(), undefined, "the routed connector invented a local-exec credential");
-  const routedConnection = await routed.connect();
-  assert.equal(routedConnection.baseUrl, "http://127.0.0.1:1340", "the settings router sent a signed-out user back to the Cursor broker");
+  // The connector used to be wrapped in a settings router that could switch it to a
+  // Docker VM on port 1340. That VM is gone, so the binding now takes the connector
+  // directly. If the wrapper ever comes back, the agent grows a container runtime the
+  // user's machine was never meant to carry.
+  const routedFactoryModule = path.join(repoRoot, "source", "electron-main", "box", "local-docker-host-connector.ts");
+  assert.equal(existsSync(routedFactoryModule), false, "the local Docker VM module came back, so the coordinator can point the agent at a container again");
+  const binding = readFileSync(path.join(repoRoot, "source", "electron-main", "adapters", "coordinator-gateway.ts"), "utf8");
+  assert.doesNotMatch(binding, /createSettingsRoutedHostConnector/, "the coordinator wraps the host connector in the deleted settings router");
+  assert.match(binding, /const remote = createRemoteHostConnector\(/, "the coordinator no longer builds a host connector at all");
 });
 
 test("a broker client that is merely offline is still a transport failure", async () => {

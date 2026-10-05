@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,12 +7,6 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { build } from "esbuild";
-
-// The baseline these tests read the defect from. It is a fixed commit, not HEAD:
-// reading HEAD only proves anything while the fix is uncommitted, and once it is
-// committed HEAD holds the fixed code and every falsification inverts.
-const DEFECT_BASELINE = "18fe9fc";
-
 
 /**
  * The shell tool described a command language, and it was not the one the
@@ -49,6 +43,15 @@ const DEFECT_BASELINE = "18fe9fc";
  * build where `process.platform` has been replaced with `linux` and with
  * `win32`, so a POSIX developer gets the POSIX proof and a Windows developer
  * gets the cmd.exe proof from the same file.
+ *
+ * The falsification at the bottom used to read the pre-fix `prompts/dsv3.ts`
+ * out of a fixed commit. That commit belongs to the upstream Grok Bot
+ * repository; this repository was reconstructed with its own history, in which
+ * the section was never absent, so `git show 18fe9fc:…` answers
+ * `fatal: invalid object name` and the control could only ever fail on a
+ * missing blob. The control now removes the section from the description the
+ * product really builds — the same text, with exactly the defect present — so
+ * it measures the same thing without a commit that does not exist here.
  */
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -62,33 +65,8 @@ const REQUIRE_BANNER = {
  * Builds the prompt module. `platform` rewrites `process.platform` in the
  * bundle, so `resolveShellDialect` resolves the shell for a host that is not
  * this one — the same seam the shipping code reads the fact through.
- * `fromGitHead` answers the prompt file from the committed blob instead of the
- * working tree, so one file differs and the tree is never touched.
  */
-function promptPlugin({ fromGitHead }) {
-  return {
-    name: "grok-shell-dialect-probe",
-    setup(bundler) {
-      if (fromGitHead === true) {
-        bundler.onLoad({ filter: /prompts[\\/]dsv3\.ts$/ }, (args) => {
-          const relative = path.relative(repoRoot, args.path).split(path.sep).join("/");
-          const env = { ...process.env };
-          delete env.GIT_CONFIG_COUNT;
-          const contents = execFileSync("git", ["show", `${DEFECT_BASELINE}:${relative}`], {
-            cwd: repoRoot,
-            encoding: "utf8",
-            env,
-            windowsHide: true,
-            maxBuffer: 32 * 1024 * 1024,
-          });
-          return { contents, loader: "ts" };
-        });
-      }
-    },
-  };
-}
-
-async function bundlePrompts({ platform, fromGitHead } = {}) {
+async function bundlePrompts({ platform } = {}) {
   const directory = mkdtempSync(path.join(os.tmpdir(), "grok-shell-dialect-"));
   await build({
     entryPoints: [
@@ -110,7 +88,6 @@ async function bundlePrompts({ platform, fromGitHead } = {}) {
     target: "node22",
     logLevel: "silent",
     ...(platform === undefined ? {} : { define: { "process.platform": JSON.stringify(platform) } }),
-    plugins: [promptPlugin({ fromGitHead })],
   });
   const load = (relative) => import(pathToFileURL(path.join(directory, `${relative}.mjs`)).href);
   return {
@@ -292,19 +269,31 @@ test("rebuilding for Windows produces a different description that is still true
 });
 
 // ---------------------------------------------------------------------------
-// 4. Falsification: the committed description has none of this.
+// 4. Falsification: a description without the section fails the same instrument.
 // ---------------------------------------------------------------------------
 
-const head = await bundlePrompts({ fromGitHead: true });
-test.after(() => head.dispose());
+/**
+ * The exact defect this file closes, reconstructed from the shipped description.
+ *
+ * The defect was "the description names no interpreter". Cutting the whole
+ * `<shell-dialect>` section out reproduces it character for character, without a
+ * second copy of the prompt module that would have to be kept in step with the
+ * real one — and the real one is what the other side of the comparison reads.
+ */
+function withoutDialectSection(description) {
+  const stripped = description.replace(/<shell-dialect>[\s\S]*?<\/shell-dialect>\n?/, "");
+  assert.notEqual(stripped, description, "the description carries no shell-dialect section, so this control cannot fail");
+  return stripped;
+}
 
-test("the committed description has no shell section, which is the defect this file closes", () => {
-  const committed = head.getDescriptionDsv3(false, "dsv3-1205", {});
+test("a description with the shell section cut out fails the same instrument, which is the defect this file closes", () => {
   const working = native.getDescriptionDsv3(false, "dsv3-1205", {});
   const facts = native.resolveShellDialect({});
 
-  assert.equal(namedShellCorrectlyForThisHost(committed), false, "the committed description cannot name a shell it does not mention; if this now passes, HEAD has the fix and this file is measuring nothing");
-  assert.equal(namedShellCorrectlyForThisHost(working), true, `the working tree is the side under repair, and it has to satisfy the same instrument (description: ${working.slice(0, 200)})`);
+  assert.equal(namedShellCorrectlyForThisHost(withoutDialectSection(working)), false,
+    "the instrument accepts a description that names no shell at all, so every assertion above it passes for free");
+  assert.equal(namedShellCorrectlyForThisHost(working), true,
+    `the working tree is the side under repair, and it has to satisfy the same instrument (description: ${working.slice(0, 200)})`);
   assert.equal(facts.shellName.length > 0, true, "the resolver has to produce a name for either side to be judged against");
 });
 

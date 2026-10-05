@@ -78,7 +78,7 @@ export function SharedRoomDialog({ provider, roomId, agentId, accountGeneration,
     {snapshot.isHost ? <section>
       <p>Пригласить людей</p>
       {snapshot.invite?.status === "ok" ? <InviteLink result={snapshot.invite} /> : snapshot.invite?.status === "error" ? <p role="alert">{snapshot.invite.message}</p> : <button disabled={snapshot.pendingAction === "invite"} onClick={() => { void provider.createRoomInvite(); }} type="button">Копировать ссылку</button>}
-      <p>Человек вставляет ссылку в Grok Bot через Cmd-K и выбирает «Присоединиться к общей комнате». Каждая заявка ждёт вашего согласия.</p>
+      <p>Человек вставляет ссылку в DB Bot через Cmd-K и выбирает «Присоединиться к общей комнате». Каждая заявка ждёт вашего согласия.</p>
     </section> : null}
     {snapshot.requests.length > 0 ? <section>
       <h3>Заявки на вход</h3>

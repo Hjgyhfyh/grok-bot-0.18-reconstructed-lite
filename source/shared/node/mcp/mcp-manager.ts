@@ -416,7 +416,7 @@ export class SandMcpManager {
     const validated = validateServerName(name);
     if (BUILTIN_MCP_SERVER_NAMES.has(validated))
       throw new SandMcpConfigError(
-        `MCP server name "${validated}" is reserved for a built-in Grok Bot server.`,
+        `MCP server name "${validated}" is reserved for a built-in DB Bot server.`,
       );
     return validated;
   }
@@ -659,7 +659,7 @@ export class SandMcpManager {
   async reload(): Promise<void> {
     this.generation += 1;
     this.accountPromise = undefined;
-    // `RestartMcpServers` is how a user tells Grok Bot they edited the file by
+    // `RestartMcpServers` is how a user tells DB Bot they edited the file by
     // hand, so the re-read must not wait out the memo.
     this.localServers.invalidate();
     this.definitionSource.clearCache();

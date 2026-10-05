@@ -1,21 +1,22 @@
-Порт отладки: 9391
+Порт отладки: 9401
 Запуск:       D:\ТЕСТЫ\DeepSeek-Harness\db-bot-lite\dist\DB Bot\DB Bot.exe
-PID:          20120
+PID:          1416
 
 Хроника опроса:
   0 с: CDP недоступен (ECONNREFUSED)
+  2 с: CDP недоступен (ECONNREFUSED)
 
-Окно найдено через 2 с. Все цели:
-  [page] Grok Bot <- file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html
+Окно найдено через 4 с. Все цели:
+  [page] DB Bot <- file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html
 
 --- Runtime.evaluate: file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html
 Интерфейс отрисован с 1-й попытки (1 попытка в секунду).
 {
-  "title": "Grok Bot",
+  "title": "DB Bot",
   "rootChildren": 1,
   "rootExists": true,
-  "bodyText": "\n\n\n\nПоиск\n\nРасширения\nВ\nВойти\nGrok Bot\n\nКоманда помощников, которым можно поручить настоящую работу.\n\nВойти",
-  "html": 150883,
+  "bodyText": "\n\n\n\nПоиск\n\nРасширения\nВ\nВойти\nDB Bot\n\nКоманда помощников, которым можно поручить настоящую работу.\n\nВойти",
+  "html": 150877,
   "url": "file:///D:/%D0%A2%D0%95%D0%A1%D0%A2%D0%AB/DeepSeek-Harness/db-bot-lite/dist/DB%20Bot/resources/app.asar/dist/renderer/index.html",
   "desktopBridge": "object"
 }
@@ -25,8 +26,8 @@ PID:          20120
 --- stdout ---
 [sand] using isolated user-data dir: D:\ТЕСТЫ\DeepSeek-Harness\db-bot-lite\.tmp-probe-userdata
 --- stderr ---
-DevTools listening on ws://127.0.0.1:9391/devtools/browser/54847564-36e5-4375-8837-6160d3ef7865
-(node:20120) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+DevTools listening on ws://127.0.0.1:9401/devtools/browser/f932feb6-9ec9-4171-afe5-1ef2248fb4f4
+(node:1416) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
 (Use `DB Bot --trace-deprecation ...` to show where the warning was created)
-Приложение всё ещё работает. ЗАКРОЙ ЧЕРЕЗ: (Get-Process -Id 20120).CloseMainWindow()
-PROBE_PID=20120
+Приложение всё ещё работает. ЗАКРОЙ ЧЕРЕЗ: (Get-Process -Id 1416).CloseMainWindow()
+PROBE_PID=1416

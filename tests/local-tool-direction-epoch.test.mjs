@@ -21,13 +21,19 @@
  * These tests drive the REAL path: `SandAgentRunner.run` → `createProductionTurnRunShellAdapter` →
  * `createTurnRunShell` → `createTurnAgentStreamStart` → `createStreamAttempt`, with the real
  * `SandLocalToolPermissionController` behind it and only the model Agent replaced by a deterministic
- * seam. The falsification at the bottom answers the two product files from `git show HEAD:…` through
- * esbuild's `onLoad` and answers two further builds from single-line source mutations — the tree is
- * never written to. Each one shows the obligation failing against exactly the code that breaks it.
+ * seam. The falsifications at the bottom answer two single-line source mutations through esbuild's
+ * `onLoad` — the tree is never written to — and each one shows the obligation failing against exactly
+ * the code that breaks it.
+ *
+ * There was once a third falsification here that answered these four files from `git show
+ * 18fe9fc:…`. That commit belongs to the upstream Grok Bot repository; this repository was
+ * reconstructed with its own history (`17e388c` is its root) in which the direction epoch was never
+ * missing, so the control could only ever fail on `fatal: invalid object name`. The two mutations
+ * below cover the same two obligations — a hook wired to a no-op, and the single context write
+ * removed — and they fail against code that really exists in this tree.
  */
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -37,22 +43,8 @@ import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 
-// The baseline these tests read the defect from. It is a fixed commit, not HEAD:
-// reading HEAD only proves anything while the fix is uncommitted, and once it is
-// committed HEAD holds the fixed code and every falsification inverts.
-const DEFECT_BASELINE = "18fe9fc";
-
-
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceRoot = path.join(repoRoot, "source");
-
-/** The four files the direction-epoch change lives in, relative to the repository root. */
-const PRODUCT_FILES = [
-  "source/host/runner/production-turn-run-shell-adapter.ts",
-  "source/host/runner/sand-agent-runner.ts",
-  "source/host/runner-production-bridge.ts",
-  "source/host/runner/tools/turn-toolset.ts",
-];
 
 /** One export per line of the bundle entry, so a missing name is a build error, not `undefined`. */
 const ENTRY_LINES = [
@@ -108,32 +100,6 @@ function mutationOn(relativePath, before, after) {
           );
         }
         return { contents: text.replace(before, after), loader: "ts" };
-      });
-    },
-  };
-}
-
-/** Answers the listed files from the committed blob instead of the working tree. */
-function gitHeadOn(relatives) {
-  const targets = new Set(relatives.map((relative) => path.resolve(repoRoot, relative)));
-  return {
-    name: "direction-epoch-git-head",
-    setup(loadBuild) {
-      loadBuild.onLoad({ filter: /\.ts$/ }, (args) => {
-        if (!targets.has(path.resolve(args.path))) return undefined;
-        const relative = path.relative(repoRoot, args.path).split(path.sep).join("/");
-        const env = { ...process.env };
-        delete env.GIT_CONFIG_COUNT;
-        return {
-          contents: execFileSync("git", ["show", `${DEFECT_BASELINE}:${relative}`], {
-            cwd: repoRoot,
-            encoding: "utf8",
-            env,
-            windowsHide: true,
-            maxBuffer: 32 * 1024 * 1024,
-          }),
-          loader: "ts",
-        };
       });
     },
   };
@@ -795,52 +761,6 @@ async function probeRefusal(bundle) {
 
   return { insideOneDirection, askedInNewDirection, afterNewDirection };
 }
-
-test("the committed product files never open a direction, never write the epoch, and never end a task", async () => {
-  const head = await load([gitHeadOn(PRODUCT_FILES)]);
-  try {
-    const measured = await probeEpochs(head.loaded);
-    assert.deepEqual(
-      measured.opened,
-      [],
-      "the committed runner bound no beginLocalToolPermissionTurn, so the shell's optional call was a no-op",
-    );
-    assert.deepEqual(
-      measured.parentStream,
-      [[undefined], [undefined]],
-      "the committed adapter wrote no epoch into the turn context, so every read came back as the key's own undefined",
-    );
-    assert.equal(
-      measured.controllerEpoch,
-      0,
-      "with nothing opening a direction the controller's own number is 0 for the life of the process",
-    );
-    assert.equal(
-      measured.childScopeEpoch,
-      undefined,
-      "so the scoped tool call carries no epoch and the controller falls back to that same 0",
-    );
-
-    const refusal = await probeRefusal(head.loaded);
-    assert.equal(
-      refusal.insideOneDirection,
-      SAND_LOCAL_TOOLS_ABANDONED_MESSAGE,
-      "the promise inside one direction is pre-existing behaviour and must survive",
-    );
-    assert.equal(
-      refusal.askedInNewDirection,
-      false,
-      "this is the defect: a new user message did not end the task, so the request was never askable again",
-    );
-    assert.equal(
-      refusal.afterNewDirection,
-      SAND_LOCAL_TOOLS_ABANDONED_MESSAGE,
-      "and the message the model gets in the second turn is the same permanent refusal as in the first",
-    );
-  } finally {
-    head.dispose();
-  }
-});
 
 test("the working tree is what separates the two: the same probe passes against it", async () => {
   const measured = await probeEpochs(loaded);

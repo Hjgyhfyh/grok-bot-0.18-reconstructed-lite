@@ -7,7 +7,14 @@ import { isPathWithin } from "../shared/node/paths.js";
 import { findSystemErrno } from "../shared/system-errno.js";
 
 export const SAND_DATA_ROOT_ENV = "SAND_DATA_ROOT";
-export const SAND_PRODUCTION_DATA_DIRNAME = ".grokbot";
+/** Product data directory. Renamed from `.grokbot` when the product became "DB Bot". */
+export const SAND_PRODUCTION_DATA_DIRNAME = ".dbbot";
+/**
+ * Directory of the previous product name. It is not created any more, but an installed
+ * copy of "Grok Bot" still has its agents and settings there, so the startup settlement
+ * keeps using it instead of starting from an empty profile.
+ */
+export const PREVIOUS_SAND_PRODUCTION_DATA_DIRNAME = ".grokbot";
 export const SAND_USER_DATA_DIR_ENV = "SAND_USER_DATA_DIR";
 export const SAND_DATA_DIRNAME = "sand-data";
 export const USER_DATA_DIR_FLAG = "--user-data-dir";
@@ -58,6 +65,8 @@ export function resolveSandUserDataDir(argv: readonly string[] = [], env: NodeJS
 
 export function getSandProductionRootDir(homeDir = homedir()): string { return join(homeDir, SAND_PRODUCTION_DATA_DIRNAME); }
 
+export function getPreviousSandProductionRootDir(homeDir = homedir()): string { return join(homeDir, PREVIOUS_SAND_PRODUCTION_DATA_DIRNAME); }
+
 export function resolveSandDataRootOverride(env: NodeJS.ProcessEnv = process.env): string | null {
   const override = env[SAND_DATA_ROOT_ENV]?.trim();
   return override != null && override.length > 0 && isAbsolute(override) ? override : null;
@@ -75,7 +84,9 @@ export function getSandRootDir(homeDir = homedir()): string {
 export function reanchorSandPath(storedPath: string): string {
   const root = getSandRootDir();
   if (isPathWithin(root, storedPath, { isInclusive: true })) return storedPath;
-  const match = /(?:[/\\]\.cursor[/\\]sand(?:-[^/\\]+)?|[/\\]\.grokbot)[/\\](.+)$/.exec(storedPath);
+  // `.dbbot` is the current name, `.grokbot` the previous one. Stored absolute paths from
+  // either name are re-anchored onto the root in use, so agents keep finding their store.
+  const match = /(?:[/\\]\.cursor[/\\]sand(?:-[^/\\]+)?|[/\\]\.grokbot|[/\\]\.dbbot)[/\\](.+)$/.exec(storedPath);
   if (match?.[1] == null) return storedPath;
   const segments = match[1].split(/[/\\]+/);
   if (segments.some((segment) => segment === "." || segment === "..")) return storedPath;

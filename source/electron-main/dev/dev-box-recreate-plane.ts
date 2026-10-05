@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { getSandRootDir } from "../../host/host-paths.js";
 import { isDevControlsEnabled } from "./dev-controls-gate.js";
-import type { BoxConnectionInfo } from "../../shared/node/egress-tunnel/box-connection.js";
+import type { GatewayConnection } from "../box/gateway-descriptor-cache.js";
 import type { RecreateResult } from "../box/box-recreate-commands.js";
 
 export class SandDevBoxRecreateError extends Error {}
@@ -288,7 +288,7 @@ export class DevBoxRecreatePlane {
 
 export function actionFailureMessage(action: string, reason: string): string { return `Couldn't ${action} the computer (${reason}). It is unchanged.`; }
 export interface RemoteHostConnector<TCredential = unknown> {
-  connect(): Promise<BoxConnectionInfo>;
+  connect(): Promise<GatewayConnection>;
   issueLocalExecDaemonCredential?: () => Promise<TCredential | undefined>;
   recreate?: (args: { preserveData: boolean; force?: boolean }) => Promise<RecreateResult>;
   forceRecreate?: () => Promise<RecreateResult>;

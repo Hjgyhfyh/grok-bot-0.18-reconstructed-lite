@@ -175,26 +175,33 @@ test("the question the user is shown carries what the card renders and what an a
 });
 
 test("the question the user is shown is the one the shipped renderer draws", async () => {
-  // The shipped renderer is checksum-pinned and is never rebuilt from source, so
-  // the fields it needs are read off the shipped bundle rather than off the
-  // recovered frontend. Minified names are never written by hand: the bundle
-  // locates its own prompt by a string only that prompt carries, and the field
-  // reads are looked for around it.
-  const bundleText = readFileSync(
-    path.join(repoRoot, "src", "app", "dist", "renderer", "assets", "index-lA9cgT4O.js"),
+  // The card is read off the renderer this build actually ships:
+  // `frontend/src/recovered/features/permissions/local-tool/view.tsx`. It used to be mined
+  // out of the checksum-pinned bundle in `src/app/dist/**`, which is gone with the rest of
+  // the fidelity payload. The fields are still looked for by name, but the names now come
+  // from the card's own `LocalToolPermissionAsk` declaration rather than from minified
+  // identifiers written into a regex by hand.
+  const cardSource = readFileSync(
+    path.join(repoRoot, "frontend", "src", "recovered", "features", "permissions", "local-tool", "view.tsx"),
     "utf8",
   );
-  const anchor = "Always allow is disabled by team policy";
-  const anchorAt = bundleText.indexOf(anchor);
-  assert.notEqual(anchorAt, -1,
-    "the shipped renderer carries no local-tool-permission prompt, so the question has nowhere to be drawn");
-  const prompt = bundleText.slice(anchorAt - 4_000, anchorAt + 8_000);
+
+  const askType = /export interface LocalToolPermissionAsk \{([\s\S]*?)\n\}/.exec(cardSource);
+  assert.notEqual(askType, null,
+    "the renderer carries no LocalToolPermissionAsk declaration, so the question has nowhere to be drawn");
   for (const field of ["requestId", "status", "action", "target"]) {
-    assert.match(prompt, new RegExp(`\\.${field}\\b`),
-      `the shipped prompt never reads ask.${field}, so the host emitting it proves nothing about the real card`);
+    assert.match(askType[1], new RegExp(`\\b${field}\\b`),
+      `the card's ask type has no ${field}, so the host emitting it proves nothing about the real card`);
   }
-  assert.match(prompt, /"aria-label":"Local tool permissions"/,
-    "the prompt is not the dock that carries local-tool permissions, so it draws some other question");
+
+  // The fields have to be READ, not merely declared: a declared field nobody reads is a
+  // card that cannot show what it is approving.
+  for (const field of ["requestId", "status", "action", "target"]) {
+    assert.match(cardSource, new RegExp(`ask\\.${field}\\b`),
+      `the card never reads ask.${field}, so it cannot show the command, the action or the reason`);
+  }
+  assert.match(cardSource, /aria-label="Разрешения на запуск команд"/,
+    "the card is not the dock that carries local-tool permissions, so it draws some other question");
 });
 
 test("an ask nobody answers expires honestly and is offered again", async () => {

@@ -1,3 +1,10 @@
+/**
+ * The provider settings are the only place the librarian sets a model, so both
+ * halves of the screen are pinned: the registry entry that mounts the panel and
+ * the provider list the panel offers. Wave 2 translated the labels, which is
+ * what the first of the two tests below now checks instead of the English word
+ * `Router` it used to look for.
+ */
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -45,7 +52,16 @@ test("router provider preference is DeepSeek and nothing else round-trips", asyn
   }
 });
 
-test("settings registry exposes Router with the native settings icon contract", async () => {
+test("the settings registry offers the Provider section, and its icon is the native one", async () => {
+  // Wave 2 translated the registry: `Router` became `Провайдер`. The icon is the
+  // part that carries meaning — the section is mounted by `id`, so a translated
+  // label must not be able to break the mount — and the label is pinned to the
+  // shipped wording rather than to the word "Router".
   const source = await readFile(path.join(repoRoot, "frontend/src/recovered/features/settings/overlay/view.tsx"), "utf8");
-  assert.match(source, /\{ id: "router", label: "Router", icon: "git-branch" \}/);
+  const entry = /\{ id: "router", label: "([^"]+)", icon: "([^"]+)" \}/.exec(source);
+  assert.notEqual(entry, null, "the settings registry offers no Router section, so the provider settings have no place to open");
+  assert.equal(entry[1], "Провайдер", "the Provider section carries a label this build does not ship, so the navigation shows something the product does not have");
+  assert.equal(entry[2], "git-branch", "the Provider section must keep the native branch icon, so it is recognisable as the provider route and not as a generic setting");
+  assert.match(source, /export type SettingsSectionId = "general" \| "router" \| "usage" \| "beta";/,
+    "the section id is what the renderer mounts by, and a renamed id would leave the panel unreachable");
 });

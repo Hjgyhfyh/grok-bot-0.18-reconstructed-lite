@@ -207,6 +207,7 @@ function inspectFile(file) {
   const findings = [];
   const sites = [];
   const negatives = [];
+  const handed = [];
 
   walkAst(ast, [], (node, ancestors) => {
     if (node.type !== "CallExpression") return;
@@ -233,7 +234,40 @@ function inspectFile(file) {
     findings.push(`${relative}:${position} ${api}() receives a member path that is not separator-native — ${verdict.reason}\n    ${site.snippet}`);
   });
 
-  return { sites, findings, negatives, touched: bindings.size > 0 || namespaced, file: relative };
+  // An archive API does not have to be CALLED here to be used: `package-windows-lite.mjs`
+  // hands `listPackage` to `listArchiveFiles`, which calls it. Treating that import as dead
+  // would make the anti-skip guard below fire on a live consumer, and treating it as
+  // invisible would make the guard pass on a file the scan cannot actually judge. So the
+  // reference is located, and it is judged by what it risks: an API that addresses a member
+  // is a hole, because the call that carries the member path is somewhere this scan cannot
+  // see; an API that takes an archive path carries no separator at all.
+  walkAst(ast, [], (node) => {
+    if (node.type !== "CallExpression") return;
+    for (const argument of node.arguments) {
+      if (argument?.type !== "Identifier") continue;
+      const api = bindings.get(argument.name);
+      if (api == null) continue;
+      const position = node.loc.start.line;
+      const where = { file: relative, line: position, api, snippet: source.split("\n")[position - 1].trim() };
+      handed.push(where);
+      if (MEMBER_ADDRESSING.has(api)) {
+        findings.push(`${relative}:${position} ${api} is handed to ${calleeName(node.callee) ?? node.callee.type}() instead of being called here — a member-addressing call the scan cannot judge\n    ${where.snippet}`);
+      }
+    }
+  });
+
+  return {
+    sites,
+    handed,
+    findings,
+    negatives,
+    touched: bindings.size > 0 || namespaced,
+    // The member-addressing APIs this file imports. A file that imports one and yields no
+    // judged site for it is a file the scan is blind to, which a single global counter
+    // cannot tell apart from a tree that simply shrank.
+    memberImports: [...new Set([...bindings.values()].filter((api) => MEMBER_ADDRESSING.has(api)))],
+    file: relative,
+  };
 }
 
 test("every archive API call site addresses members through the platform separator", () => {
@@ -247,14 +281,21 @@ test("every archive API call site addresses members through the platform separat
   const negatives = [];
   const importing = [];
   const unscanned = [];
+  const handed = [];
+  const blind = [];
   for (const file of files) {
     const inspected = inspectFile(file);
-    sites.push(...inspected.sites);
+    sites.push(...inspected.sites, ...inspected.handed);
     findings.push(...inspected.findings);
     negatives.push(...inspected.negatives);
+    handed.push(...inspected.handed);
     if (!inspected.touched) continue;
     importing.push(inspected.file);
-    if (inspected.sites.length === 0) unscanned.push(inspected.file);
+    if (inspected.sites.length === 0 && inspected.handed.length === 0) unscanned.push(inspected.file);
+    if (inspected.memberImports.length > 0 &&
+      !inspected.sites.some((site) => MEMBER_ADDRESSING.has(site.api))) {
+      blind.push(`${inspected.file} (imports ${inspected.memberImports.join(", ")})`);
+    }
   }
 
   assert.deepEqual(
@@ -270,14 +311,22 @@ test("every archive API call site addresses members through the platform separat
     `expected only a handful of deliberate negative probes, found ${negatives.length}: ${negatives.map(s => `${s.file}:${s.line}`).join(", ")}`,
   );
 
-  // Anti-skip guard. A file that imports `@electron/asar` but yields no call site
-  // means the scan is blind to that file — the same silent hole that let the
-  // dynamic-import sites in this very suite go unexamined. Deriving the
-  // expectation from the imports keeps it correct as files come and go.
+  // Anti-skip guard. A file that imports `@electron/asar` but yields neither a call site
+  // nor a reference the scan could judge means the scan is blind to that file — the same
+  // silent hole that let the dynamic-import sites in this very suite go unexamined. Deriving
+  // the expectation from the imports keeps it correct as files come and go.
   assert.deepEqual(
     unscanned,
     [],
     `these files import ${ARCHIVE_MODULE} but the scan found no call in them: ${unscanned.join(", ")}`,
+  );
+  // Handing an archive API to another function is legal only for one that takes no member
+  // path, and that is what the findings assertion above says. What is left to pin here is
+  // that the reference branch of the scan really ran: a scan that never located a hand-off
+  // would report no finding for the same reason it reports none for a clean file.
+  assert.ok(
+    handed.length > 0,
+    "the scan located no archive API handed to another function, so its reference branch is unexercised and `unscanned` above cannot fail for the right reason",
   );
   assert.ok(importing.length >= 8, `expected the repo's archive consumers to be found, found ${importing.length}`);
 
@@ -289,9 +338,18 @@ test("every archive API call site addresses members through the platform separat
   for (const api of ["extractFile", "extractAll", "statFile", "listPackage", "createPackage"]) {
     assert.ok(byApi.get(api) > 0, `the scan never saw a ${api}() call, so it is not looking at the right nodes`);
   }
+  // Every file that imports a member-addressing API must contribute at least one judged
+  // site. This replaces a fixed count: the count used to say "at least 17", which stopped
+  // being true when scripts came and went, and a global counter cannot tell a tree that
+  // shrank from a scan that stopped looking.
+  assert.deepEqual(
+    blind,
+    [],
+    `these files import an archive API that addresses a member, but no call site in them was judged:\n  ${blind.join("\n  ")}`,
+  );
   assert.ok(
-    sites.filter(s => MEMBER_ADDRESSING.has(s.api)).length >= 17,
-    `expected every member-addressing call site to be inspected, found ${sites.filter(s => MEMBER_ADDRESSING.has(s.api)).length}`,
+    sites.filter(s => MEMBER_ADDRESSING.has(s.api)).length > 0,
+    "no member-addressing call site was judged anywhere, so the check above is measuring nothing",
   );
 });
 

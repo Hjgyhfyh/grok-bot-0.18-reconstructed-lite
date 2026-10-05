@@ -8,7 +8,6 @@ import { attachmentsExtension } from "./extensions/attachments/extension.js";
 import { authExtension } from "./extensions/auth/extension.js";
 import { autoReviewExtension } from "./extensions/auto-review/extension.js";
 import { automationsExtension } from "./extensions/automations/extension.js";
-import { boxLifecycleExtension } from "./extensions/box-lifecycle/extension.js";
 import { boxStoreSyncExtension } from "./extensions/box-store-sync/extension.js";
 import { browserUaExtension } from "./extensions/browser-ua/extension.js";
 import { codebaseTelemetryExtension } from "./extensions/codebase-telemetry/extension.js";
@@ -110,7 +109,6 @@ export function createRecoveredProductionExtensionRegistry<Host extends { log(me
     [HostExtensions.Session]: bind(sessionExtension, context => createSessionProductionExtras(context as unknown as Parameters<typeof createSessionProductionExtras>[0])),
     [HostExtensions.Automations]: bind(automationsExtension),
     [HostExtensions.Settings]: bind(settingsExtension),
-    [HostExtensions.BoxLifecycle]: bind(boxLifecycleExtension),
     [HostExtensions.ManagedSetup]: bind(managedSetupExtension, context => createManagedSetupProductionExtras(context as Parameters<typeof createManagedSetupProductionExtras>[0])),
     [HostExtensions.Mcp]: bind(mcpExtension, context => createMcpProductionExtras(context as unknown as Parameters<typeof createMcpProductionExtras>[0])),
     [HostExtensions.BoxStoreSync]: bind(boxStoreSyncExtension),

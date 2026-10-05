@@ -1588,6 +1588,21 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
       ? requestContext
       : undefined;
     const readVideoAttachmentBytes = method(attachments, "readVideoBytes");
+    const readDocuments = method(attachments, "readDocuments");
+    /**
+     * Содержимое вложений текстом для промпта хода. Метод `readDocuments`
+     * читает каждый файл своим движком и собирает блок сам; здесь только
+     * проброс. Раньше его не было, и модель видела пути без содержимого.
+     */
+    const readAttachmentDocumentsNote = async (paths: readonly string[]): Promise<string> => {
+      if (readDocuments === undefined || paths.length === 0) return "";
+      try {
+        const read = await readDocuments({ paths, agentId: session.id });
+        return typeof read?.note === "string" ? read.note : "";
+      } catch {
+        return "";
+      }
+    };
     const mcpCustomInstructions = method(mcp.mcp, "getCustomInstructions");
     let shellWatchWatermark:
       | { readonly turnCount: number; readonly boundaryRef: Uint8Array; readonly lastUserMessageId?: string; readonly hasUserTurn: boolean }
@@ -1625,6 +1640,7 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
           isSpotlightEnabled: () => method(experiments, "isSpotlightEnabled")?.() ?? false,
           uploadAttachmentsIntoBox: async paths =>
             new Map(await method(attachments, "stageIntoBox")?.(session.id, paths) ?? []),
+          readAttachmentDocuments: readAttachmentDocumentsNote,
           getRemoteBoxAvailable: () => method(remoteBox, "isAvailable")?.() !== false,
           getConversationId: () => session.id,
           resolveBoxId: () => session.id,
@@ -2030,6 +2046,7 @@ export function createHostRunnerComposition<Runner extends ProductionSessionBoun
         getAgentDir: () => dirname(session.dbPath),
         uploadAttachmentsIntoBox: (hostPaths: readonly string[]) =>
           method(attachments, "stageIntoBox")?.(session.id, hostPaths),
+        readAttachmentDocuments: readAttachmentDocumentsNote,
         agentStore: session.agentStore,
         conversationSizeGuard: () =>
           sessionApi.store?.ensureConversationCapacityForTurn?.(session),

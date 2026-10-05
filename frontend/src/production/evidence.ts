@@ -170,7 +170,7 @@ export const UI_TEXT = {
   copied: "Скопировано",
   copyVersionInfo: "Копировать сведения о версии",
   copyright: "Авторские права © 2026 SpaceXAI",
-  feedbackIntroduction: "Расскажите команде Grok Bot, что случилось или что хотите изменить. Ваше письмо сразу попадёт в команду.",
+  feedbackIntroduction: "Расскажите команде DB Bot, что случилось или что хотите изменить. Ваше письмо сразу попадёт в команду.",
   feedbackPlaceholder: "Что случилось? Как должно было быть?",
   helpCenter: "Центр помощи",
   hiddenBots: "Скрытые помощники",
@@ -184,7 +184,7 @@ export const UI_TEXT = {
   signIn: "Войти",
   signInTagline: "Команда помощников, которым можно поручить настоящую работу.",
   signOut: "Выйти",
-  signOutDescription: "Чтобы работать с учётной записью Cursor в Grok Bot, придётся войти снова.",
+  signOutDescription: "Чтобы работать с учётной записью Cursor в DB Bot, придётся войти снова.",
   signOutTitle: "Выйти из аккаунта?",
-  title: "Grok Bot"
+  title: "DB Bot"
 } as const;

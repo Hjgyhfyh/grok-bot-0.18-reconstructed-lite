@@ -79,7 +79,7 @@ export function AutoReviewRulesPanel({ disabled = false, settings, onChange }: A
       <SandSwitch
         checked={settings.isEnabled}
         disabled={isDisabled}
-        label={<span><strong>Проверка перед запуском</strong><small>Grok Bot спрашивает вас перед каждым опасным действием. Правила ниже задают, что можно делать без спроса.</small></span>}
+        label={<span><strong>Проверка перед запуском</strong><small>DB Bot спрашивает вас перед каждым опасным действием. Правила ниже задают, что можно делать без спроса.</small></span>}
         onCheckedChange={(checked) => commitSettings({ ...settings, isEnabled: checked })}
       />
 

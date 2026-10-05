@@ -309,8 +309,8 @@ function computerActionResult(value: unknown): { status: string; reason?: string
   };
 }
 
-const COMPUTER_UPDATE_UNTRACKABLE_COPY = "Обновление компьютера запущено, но Grok Bot не может показать его ход. Перезапустите Grok Bot, когда компьютер снова будет доступен.";
-const COMPUTER_RESET_UNTRACKABLE_COPY = "Сброс компьютера запущен, но Grok Bot не может показать его ход. Перезапустите Grok Bot, когда компьютер снова будет доступен.";
+const COMPUTER_UPDATE_UNTRACKABLE_COPY = "Обновление компьютера запущено, но DB Bot не может показать его ход. Перезапустите DB Bot, когда компьютер снова будет доступен.";
+const COMPUTER_RESET_UNTRACKABLE_COPY = "Сброс компьютера запущен, но DB Bot не может показать его ход. Перезапустите DB Bot, когда компьютер снова будет доступен.";
 
 function optimisticAcknowledgementEntries(nonce: string, attachments: readonly { path: string; name: string }[]) {
   return [
@@ -361,7 +361,7 @@ function RootInfoPaneHeader({ children, onClose, closeLabel = "Закрыть" }
   </header>;
 }
 const FEEDBACK_ERRORS: Record<FeedbackCode, string> = {
-  "access-denied": "Grok Bot недоступен для этой учётной записи.",
+  "access-denied": "DB Bot недоступен для этой учётной записи.",
   "invalid-feedback": "Напишите от 1 до 10 000 знаков.",
   "not-signed-in": ["Войдите в ", UI_TEXT.title, ", чтобы отправить отзыв."].join(""),
   "rate-limited": "Вы отправили много отзывов. Повторите через несколько минут.",
@@ -369,7 +369,7 @@ const FEEDBACK_ERRORS: Record<FeedbackCode, string> = {
   unavailable: "Не удалось отправить отзыв. Попробуйте ещё раз."
 };
 const UPDATE_REQUIRED_LABELS = {
-  descriptionPrefix: "Эта версия Grok Bot (",
+  descriptionPrefix: "Эта версия DB Bot (",
   descriptionSuffix: ") больше не поддерживается. Обновите программу, чтобы продолжить работу. Помощники всё это время остаются включёнными.",
   downloading: "Скачиваем обновление…",
   error: "Не удалось скачать обновление. Проверьте подключение и повторите.",
@@ -3220,7 +3220,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     if (readyVersion == null) return;
     void groupMembersRoot.alert.alert({
       title: "Обновление готово",
-      description: `Перезапустите программу, чтобы установить Grok Bot ${readyVersion}. Помощники и ваши данные останутся на месте.`,
+      description: `Перезапустите программу, чтобы установить DB Bot ${readyVersion}. Помощники и ваши данные останутся на месте.`,
       confirmLabel: "Перезапустить и обновить",
       confirmLeadingIcon: "cloud-download",
       pendingLabel: "Перезапускаем…",
@@ -3228,7 +3228,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
       perform: async () => {
         const current = await settingsUpdateController.refresh();
         const currentVersion = current?.state.type === "ready" ? current.state.version : null;
-        if (currentVersion !== readyVersion) return `Grok Bot ${readyVersion} больше не подготовлен. Новая версия появится, когда будет готова.`;
+        if (currentVersion !== readyVersion) return `DB Bot ${readyVersion} больше не подготовлен. Новая версия появится, когда будет готова.`;
         await settingsUpdateController.install();
         return null;
       }
@@ -3459,7 +3459,7 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
             displayName={accountName(account)}
             experimentsSnapshot={bridge.experiments.initialSnapshot}
             isOpen={accountMenuOpen}
-            labels={{ about: UI_TEXT.about, changeLimit: "Изменить лимит", helpCenter: UI_TEXT.helpCenter, included: "Входит в тариф", ios: "Grok Bot для iPhone", logOut: UI_TEXT.logOut, onDemand: "По требованию", sendFeedback: UI_TEXT.sendFeedback, settings: UI_TEXT.settings, signIn: UI_TEXT.signIn, spendThisCycle: "Расход за месяц", weeklyUsage: "Расход за неделю" }}
+            labels={{ about: UI_TEXT.about, changeLimit: "Изменить лимит", helpCenter: UI_TEXT.helpCenter, included: "Входит в тариф", ios: "DB Bot для iPhone", logOut: UI_TEXT.logOut, onDemand: "По требованию", sendFeedback: UI_TEXT.sendFeedback, settings: UI_TEXT.settings, signIn: UI_TEXT.signIn, spendThisCycle: "Расход за месяц", weeklyUsage: "Расход за неделю" }}
             onError={setNotice}
             onOpenAbout={() => setOverlay("about")}
             onOpenChange={setAccountMenuOpen}

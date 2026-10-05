@@ -1,7 +1,7 @@
 /**
  * The user's own file of LOCAL stdio MCP servers, read only.
  *
- * Why this file exists. Grok Bot could describe an MCP server and could push a
+ * Why this file exists. DB Bot could describe an MCP server and could push a
  * stdio configuration to its computer, but it had exactly one source of server
  * definitions: the signed-in Cursor account. Every account read answers 401
  * without a token, so on a signed-out machine the server list was empty, no

@@ -43,7 +43,7 @@ import {
   createCoordinatorTelemetrySinks,
 } from "./coordinator-telemetry.js";
 import { createElectronDesktopConnectivity } from "./desktop-connectivity.js";
-import type { BoxConnectionInfo } from "../../shared/node/egress-tunnel/box-connection.js";
+import type { GatewayConnection } from "../box/gateway-descriptor-cache.js";
 
 export interface ProductionCoordinatorAuthStatus extends CoordinatorAuthStatus {
   readonly isAnysphereUser?: boolean;
@@ -356,7 +356,7 @@ export function createProductionCoordinatorAdapter<
       const baseConnector = ports.createGatewayConnector(context);
       const connector = context.connectorEgress.wrap({
         ...baseConnector,
-        connect: async () => await baseConnector.connect() as BoxConnectionInfo,
+        connect: async () => await baseConnector.connect() as GatewayConnection,
       }) as unknown as ProductionCoordinatorGatewayConnector;
       if (connector == null || typeof connector.connect !== "function") {
         throw new Error("Production coordinator gateway connector did not provide connect().");

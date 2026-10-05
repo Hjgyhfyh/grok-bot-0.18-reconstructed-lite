@@ -158,6 +158,26 @@ const OPTIONAL_FAMILY_TOOLS = [
 ];
 
 /**
+ * Every `## ` section of the shipped base prompt. The assembled prompt is the base prompt plus
+ * whatever sections the composition adds and minus the lines that name an unavailable tool, so a
+ * section that goes missing is the assembly collapsing rather than an intentional trim. Read from
+ * the product rather than written by hand: a hand-written list would stop checking the sections it
+ * no longer remembers.
+ */
+const BASE_SECTIONS = DEFAULT_SAND_SYSTEM_PROMPT.split("\n").filter((line) => /^#{2,3} /.test(line));
+
+/**
+ * The base prompt minus every line that names an optional tool. That is the most the assembly is
+ * allowed to drop, so it is the floor the assembled prompt has to clear. It replaces a fixed
+ * character count: the old bound of `50_000` came from a 74 kB capture of the upstream English
+ * prompt, and the base prompt has since been translated and honestly shortened, which moved the
+ * number without any change to what the model is told.
+ */
+const BASE_WITHOUT_OPTIONAL_LINES = DEFAULT_SAND_SYSTEM_PROMPT.split("\n")
+  .filter((line) => !OPTIONAL_FAMILY_TOOLS.some((tool) => line.includes(tool)))
+  .join("\n");
+
+/**
  * Assembles the prompt exactly the way `host-runner-composition.ts` does for a main
  * agent turn: the shipped base prompt, an agent store, and the agent-management pair
  * that unlocks the agent-directory section. Every optional store is null exactly as
@@ -299,9 +319,13 @@ test("a fully wired agent is told about every tool its turn actually carries", (
     WIRED_AGENT_TOOLS.size >= 20,
     `the wired toolset shrank to ${WIRED_AGENT_TOOLS.size} names, so this is no longer a turn every optional family is offered in`,
   );
+  // The static checks below only mean something if they found something.
+  assert.ok(BASE_SECTIONS.length >= 30, `the shipped base prompt holds only ${BASE_SECTIONS.length} sections, so the section check below cannot catch a collapse`);
+  const missing = BASE_SECTIONS.filter((section) => !prompt.includes(section));
+  assert.deepEqual(missing, [], `the assembled prompt is missing ${missing.length} of the base prompt's own sections, so it is not the prompt that was measured on the running box`);
   assert.ok(
-    prompt.length > 50_000,
-    `the assembled prompt is ${prompt.length} characters, far shorter than the shipped 74 kB one, so this is not the prompt that was measured on the running box`,
+    prompt.length >= BASE_WITHOUT_OPTIONAL_LINES.length,
+    `the assembled prompt is ${prompt.length} characters, below the ${BASE_WITHOUT_OPTIONAL_LINES.length} the base prompt holds once the unavailable-tool lines are removed, so text is being dropped rather than conditioned`,
   );
 });
 

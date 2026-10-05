@@ -83,7 +83,7 @@ export function SettingsModalShell({
       className="sand-settings-dialog"
       closeOnBackdrop={closeOnBackdrop}
       closeOnEscape={closeOnEscape}
-      label="Настройки Grok Bot"
+      label="Настройки DB Bot"
       onClose={onClose}
       open={isOpen}
       trapFocus={trapFocus}

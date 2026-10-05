@@ -4,7 +4,7 @@
  * Why this file exists twice. `local-mcp/mcp-stdio-client.mjs` is the standalone
  * copy: plain `.mjs`, no build step, no dependency, runnable by the user as
  * `node local-mcp/mcp-stdio-client.mjs --config <file> --list` to check a server
- * by hand before wiring it into Grok Bot. That copy lives outside `source/`, so
+ * by hand before wiring it into DB Bot. That copy lives outside `source/`, so
  * esbuild never sees it and it never reaches `app.asar` — the transport the
  * product depends on existed only as a developer script. This is the same client
  * inside `source/`, so the host bundle (`source/host/extensions/mcp/`) and the

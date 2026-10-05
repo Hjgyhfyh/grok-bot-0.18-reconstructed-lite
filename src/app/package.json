@@ -1,8 +1,8 @@
 {
   "name": "sand",
-  "productName": "Grok Bot",
+  "productName": "DB Bot",
   "version": "0.18.0",
-  "description": "Grok Bot desktop agent",
+  "description": "DB Bot — настольный помощник на DeepSeek для одного пользователя.",
   "author": "SpaceXAI",
   "homepage": "https://cursor.com",
   "private": true,

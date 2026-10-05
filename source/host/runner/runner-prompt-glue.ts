@@ -32,6 +32,8 @@ export interface RunnerPromptGlueOwner {
   readonly isBrowserUseSubagentEnabled?: () => boolean;
   readonly isSpotlightEnabled?: () => boolean;
   readonly uploadAttachmentsIntoBox?: (paths: readonly string[]) => Promise<ReadonlyMap<string, string>>;
+  /** Содержимое прикреплённых файлов текстом. Пустая строка, если читать нечего. */
+  readonly readAttachmentDocuments?: (paths: readonly string[]) => Promise<string | null>;
   readonly getRemoteBoxAvailable?: () => boolean;
   getConversationId(): string;
   resolveBoxId(): string;
@@ -63,6 +65,7 @@ export function createRunnerPromptGlue(owner: RunnerPromptGlueOwner) {
     get isBrowserUseSubagentEnabled() { return owner.isBrowserUseSubagentEnabled; },
     get isSpotlightEnabled() { return owner.isSpotlightEnabled; },
     get uploadAttachmentsIntoBox() { return owner.uploadAttachmentsIntoBox; },
+    get readAttachmentDocuments() { return owner.readAttachmentDocuments; },
     get getRemoteBoxAvailable() { return owner.getRemoteBoxAvailable; },
     get mcp() { return owner.mcp; },
     get resolveBoxId() { return owner.resolveBoxId; },

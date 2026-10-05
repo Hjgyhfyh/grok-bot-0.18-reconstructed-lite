@@ -9,12 +9,35 @@ import { reportDesktopEdgeFailure } from "./desktop-edge-failures.js";
 import { SAND_INFERENCE_PROVIDER, defaultSandInferenceCustomEndpoint, isSandInferenceProvider, normalizeSandInferenceCustomEndpoint, DEEPSEEK_BASE_URL } from "../shared/inference-router.js";
 import { listSandEndpointModels } from "../shared/node/inference-endpoint-models.js";
 import { isSandBoxRuntime } from "../shared/box-runtime.js";
-import { getLocalDockerStatus, startLocalDockerBox, stopLocalDockerBox } from "./box/local-docker-host-connector.js";
+
+/**
+ * The local Docker VM is gone. `getBoxRuntime` / `setBoxRuntime` stay in
+ * `MAIN_METHOD_TABLE` and keep their shapes, because `preload.ts` builds wrappers
+ * from that table and a missing entry throws at construction. Both now report the
+ * only runtime that exists: the host process on this machine.
+ */
+const LOCAL_BOX_RUNTIME = "remote" as const;
+const LOCAL_BOX_RUNTIME_STATUS = Object.freeze({
+  available: true,
+  running: true,
+  ready: true,
+  containerName: "",
+  image: "",
+  detail: "The agent's computer is this computer. There is no virtual machine and no remote box.",
+});
 
 export const MAIN_EDGE_UNSERVED = "main/unserved-method";
 export const MAIN_EDGE_UPDATE_UNAVAILABLE = "main/update-unavailable";
 export const MAIN_EDGE_THEME_UNAVAILABLE = "main/theme-unavailable";
+/**
+ * The egress tunnel carried a computer's traffic to a remote exit node. It is gone:
+ * the three bridge methods stay in `MAIN_METHOD_TABLE` so the renderer contract
+ * does not change, but they now report a permanently closed tunnel. Deleting the
+ * methods instead would break `preload.ts` and every settings screen that reads
+ * the status, and a bridge method with no handler is ignored silently.
+ */
 export const MAIN_EDGE_EGRESS_TUNNEL_UNAVAILABLE = "main/egress-tunnel-unavailable";
+const EGRESS_TUNNEL_OFF_STATUS = Object.freeze({ state: "off", relayedStreams: 0, activeStreams: 0 });
 
 type UnknownRecord = Record<string, unknown>;
 type Handler = (request: UnknownRecord) => unknown;
@@ -34,7 +57,6 @@ export class SandHostSettingsUnreachableError extends Error {}
 export interface MainEdgeDeps {
   readonly readLiveUpdateService: () => UnknownRecord | null;
   readonly readThemeController: () => UnknownRecord | null;
-  readonly readEgressTunnelController: () => UnknownRecord | null;
   readonly settingsStore: UnknownRecord;
   readonly agentPrefsStore: UnknownRecord;
   readonly boxToggleStore: UnknownRecord;
@@ -58,7 +80,6 @@ export interface MainEdgeDeps {
   readonly getInferenceApiKey?: () => string | null | undefined;
   /** Writes the DeepSeek key the user typed into the settings panel. Optional. */
   readonly setInferenceApiKey?: (value: string | undefined) => void;
-  readonly emitEgressTunnelChanged: (enabled: boolean) => void;
   readonly emitWebauthnProxyChanged: (enabled: boolean) => void;
   readonly ensureTranscriptionManager: () => Promise<UnknownRecord>;
   readonly platform: NodeJS.Platform;
@@ -77,7 +98,6 @@ export const unserved = (): never => { throw new EdgeCallFailure({ code: MAIN_ED
 function required(read: () => UnknownRecord | null, code: string, detail: string): UnknownRecord { const value = read(); if (value == null) throw new EdgeCallFailure({ code, detail }); return value; }
 function updateService(deps: MainEdgeDeps) { return required(deps.readLiveUpdateService, MAIN_EDGE_UPDATE_UNAVAILABLE, "The update service is not running."); }
 function themeController(deps: MainEdgeDeps) { return required(deps.readThemeController, MAIN_EDGE_THEME_UNAVAILABLE, "The theme controller is not running."); }
-function egressController(deps: MainEdgeDeps) { return required(deps.readEgressTunnelController, MAIN_EDGE_EGRESS_TUNNEL_UNAVAILABLE, "The egress tunnel controller is not running."); }
 /** The DeepSeek key name in the OS secret store. The renderer never receives its value. */
 const CUSTOM_ENDPOINT_SECRET_KEY = "DEEPSEEK_API_KEY";
 const DEEPSEEK_MISSING_KEY_HINT =
@@ -162,12 +182,12 @@ export function createMainEdgeHandlers(deps: MainEdgeDeps): HandlerMap {
     // `coordinator-resync` re-pushes the desktop copy on every reconnect, that divergence
     // would then be made permanent.
     const previousProvider = invoke(deps.settingsStore, "getInferenceProvider"); const previousEndpoint = invoke(deps.settingsStore, "getInferenceCustomEndpoint"); invoke(deps.settingsStore, "setInferenceProvider", provider); if (requestedEndpoint !== undefined) invoke(deps.settingsStore, "setInferenceCustomEndpoint", endpoint); const settings = await (requestedEndpoint === undefined ? deps.syncHostSettingsToBox({ inferenceProvider: provider }) : deps.syncHostSettingsToBox({ inferenceProvider: provider, inferenceCustomEndpoint: endpoint ?? null })).catch(() => null); if (settings === null) { invoke(deps.settingsStore, "setInferenceProvider", previousProvider); invoke(deps.settingsStore, "setInferenceCustomEndpoint", previousEndpoint); throw new SandHostSettingsUnreachableError("Couldn't reach the computer to save the inference route."); } return { provider, usage: settings.inferenceRouterUsage ?? invoke(deps.settingsStore, "getInferenceRouterUsage") ?? null, endpoint: requestedEndpoint === undefined ? invoke(deps.settingsStore, "getInferenceCustomEndpoint") ?? defaultSandInferenceCustomEndpoint() : endpoint ?? defaultSandInferenceCustomEndpoint(), apiKeyConfigured: storedDeepSeekApiKey(deps) != null }; },
-    getBoxRuntime: async () => { const mode = invoke(deps.settingsStore, "getBoxRuntime"); invariant(isSandBoxRuntime(mode), "Unknown box runtime."); return { mode, status: await getLocalDockerStatus(String(Reflect.get(deps.settingsStore, "settingsPath"))) }; },
-    setBoxRuntime: async (raw) => { const mode = req(raw).mode; invariant(isSandBoxRuntime(mode), "Unknown box runtime."); const settingsPath = String(Reflect.get(deps.settingsStore, "settingsPath")); invoke(deps.settingsStore, "setBoxRuntime", mode); try { if (mode === "local-docker") await startLocalDockerBox(settingsPath); else await stopLocalDockerBox(); } catch (error) { invoke(deps.settingsStore, "setBoxRuntime", mode === "local-docker" ? "remote" : "local-docker"); throw error; } invoke(deps.boxRecovery, "restartCoordinator"); return { mode, status: await getLocalDockerStatus(settingsPath) }; },
+    getBoxRuntime: async () => ({ mode: LOCAL_BOX_RUNTIME, status: LOCAL_BOX_RUNTIME_STATUS }),
+    setBoxRuntime: async (raw) => { const mode = req(raw).mode; invariant(isSandBoxRuntime(mode), "Unknown box runtime."); return { mode: LOCAL_BOX_RUNTIME, status: LOCAL_BOX_RUNTIME_STATUS }; },
 
-    getEgressTunnelEnabled: () => invoke(deps.boxToggleStore, "getEgressTunnelEnabled"),
-    setEgressTunnelEnabled: (raw) => { const enabled = req(raw).enabled === true; invoke(deps.boxToggleStore, "setEgressTunnelEnabled", enabled); invoke(egressController(deps), "setEnabled", enabled); deps.emitEgressTunnelChanged(enabled); return enabled; },
-    getEgressTunnelStatus: () => invoke(egressController(deps), "getStatus"),
+    getEgressTunnelEnabled: () => false,
+    setEgressTunnelEnabled: () => false,
+    getEgressTunnelStatus: () => EGRESS_TUNNEL_OFF_STATUS,
     getWebauthnProxyEnabled: () => invoke(deps.boxToggleStore, "getWebauthnProxyEnabled"),
     setWebauthnProxyEnabled: async (raw) => { const enabled = req(raw).enabled === true; invoke(deps.boxToggleStore, "setWebauthnProxyEnabled", enabled); deps.emitWebauthnProxyChanged(enabled); const mirrored = sandWebauthnProxyMirroredEnablement(enabled, deps.platform); for (let attempt = 0; attempt < 3; attempt += 1) { const applied = await deps.syncHostSettingsToBox({ webauthnProxyEnabled: mirrored }); if (applied?.webauthnProxyEnabled === mirrored) break; await (deps.delay ?? sleep)(250 * (attempt + 1)); } return invoke(deps.boxToggleStore, "getWebauthnProxyEnabled"); },
     getOnboardingSeen: async () => await Promise.resolve(invoke(deps.onboardingSeen, "reconcile")) === true,

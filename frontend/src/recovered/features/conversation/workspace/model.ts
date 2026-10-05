@@ -2,8 +2,52 @@ import type { TranscriptCardEntry } from "../cards/transcript-card/protocol";
 import type { TimelineEventData } from "../cards/timeline-event-registry";
 import type { ToolResultCardSnapshot } from "../tool-results/model";
 import type { SendMessageTextAdjacency, SendMessageTextImage } from "../cards/transcript-card/send-message-text";
+import { ATTACHMENT_COUNT_LIMIT } from "../../../../../../source/shared/media/attachment-limits";
 
-export const COMPOSER_ATTACHMENT_LIMIT = 6;
+/**
+ * Сколько файловComposer держит за раз.
+ *
+ * Раньше здесь стояло 6, и `selectComposerFiles` молча отрезал всё, что не
+ * помещалось: заведующая выбирала восемь файлов, получала шесть и даже не
+ * видела, что два потерялись. Теперь предел тот же, что и у приёма вложений
+ * на стороне хоста, — `ATTACHMENT_COUNT_LIMIT`. Расхождение двух чисел было бы
+ * новым способом терять файлы, поэтому берётся одна константа.
+ */
+export const COMPOSER_ATTACHMENT_LIMIT = ATTACHMENT_COUNT_LIMIT;
+
+/** Что влезло в сообщение, а что осталось за его пределом. */
+export interface ComposerFileSelection {
+  readonly accepted: readonly File[];
+  readonly dropped: readonly File[];
+}
+
+/**
+ * Отбор файлов для прикрепления.
+ *
+ * Раньше функция возвращала только `files.slice(0, remaining)`: всё, что не
+ * помещалось в лимит, исчезало без следа, и заведующая не понимала, почему
+ * из восьми выбранных файлов прикрепились шесть. Теперь отброшенное
+ * возвращается наружу, а `describeDroppedComposerFiles` объясняет это по-русски.
+ */
+export function selectComposerFiles(files: readonly File[], existingCount: number): ComposerFileSelection {
+  const remaining = Math.max(0, COMPOSER_ATTACHMENT_LIMIT - existingCount);
+  return { accepted: files.slice(0, remaining), dropped: files.slice(remaining) };
+}
+
+/** Что сказать о файлах, которые не прикрепились. Пустая строка, если влезли все. */
+export function describeDroppedComposerFiles(
+  dropped: readonly File[],
+  limit: number = COMPOSER_ATTACHMENT_LIMIT
+): string {
+  if (dropped.length === 0) return "";
+  const names = dropped.map((file) => file.name).filter((name) => name.length > 0);
+  const shown = names.slice(0, 5).map((name) => `«${name}»`).join(", ");
+  const rest = names.length > 5 ? ` и ещё ${names.length - 5}` : "";
+  const subject = dropped.length === 1 && names.length === 1
+    ? `Файл ${shown} не прикреплён`
+    : `Не прикреплены файлы: ${shown}${rest}`;
+  return `${subject}. К одному сообщению можно прикрепить не больше ${limit}. Уберите лишние и прикрепите их следующим сообщением.`;
+}
 
 export type AttachmentKind =
   | "image"

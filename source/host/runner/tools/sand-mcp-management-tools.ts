@@ -33,7 +33,7 @@ export interface McpInstalledServer {
   readonly customInstructions: string;
   readonly isTeamServer?: boolean;
   /**
-   * Set on rows Grok Bot read from the user's own local MCP file rather than from
+   * Set on rows DB Bot read from the user's own local MCP file rather than from
    * the account. It is the flag every management tool consults before it offers a
    * change the file itself owns.
    */
@@ -41,7 +41,7 @@ export interface McpInstalledServer {
 }
 
 /**
- * True for a row Grok Bot started from the user's local MCP file.
+ * True for a row DB Bot started from the user's local MCP file.
  *
  * Two independent signals, either sufficient, because a wrong `false` here is the
  * difference between refusing and starting an OAuth flow on a process: the
@@ -303,7 +303,7 @@ export function validateRemoteMcpUrl(rawUrl: string): string | null {
     return `"${rawUrl}" is not a valid URL. Ask the user for the server's full https endpoint (e.g. https://example.com/mcp) and try again.`;
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return `The server URL must be http(s); "${parsed.protocol}" is not supported. Grok Bot only connects remote http/sse MCP servers over HTTP(S), so ask the user for an https endpoint.`;
+    return `The server URL must be http(s); "${parsed.protocol}" is not supported. DB Bot only connects remote http/sse MCP servers over HTTP(S), so ask the user for an https endpoint.`;
   }
   if (parsed.username.length > 0 || parsed.password.length > 0) {
     return `Don't put credentials in the server URL \u2014 pass them as headers instead (e.g. { "Authorization": "Bearer <token>" }), so they aren't stored in plaintext in the URL. Ask the user for the token and try again with a clean URL.`;
@@ -450,7 +450,7 @@ function noInstalledServerMessage(token: string): string {
 }
 
 /**
- * What Grok Bot does when a transport-level tool is pointed at a local stdio
+ * What DB Bot does when a transport-level tool is pointed at a local stdio
  * server, and why each refusal exists.
  *
  * `AuthenticateMcpServer` starts an OAuth flow. A stdio server has no browser
@@ -472,7 +472,7 @@ function noInstalledServerMessage(token: string): string {
  * location, not the resolved one.
  */
 function localStdioRefusal(row: McpInstalledServer, operation: string): string {
-  return `"${row.name}" is a local stdio server that Grok Bot reads from ${LOCAL_MCP_CONFIG_HINT} and does not manage, so ${operation}. Ask the user to edit that file by hand and then run RestartMcpServers; do not try another tool for it.`;
+  return `"${row.name}" is a local stdio server that DB Bot reads from ${LOCAL_MCP_CONFIG_HINT} and does not manage, so ${operation}. Ask the user to edit that file by hand and then run RestartMcpServers; do not try another tool for it.`;
 }
 
 export function createMcpManagementTools(
@@ -562,7 +562,7 @@ export function createMcpManagementTools(
       }),
     }),
     defineCommunicateTool(management, {
-      id: "ADD_MCP_SERVER", name: "AddMcpServer", description: `Add a remote MCP server that isn't in the catalog to the user's Cursor account — use this when the user gives you a link for a server that SearchPlugins doesn't know. Only call this after the user agrees to add it — confirm with a question widget first, since it changes the user's account configuration and the server can reach external services on their behalf. Provide the remote server's \`url\` (with \`headers\` for any auth token). Grok Bot only supports remote http/sse MCP servers (executed on the backend). A local/stdio server cannot be added here: the user declares those by hand in ${LOCAL_MCP_CONFIG_HINT}, and no tool in this product writes that file — say so if the user asks you to. Ask the user for the exact endpoint and any secrets rather than guessing; if you only have a link, open it first (WebFetch) to find the connection details. Newly added tools become available to you on your next message.`, parameters: addMcpServerParameters,
+      id: "ADD_MCP_SERVER", name: "AddMcpServer", description: `Add a remote MCP server that isn't in the catalog to the user's Cursor account — use this when the user gives you a link for a server that SearchPlugins doesn't know. Only call this after the user agrees to add it — confirm with a question widget first, since it changes the user's account configuration and the server can reach external services on their behalf. Provide the remote server's \`url\` (with \`headers\` for any auth token). DB Bot only supports remote http/sse MCP servers (executed on the backend). A local/stdio server cannot be added here: the user declares those by hand in ${LOCAL_MCP_CONFIG_HINT}, and no tool in this product writes that file — say so if the user asks you to. Ask the user for the exact endpoint and any secrets rather than guessing; if you only have a link, open it first (WebFetch) to find the connection details. Newly added tools become available to you on your next message.`, parameters: addMcpServerParameters,
       execute: guardMutation(async (_ctx, args: z.infer<typeof addMcpServerParameters>, deps) => {
         const error = validateRemoteMcpUrl(args.url);
         if (error != null) return error;
@@ -582,7 +582,7 @@ export function createMcpManagementTools(
         if (row == null) return noInstalledServerMessage(args.server_id);
         if (row.pluginId != null) return `${row.name} was installed from marketplace plugin ${row.pluginId}; use UninstallPlugin.`;
         if (row.isTeamServer === true) return `${row.name} is provided by the user's team, so it can't be removed here.`;
-        if (isLocalMcpInstalledServer(row)) return localStdioRefusal(row, "there is nothing Grok Bot can uninstall here");
+        if (isLocalMcpInstalledServer(row)) return localStdioRefusal(row, "there is nothing DB Bot can uninstall here");
         const result = await deps.removeServer(row.id);
         const status = result.removed ? `Removed MCP server ${row.name} (${row.serverIdentifier}).` : `The removal request for ${row.name} completed, but it still reads as installed.`;
         return [status, describeInstalledList(result.servers)].join("\n");

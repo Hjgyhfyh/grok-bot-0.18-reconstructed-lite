@@ -5,15 +5,12 @@ import { createCoordinatorMainLegs } from "./coordinator/coordinator-main-legs.j
 import { createEgressConnectionObserver } from "./box/remote-connector-egress.js";
 import { createDesktopGatewayDescriptorFastPath } from "./box/gateway-descriptor-store.js";
 import { createRemoteHostConnector, type SandRemoteHostConnector } from "./box/box-host-connector.js";
-import { createSettingsRoutedHostConnector } from "./box/local-docker-host-connector.js";
 import { createSandClientPauseControl } from "./box/box-client-pause.js";
 import { createSandMigrationWatcher } from "./box/box-migration-watcher.js";
 import type { RecreateResult } from "./box/box-recreate-commands.js";
 import { createProductionBoxRecovery, type BoxRecovery } from "./box/box-recovery.js";
 import { wrapRemoteHostConnectorWithDevBoxPlane } from "./dev/dev-box-recreate-plane.js";
-import { createEgressTunnelWiring } from "./box/egress-tunnel-wiring.js";
-import type { BoxConnectionInfo } from "../shared/node/egress-tunnel/box-connection.js";
-import type { EgressTunnelController } from "../shared/node/egress-tunnel/egress-tunnel-controller.js";
+import type { GatewayConnection } from "./box/gateway-descriptor-cache.js";
 import { SandDeepLinkController, extractDeepLinkCandidatesFromArgv } from "./deep-link/deep-link-controller.js";
 import { registerAuthCallbackProtocol } from "./auth/auth-callback-registration.js";
 import { resolveAttachProdBoxPreferred } from "./dev/dev-attach-prod-box.js";
@@ -43,7 +40,6 @@ import { createBoxVisibilityReportHandler, installBoxVisibilityDocumentReset, Sa
 import { createDevGatewayOfflineControl } from "./dev/dev-gateway-offline.js";
 import { createDevRestartExit, maybeDevLoginFromEnv, registerDevWiring, type IpcMainPort } from "./dev/dev-wiring.js";
 import { SandProductAnalytics } from "../shared/node/analytics/product-analytics.js";
-import { registerElectronProductionVncTrust, type ElectronProductionVncTrustDeps } from "./vnc/vnc-trust.js";
 import { registerProductionTelemetryIpc } from "./telemetry/production-telemetry-ipc.js";
 import type { SandAuthStatus } from "./account/cursor-auth.js";
 import type { SecureStorageCodec } from "./secrets/secret-store.js";
@@ -318,10 +314,8 @@ export interface ProductionServiceContext {
   /** Root-owned callback re-applied after the coordinator adopts its main-data port. */
   readonly onCoordinatorLaunched: () => void;
   readonly coordinatorLegs: ReturnType<typeof createCoordinatorMainLegs>;
-  /** Root-owned connector observer shared by the coordinator gateway and egress tunnel. */
-  readonly connectorEgress: ReturnType<typeof createEgressConnectionObserver<BoxConnectionInfo>>;
-  /** Process-lifetime egress controller; the immutable root does not unregister it. */
-  readonly requireEgressTunnelController: () => EgressTunnelController;
+  /** Root-owned connector observer shared by the coordinator gateway and the desktop shell. */
+  readonly connectorEgress: ReturnType<typeof createEgressConnectionObserver<GatewayConnection>>;
   /** Root-owned coordinator settings/resync closures; the service remains lazy until coordinator creation. */
   readonly coordinatorResync: ProductionCoordinatorResyncPort;
   /** Exact host-settings field mirrors, including the onboarding field used by MainEdge. */
@@ -378,8 +372,6 @@ export interface ProductionServiceContext {
   readonly desktopMetricsRuntime: DesktopMetricsRuntime;
   /** Product analytics owner shared by renderer report pipes and lifecycle flush. */
   readonly productAnalytics: SandProductAnalytics;
-  /** Exact process-owned VNC carrier factory; routeHostInput remains a main-root port. */
-  readonly createVncTrust: (routeHostInput: ElectronProductionVncTrustDeps["routeHostInput"]) => ReturnType<typeof registerElectronProductionVncTrust>;
   /** Renderer box-visibility state machine and its exact trusted-report projection. */
   readonly boxVisibilityTracker: SandBoxVisibilityTracker;
   readonly handleBoxVisibilityReport: Parameters<ReturnType<typeof createBoxVisibilityReportHandler>>[0] extends infer T ? (report: T) => void : never;
@@ -467,7 +459,7 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
   }
   const windowStatePersistence = createWindowStatePersistence({ app: bindings.native.app, screen: bindings.native.screen, env, captureWarning: (message) => bindings.reportFailure("window-state", "persistence", new Error(message)) });
   const coordinatorLegs = createCoordinatorMainLegs({ onProblem: (problem) => bindings.reportFailure("coordinator", "main-legs", new Error(problem)), reportFailure: (leg, error) => bindings.reportFailure("coordinator", leg, error) });
-  const connectorEgress = createEgressConnectionObserver<BoxConnectionInfo>();
+  const connectorEgress = createEgressConnectionObserver<GatewayConnection>();
   const devGatewayOfflineControl = createDevGatewayOfflineControl(async (induced) => {
     const result: unknown = await coordinatorLegs.legs.setDevGatewayOffline!({ induced });
     if (typeof result !== "object" || result == null || typeof Reflect.get(result, "induced") !== "boolean") {
@@ -475,8 +467,8 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
     }
     return { induced: Reflect.get(result, "induced") as boolean };
   });
-  type ProductionClientPauseControl = ReturnType<typeof createSandClientPauseControl<BoxConnectionInfo, { readonly preserveData: boolean; readonly force?: boolean }, RecreateResult, { readonly credential: string; readonly backendUrl: string; readonly expiresAtMs?: number }>>;
-  let runtime: ElectronMainRuntime | undefined, settings: ProductionSettingsService | undefined, mainEdge: (MainEdge & Partial<ProductionDisposable>) | undefined, account: ProductionAccountService | undefined, cursorAccount: unknown, ensureTranscriptionManager: (() => Promise<unknown>) | undefined, experiments: ProductionExperimentsService | undefined, update: ProductionUpdateService | undefined, mcp: ProductionMcpService | undefined, telemetry: ProductionTelemetryService | undefined, notifications: ProductionNotificationsService | undefined, coordinator: ProductionCoordinatorService | undefined, egressTunnelController: EgressTunnelController | undefined, context: ProductionServiceContext | undefined, secretsStores: ReturnType<typeof createSecretsStores> | undefined, boxRecovery: ReturnType<typeof createProductionBoxRecovery> | undefined, clientPauseControl: ProductionClientPauseControl | undefined, boxVisibilityTracker: SandBoxVisibilityTracker | undefined, desktopMetricsRuntime: DesktopMetricsRuntime | undefined, productAnalytics: SandProductAnalytics | undefined, vncTrust: ReturnType<typeof registerElectronProductionVncTrust> | undefined;
+  type ProductionClientPauseControl = ReturnType<typeof createSandClientPauseControl<GatewayConnection, { readonly preserveData: boolean; readonly force?: boolean }, RecreateResult, { readonly credential: string; readonly backendUrl: string; readonly expiresAtMs?: number }>>;
+  let runtime: ElectronMainRuntime | undefined, settings: ProductionSettingsService | undefined, mainEdge: (MainEdge & Partial<ProductionDisposable>) | undefined, account: ProductionAccountService | undefined, cursorAccount: unknown, ensureTranscriptionManager: (() => Promise<unknown>) | undefined, experiments: ProductionExperimentsService | undefined, update: ProductionUpdateService | undefined, mcp: ProductionMcpService | undefined, telemetry: ProductionTelemetryService | undefined, notifications: ProductionNotificationsService | undefined, coordinator: ProductionCoordinatorService | undefined, context: ProductionServiceContext | undefined, secretsStores: ReturnType<typeof createSecretsStores> | undefined, boxRecovery: ReturnType<typeof createProductionBoxRecovery> | undefined, clientPauseControl: ProductionClientPauseControl | undefined, boxVisibilityTracker: SandBoxVisibilityTracker | undefined, desktopMetricsRuntime: DesktopMetricsRuntime | undefined, productAnalytics: SandProductAnalytics | undefined;
   let sessionDeathSettlement: ReturnType<typeof wireDesktopUncleanExitSettlement> | undefined;
   const desktopLifecycle = createDesktopLifecycleReporter();
   const disposeLocalExecLifecycleReporter = installLocalExecLifecycleReporter(desktopLifecycle.reportDesktopLocalExecLifecycle);
@@ -632,7 +624,7 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
         safeStorage: bindings.native.safeStorage,
         getAccountScope: () => accountLifecycle.getAccountScope() ?? undefined,
       });
-      const pauseControl = createSandClientPauseControl<BoxConnectionInfo, { readonly preserveData: boolean; readonly force?: boolean }, RecreateResult, { readonly credential: string; readonly backendUrl: string; readonly expiresAtMs?: number }>(
+      const pauseControl = createSandClientPauseControl<GatewayConnection, { readonly preserveData: boolean; readonly force?: boolean }, RecreateResult, { readonly credential: string; readonly backendUrl: string; readonly expiresAtMs?: number }>(
         { checkFeatureGate: (name) => requireValue(experiments, "experiments").checkFeatureGate(name) },
         {
           setGatewayPaused: async (args) => {
@@ -644,12 +636,12 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
         connectorEgress,
       );
       clientPauseControl = pauseControl;
-      const rawRemoteConnector: SandRemoteHostConnector = createSettingsRoutedHostConnector(createRemoteHostConnector(
+      const rawRemoteConnector: SandRemoteHostConnector = createRemoteHostConnector(
           backendClientOptions,
           env,
           { noteBackendUpdateRequirement: (required) => requireValue(update, "update").noteBackendUpdateRequirement(required) },
           gatewayFastPath,
-        ), requireValue(settings, "settings").settingsStore);
+        );
       const baseRemoteConnector = wrapRemoteHostConnectorWithDevBoxPlane(
         rawRemoteConnector,
         {
@@ -710,7 +702,6 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
           void devGatewayOfflineControl.reapplyAfterCoordinatorLaunch();
         },
         coordinatorLegs, connectorEgress,
-        requireEgressTunnelController: () => requireValue(egressTunnelController, "egress-tunnel"),
         coordinatorResync, hostSettingsFields, mcpHost,
         clearGatewayDescriptor: () => gatewayFastPath.store.clear(),
         reportFailure: (area, leg, error) => bindings.reportFailure(area, leg, error),
@@ -735,22 +726,6 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
         },
         desktopMetricsRuntime: requireValue(desktopMetricsRuntime, "desktop-metrics"),
         productAnalytics: requireValue(productAnalytics, "product-analytics"),
-        createVncTrust: (routeHostInput) => {
-          if (vncTrust != null) throw new Error("Electron production VNC trust was already registered.");
-          vncTrust = registerElectronProductionVncTrust({
-            preloadDistDir: join(resources.preloadPath, ".."),
-            routeHostInput,
-            onAssetFailure: (failure) => requireValue(telemetry, "telemetry").telemetry.reportVncAssetFail?.({
-              vnc_host: failure.host,
-              http_status: String(failure.statusCode),
-              token_seeded: String(failure.tokenInfo.seeded),
-              token_source: failure.tokenInfo.source,
-              resource: failure.resource,
-            }),
-            onUserPresence: (isPresent) => requireValue(mainEdge, "main-edge").emit("vnc-user-presence", { isPresent }),
-          });
-          return vncTrust;
-        },
         boxVisibilityTracker: requireValue(boxVisibilityTracker, "box-visibility"), handleBoxVisibilityReport,
       };
       const attachments = bindings.services.createAttachments(base);
@@ -804,11 +779,10 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
       requireValue(settings, "settings").initializeTheme();
       boxVisibilityTracker.noteAccountSlot(desktopStructuredLogAccountSlot(await account.getStatus()));
       if (options?.routeHostInput != null) {
-        vncTrust = requireValue(context, "context").createVncTrust(options.routeHostInput);
         registerProductionTelemetryIpc({
           telemetry: () => telemetry?.telemetry,
           productAnalytics: () => productAnalytics,
-          getVncTokenInfo: (host) => vncTrust?.getTokenInfo(host),
+          getVncTokenInfo: () => undefined,
           coordinatorTelemetry: requireValue(coordinator, "coordinator").getTelemetryReportPipes?.() ?? (() => { throw new Error("Electron production coordinator telemetry pipes are unavailable."); })(),
           desktopMetricsRuntime: requireValue(desktopMetricsRuntime, "desktop-metrics"),
           boxVisibilityTracker: requireValue(boxVisibilityTracker, "box-visibility"),
@@ -818,12 +792,6 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
           reportTelemetrySinkFailure: (failure) => requireValue(telemetry, "telemetry").telemetry.reportTelemetrySinkEdgeFailure?.(failure),
         });
       }
-      egressTunnelController = createEgressTunnelWiring({
-        observer: connectorEgress,
-        broadcastStatus: (status) => requireValue(mainEdge, "main-edge").emit("egress-tunnel-status-changed", status),
-        isEnabled: () => requireValue(settings, "settings").settingsStore.getEgressTunnelEnabled(),
-        env,
-      });
       track(requireDisposable(bindings.services.registerIpc(context), "ipc"));
       registerDevWiring({
         ipcMain: bindings.native.ipcMain,
@@ -860,10 +828,7 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
         registerImageContextMenu: () => bindings.services.registerImageContextMenu?.({
           openExternalUrl: async (value) => { const url = bindings.parseAllowedExternalUrl(value); if (url != null) await mcp!.openExternalUrl(url); },
           onEdgeFailure: (failure) => telemetry?.telemetry.reportImageEdgeFailure?.(failure),
-        }),
-        configureVncTrust: () => vncTrust?.configureBoxVncSession(),
-        hardenVncWebviewAttach: (contents) => vncTrust?.hardenWebviewAttach(contents),
-        onWindowCreated: (window) => {
+        }), onWindowCreated: (window) => {
           installWindowResponsivenessTelemetry({
             contents: window.webContents,
             report: desktopLifecycle.reportDesktopRendererLifecycle,

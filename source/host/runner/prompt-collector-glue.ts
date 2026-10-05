@@ -11,6 +11,7 @@ import {
 } from "./sand-agent-profile-prompt.js";
 import { SAND_HIDDEN_PROMPT_MARKER, SAND_TRUSTED_AUTOMATION_PROMPT_MARKER } from "./sand-prompt-markers.js";
 import { appendUserReplyReminder, buildAttachedFilesNote, buildReplyContextNote, buildUserMessageAddressNote } from "./system-prompt.js";
+import { attachmentFormatOf } from "../../shared/media/attachment-formats.js";
 import { bytesLookLikeVideoContainer } from "./video-container.js";
 import { collectPrependUserMessages, type ShellTerminalWatchHost } from "./shell-terminal-watch.js";
 import { downloadBoxFiles, SAND_BOX_WORKSPACE_ROOT, type TransferBox } from "../box/box-transfer.js";
@@ -74,6 +75,13 @@ export interface PromptCollectorHost<Context = unknown> {
   getConversationId?: (() => string) | undefined;
   getAutomationStatusReminder?: ((firingAutomationId?: string) => string | null) | undefined;
   uploadAttachmentsIntoBox?: ((paths: readonly string[]) => Promise<ReadonlyMap<string, string>>) | undefined;
+  /**
+   * Текст всех прикреплённых файлов разом — то, что возвращает метод
+   * `attachments.readDocuments`. Раньше этого проброса не было: в модель уходили
+   * пути и размеры, а ни байта содержимого, поэтому «свести четыре файла в один
+   * отчёт» было невыполнимо. Пустая строка означает, что читать нечего.
+   */
+  readAttachmentDocuments?: ((paths: readonly string[]) => Promise<string | null>) | undefined;
   getRemoteBoxAvailable?: (() => boolean) | undefined;
   readVideoAttachmentBytes?: ((path: string) => Promise<Uint8Array | null>) | undefined;
   readBoxFile?: ((path: string) => Promise<Uint8Array | null>) | undefined;
@@ -348,6 +356,35 @@ export function createPromptCollectorGlue<Context = unknown>(host: PromptCollect
     return resolved;
   }
 
+  /**
+   * Файлы, из которых движок способен взять текст. Фотографию и видео модель
+   * и так видит отдельным вложением, а блок «прочитать нечем» про каждое
+   * изображение только шумит в промпте.
+   */
+  function documentPathsForPrompt(files: readonly string[]): string[] {
+    const paths: string[] = [];
+    for (const filePath of files) {
+      const cleaned = filePath.trim();
+      if (cleaned.length === 0) continue;
+      const format = attachmentFormatOf(cleaned);
+      if (format === "image" || format === "media") continue;
+      paths.push(cleaned);
+    }
+    return paths;
+  }
+
+  /** Блок с содержимым файлов для промпта. Пустая строка, если читать нечего. */
+  async function buildAttachedDocumentsNote(files: readonly string[]): Promise<string> {
+    const paths = documentPathsForPrompt(files);
+    if (paths.length === 0 || host.readAttachmentDocuments == null) return "";
+    try {
+      const note = await host.readAttachmentDocuments(paths);
+      return typeof note === "string" ? note.trim() : "";
+    } catch {
+      return "";
+    }
+  }
+
   async function assembleTurnAction(args: {
     readonly trimmedPrompt: string; readonly options: TurnPromptOptions;
     readonly profileUpdateForTurn?: { readonly text: string }; readonly compactionEpoch: () => number;
@@ -364,6 +401,8 @@ export function createPromptCollectorGlue<Context = unknown>(host: PromptCollect
     text = text.length > 0 && args.trimmedPrompt.length > 0 ? `${text}\n${args.trimmedPrompt}` : text || args.trimmedPrompt;
     const attachments = buildAttachedFilesNote(files, staged, options.attachedFileSizes);
     if (attachments.length > 0) text = text.length > 0 ? `${text}\n\n${attachments}` : attachments;
+    const documents = await buildAttachedDocumentsNote(files);
+    if (documents.length > 0) text = text.length > 0 ? `${text}\n\n${documents}` : documents;
     const epoch = args.compactionEpoch();
     const reminder = getAutomationStatusReminderForTurn(epoch, options.automationWake?.id);
     const above = options.isSilenceAllowed === true;
@@ -406,6 +445,8 @@ export function createPromptCollectorGlue<Context = unknown>(host: PromptCollect
     text = text.length > 0 && args.trimmedPrompt.length > 0 ? `${text}\n${args.trimmedPrompt}` : text || args.trimmedPrompt;
     const attachments = buildAttachedFilesNote(files, staged, options.attachedFileSizes);
     if (attachments.length > 0) text = text.length > 0 ? `${text}\n\n${attachments}` : attachments;
+    const documents = await buildAttachedDocumentsNote(files);
+    if (documents.length > 0) text = text.length > 0 ? `${text}\n\n${documents}` : documents;
     const epoch = args.compactionEpoch();
     const reminder = getAutomationStatusReminderForTurn(epoch, options.automationWake?.id);
     const above = options.isSilenceAllowed === true;

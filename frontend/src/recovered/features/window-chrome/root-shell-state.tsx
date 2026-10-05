@@ -10,11 +10,11 @@ import "./root-shell-state.css";
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L132095-L132097
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L131933
 
-const SETUP_LABEL = "Подготовка компьютера Grok Bot";
+const SETUP_LABEL = "Подготовка компьютера DB Bot";
 const EMPTY_WORKSPACE_LABEL = "Новый диалог";
 const EMPTY_WORKSPACE_COPY = "Пока нет диалогов";
 const ROOT_ERROR_TITLE = "Что-то пошло не так";
-const ROOT_ERROR_DETAIL = "Grok Bot не смог показать окно из-за ошибки. Обычно помогает перезагрузка.";
+const ROOT_ERROR_DETAIL = "DB Bot не смог показать окно из-за ошибки. Обычно помогает перезагрузка.";
 const ROOT_ERROR_RELOAD = "Перезагрузить";
 const ROOT_ERROR_COPY = "Скопировать ошибку";
 const ROOT_ERROR_COPIED = "Скопировано";

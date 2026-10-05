@@ -33,10 +33,10 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 if (-not $ExePath) {
-    $ExePath = Join-Path $repoRoot 'dist\Grok Bot 0.18 Reconstructed\Grok Bot.exe'
+    $ExePath = Join-Path $repoRoot 'dist\DB Bot\DB Bot.exe'
 }
 if (-not (Test-Path -LiteralPath $ExePath)) {
-    throw "Packaged app not found: $ExePath -- run: npm run package"
+    throw "Собранная программа не найдена: $ExePath -- сначала выполните: npm run build, потом npm run package:win"
 }
 
 $secretFile = Join-Path $env:USERPROFILE '.grokbot\launcher-secrets.txt'

@@ -867,7 +867,7 @@ export class AgentLifecycle {
     const trimmed = {
       ...(avatarShape === undefined ? {} : { avatarShape }),
       ...(avatarColor === undefined ? {} : { avatarColor }),
-      name: name ?? current?.name ?? "Grok",
+      name: name ?? current?.name ?? "Помощник",
       description: description ?? current?.description ?? "",
       ...(title === undefined ? {} : { title }),
     };

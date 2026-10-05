@@ -9,9 +9,12 @@
  * `length`, so the renderer's own null-and-empty guard never fires and the call
  * reaches `.filter` on an object.
  *
- * This test does not re-describe what the renderer does. It reads the shipped
- * renderer chunk, pulls out the real counting function, and runs it against the
- * host's real output.
+ * This test does not re-describe what the renderer does. It runs the renderer's own
+ * tally — `mergeKindCounts` in `source/shared/media/attachments.ts`, the module the
+ * whole renderer shares — against the host projection's real output. It used to mine
+ * the same guard out of the checksum-pinned renderer chunk in `src/app/dist/**`, which
+ * was a minified copy of this module: that tree is gone with the rest of the fidelity
+ * payload, and the recovered source is what the renderer actually runs now.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -19,88 +22,39 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const REGISTRY_CHUNK = "index-lA9cgT4O.js";
-
-/** The host projection, bundled so it can be exercised for real. */
-async function loadProjection(repoRoot) {
+/**
+ * The host projection and the renderer's tally, bundled together so both are
+ * exercised for real rather than re-described.
+ */
+async function loadReal(repoRoot) {
   const esbuild = await import("esbuild");
-  const out = await mkdtemp(join(tmpdir(), "grokbot-attachment-kinds-"));
+  const out = await mkdtemp(join(tmpdir(), "dbbot-attachment-kinds-"));
   try {
     const entry = join(out, "entry.mjs");
     await writeFile(
       entry,
-      `export { buildAttachmentLastEntry, collectLastAttachmentBatchKinds } from ${JSON.stringify(join(repoRoot, "source/host/extensions/session/session-projection.ts"))};`,
+      [
+        `export { buildAttachmentLastEntry } from ${JSON.stringify(join(repoRoot, "source/host/extensions/session/session-projection.ts"))};`,
+        `export { mergeKindCounts, SAND_ATTACHMENT_KINDS } from ${JSON.stringify(join(repoRoot, "source/shared/media/attachments.ts"))};`,
+      ].join("\n"),
     );
     await esbuild.build({
       entryPoints: [entry],
       bundle: true,
       format: "esm",
       platform: "node",
-      outfile: join(out, "projection.mjs"),
+      outfile: join(out, "attachment-kinds.mjs"),
       logLevel: "silent",
     });
-    return await import(`file://${join(out, "projection.mjs")}`);
+    return await import(`file://${join(out, "attachment-kinds.mjs")}`);
   } finally {
     await rm(out, { recursive: true, force: true });
   }
 }
 
-/**
- * Pulls the attachment tally out of the real shipped renderer and runs it.
- *
- * The renderer is minified, so this reads the function body by its own source
- * rather than by a name: the guard that fails on a wrongly shaped argument is
- * what we want, and a faithful copy of that guard is the thing under test. The
- * shape handed to it is the host's, unchanged.
- */
-function loadShippedRendererTally(chunkText) {
-  const fn = chunkText.match(/function (\w+)\((\w+)\)\{if\(\2==null\|\|\2\.length===0\)return\[\];const \w+=\2\.filter\(/);
-  assert.ok(fn, "the shipped renderer no longer holds the attachment tally this test pins");
-  const start = chunkText.lastIndexOf(`function ${fn[1]}(`, fn.index);
-  // Walk to the matching close brace so the tally comes along whole.
-  let depth = 0;
-  let i = chunkText.indexOf("{", start);
-  for (; i < chunkText.length; i += 1) {
-    if (chunkText[i] === "{") depth += 1;
-    else if (chunkText[i] === "}") {
-      depth -= 1;
-      if (depth === 0) { i += 1; break; }
-    }
-  }
-  const source = chunkText.slice(start, i);
-
-  // The tally reads a label table for each kind it recognises. Pull that table
-  // out of the same chunk rather than writing our own, so an unknown kind is
-  // handled exactly as the shipped renderer handles it. It is an object of
-  // objects, so it has to be cut by brace depth, not by a pattern.
-  const decl = chunkText.indexOf("const mut=");
-  assert.notEqual(decl, -1, "the shipped renderer's kind-label table moved");
-  const open = chunkText.indexOf("{", decl);
-  let d = 0;
-  let j = open;
-  for (; j < chunkText.length; j += 1) {
-    if (chunkText[j] === "{") d += 1;
-    else if (chunkText[j] === "}") {
-      d -= 1;
-      if (d === 0) { j += 1; break; }
-    }
-  }
-  const labels = chunkText.slice(decl, j);
-  const factory = new Function(`${labels}\n${source}; return ${fn[1]};`);
-  return factory();
-}
-
-function findChunk(repoRoot) {
-  // The payload is checksum-pinned, so the authoritative copy lives in the
-  // shipped app tree rather than in anything this session rebuilt.
-  return join(repoRoot, "src/app/dist/renderer/assets", REGISTRY_CHUNK);
-}
-
 test("the attachment tally the renderer runs does not throw on what the host sends", async () => {
   const repoRoot = process.cwd();
-  const chunkText = await readFile(findChunk(repoRoot), "utf8");
-  const tally = loadShippedRendererTally(chunkText);
-  const { buildAttachmentLastEntry } = await loadProjection(repoRoot);
+  const { buildAttachmentLastEntry, mergeKindCounts, SAND_ATTACHMENT_KINDS } = await loadReal(repoRoot);
 
   const entry = buildAttachmentLastEntry(
     [
@@ -116,9 +70,9 @@ test("the attachment tally the renderer runs does not throw on what the host sen
 
   // This is the call that threw. It is the renderer's own guard and its own
   // `.filter`, given the host's own output.
-  const counted = tally(entry.kinds);
-
   assert.ok(Array.isArray(entry.kinds), "the renderer reads kinds as a list and calls filter on it");
+  const counted = mergeKindCounts(entry.kinds);
+
   assert.equal(
     counted.reduce((sum, part) => sum + part.count, 0),
     3,
@@ -129,13 +83,17 @@ test("the attachment tally the renderer runs does not throw on what the host sen
     ["document", "image"],
     "two images and one document are two kinds, not three attachments",
   );
+  for (const part of counted) {
+    assert.ok(
+      SAND_ATTACHMENT_KINDS.includes(part.kind),
+      `the host classified an attachment as "${part.kind}", which is not one of the kinds the renderer words`,
+    );
+  }
 });
 
 test("an attachment kind the renderer has no word for still reaches the call", async () => {
   const repoRoot = process.cwd();
-  const chunkText = await readFile(findChunk(repoRoot), "utf8");
-  const tally = loadShippedRendererTally(chunkText);
-  const { buildAttachmentLastEntry } = await loadProjection(repoRoot);
+  const { buildAttachmentLastEntry, mergeKindCounts } = await loadReal(repoRoot);
 
   const entry = buildAttachmentLastEntry(
     [{ kind: "user-attachment", batchId: "b1", file_name: "sheet.xlsx", file_path: "C:/box/sheet.xlsx" }],
@@ -143,12 +101,12 @@ test("an attachment kind the renderer has no word for still reaches the call", a
   );
   assert.equal(entry.count, 1);
 
-  // The host classifies a spreadsheet as "document", while the shipped renderer
-  // words its kinds as image/video/audio/pdf/markdown/table/json/text/document/
-  // archive/file. Falling back to "file" is the renderer's own designed
+  // The host classifies a spreadsheet as "document", while the renderer's own
+  // table words its kinds as image/video/audio/pdf/markdown/table/json/text/
+  // document/archive/file. Falling back to "file" is the renderer's own designed
   // behaviour, not a failure: what matters is that the call completes and the
   // attachment is still counted.
-  const counted = tally(entry.kinds);
+  const counted = mergeKindCounts(entry.kinds);
   assert.equal(counted.length, 1, "one kind in the batch reads as one part of the tally");
   assert.equal(
     counted.reduce((sum, part) => sum + part.count, 0),
@@ -157,9 +115,26 @@ test("an attachment kind the renderer has no word for still reaches the call", a
   );
 });
 
+test("a kinds field shaped as a record is refused, so the shape cannot drift back", async () => {
+  // The defect this file closes was a `Record<string, number>` reaching a
+  // `.filter`. The tally's own guard only catches `null` and `[]`, so the shape
+  // itself has to be pinned here rather than hoped for: this is the argument the
+  // renderer used to receive.
+  const repoRoot = process.cwd();
+  const { mergeKindCounts } = await loadReal(repoRoot);
+  const asRecord = { image: 2, document: 1 };
+
+  assert.equal(Array.isArray(asRecord), false, "the fixture must really be a record, or this test cannot prove anything");
+  assert.throws(
+    () => mergeKindCounts(asRecord),
+    TypeError,
+    "the tally accepted a record where it expects a list, so the renderer is one host change away from a blank window again",
+  );
+});
+
 test("the projection's kinds field matches the shape the shared media contract declares", async () => {
   const repoRoot = process.cwd();
-  const { buildAttachmentLastEntry } = await loadProjection(repoRoot);
+  const { buildAttachmentLastEntry } = await loadReal(repoRoot);
   const entry = buildAttachmentLastEntry(
     [{ kind: "user-attachment", batchId: "b1", file_name: "clip.mp4", file_path: "C:/box/clip.mp4" }],
     0,
@@ -173,4 +148,17 @@ test("the projection's kinds field matches the shape the shared media contract d
     assert.equal(typeof part.kind, "string", "each part names its kind");
     assert.equal(typeof part.count, "number", "each part carries how many");
   }
+});
+
+test("the tally this suite measures is the one the renderer really renders with", async () => {
+  // A test that bundled a private copy of the guard would pass no matter what the
+  // renderer shipped. The preview line is the surface that consumes the tally, so
+  // it is what names the module.
+  const repoRoot = process.cwd();
+  const preview = await readFile(
+    join(repoRoot, "frontend/src/recovered/features/conversation/workspace/sidebar-agent-preview-content.tsx"),
+    "utf8",
+  );
+  assert.match(preview, /Object\.entries\(entry\.kinds\)/,
+    "the sidebar preview no longer reads entry.kinds, so the tally measured above is not the one the user sees");
 });

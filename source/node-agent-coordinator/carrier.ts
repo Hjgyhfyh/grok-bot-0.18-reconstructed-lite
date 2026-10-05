@@ -140,7 +140,9 @@ export function adoptParentPort(_parentPort: PortLike, handoff: { readonly data:
 }
 
 export function adoptCarrier(): Promise<CarrierIntake> {
-  const parentPort = (process as NodeJS.Process & { readonly parentPort?: unknown }).parentPort;
+  // Именно `as unknown as`, а не пересечение с `unknown`: пересечение не расширяет
+  // тип, и `parentPort` оставался бы `ParentPort` из @types/node, где нет `start`.
+  const parentPort = (process as unknown as { readonly parentPort?: unknown }).parentPort;
   if (parentPort != null && isPortLike(parentPort)) {
     return new Promise((resolve) => {
       parentPort.on("message", (event) => resolve(adoptParentPort(parentPort, { data: event.data, ports: event.ports ?? [] })));

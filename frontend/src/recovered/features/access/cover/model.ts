@@ -66,45 +66,45 @@ export function accessNoticeCopy(access: SandAccess): AccessCoverCopy | null {
   if (access.state === "checking" || access.state === "unknown" || access.state === "granted") return null;
   if (access.reason === "teamPrivacyMode") {
     return {
-      title: "Режим приватности команды запрещает Grok Bot",
-      body: "Grok Bot не работает в режиме приватности (Legacy). Попросите администратора команды отключить его.",
+      title: "Режим приватности команды запрещает DB Bot",
+      body: "DB Bot не работает в режиме приватности (Legacy). Попросите администратора команды отключить его.",
       action: "Подробнее"
     };
   }
   if (access.reason === "teamSetupRequired") {
     return {
-      title: "Команда ещё не настроила Grok Bot",
-      body: "Администратор команды должен закончить настройку Grok Bot, потом участники смогут писать сообщения.",
+      title: "Команда ещё не настроила DB Bot",
+      body: "Администратор команды должен закончить настройку DB Bot, потом участники смогут писать сообщения.",
       action: "Подробнее"
     };
   }
   if (access.reason === "teamAccessRequired") {
     return {
-      title: "Команда не открыла Grok Bot для этой учётной записи",
-      body: "В настройках команды Grok Bot закрыт. Открыть его может администратор команды.",
+      title: "Команда не открыла DB Bot для этой учётной записи",
+      body: "В настройках команды DB Bot закрыт. Открыть его может администратор команды.",
       action: "Запросить доступ"
     };
   }
   if (access.reason === "notOffered") {
-    return { title: "Grok Bot недоступен для этой учётной записи", body: "Здесь нечего настраивать и покупать.", action: null };
+    return { title: "DB Bot недоступен для этой учётной записи", body: "Здесь нечего настраивать и покупать.", action: null };
   }
   if (access.reason === "freeTrialAvailable") {
-    return { title: "Чтобы писать сообщения, включите пробный период Grok Bot", body: "Эта учётная запись может попробовать Grok Bot.", action: "Начать пробный период" };
+    return { title: "Чтобы писать сообщения, включите пробный период DB Bot", body: "Эта учётная запись может попробовать DB Bot.", action: "Начать пробный период" };
   }
   if (access.reason === "paywallIndividual") {
-    return { title: "Для Grok Bot нужен тариф Ultra", body: "Перейдите на тариф Ultra, чтобы писать сообщения в Grok Bot.", action: "Перейти на Ultra" };
+    return { title: "Для DB Bot нужен тариф Ultra", body: "Перейдите на тариф Ultra, чтобы писать сообщения в DB Bot.", action: "Перейти на Ultra" };
   }
   if (access.reason === "paywallTeamMember") {
-    return { title: "Для Grok Bot нужно место Premium", body: "Попросите администратора команды перевести эту учётную запись на место Premium.", action: "Запросить доступ" };
+    return { title: "Для DB Bot нужно место Premium", body: "Попросите администратора команды перевести эту учётную запись на место Premium.", action: "Запросить доступ" };
   }
   if (access.reason === "paywallTeamAdmin") {
-    return { title: "Для Grok Bot нужно место Premium", body: "Переведите эту учётную запись на место Premium, чтобы писать сообщения.", action: "Управлять местами" };
+    return { title: "Для DB Bot нужно место Premium", body: "Переведите эту учётную запись на место Premium, чтобы писать сообщения.", action: "Управлять местами" };
   }
   if (access.state === "unavailable") {
-    return { title: "Grok Bot недоступен для этой учётной записи", body: "Отправка выключена, пока у этой учётной записи нет доступа. Проверьте условия на сайте.", action: "Проверить доступ" };
+    return { title: "DB Bot недоступен для этой учётной записи", body: "Отправка выключена, пока у этой учётной записи нет доступа. Проверьте условия на сайте.", action: "Проверить доступ" };
   }
   if (access.state === "paymentRequired") {
-    return { title: "Grok Bot не входит в этот тариф", body: "Отправка выключена, пока у учётной записи нет Grok Bot. Посмотрите варианты на сайте.", action: "Проверить доступ" };
+    return { title: "DB Bot не входит в этот тариф", body: "Отправка выключена, пока у учётной записи нет DB Bot. Посмотрите варианты на сайте.", action: "Проверить доступ" };
   }
   return null;
 }
@@ -112,7 +112,7 @@ export function accessNoticeCopy(access: SandAccess): AccessCoverCopy | null {
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5544115
 export function accessCoverCopy(access: SandAccess): AccessCoverCopy {
   return accessNoticeCopy(access) ?? {
-    title: "Grok Bot пока недоступен для этой учётной записи",
+    title: "DB Bot пока недоступен для этой учётной записи",
     body: "Проверьте на сайте, что нужно этой учётной записи.",
     action: "Проверить доступ"
   };

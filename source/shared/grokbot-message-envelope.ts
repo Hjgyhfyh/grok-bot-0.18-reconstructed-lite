@@ -40,6 +40,7 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve, sep } from "node:path";
 
@@ -403,7 +404,9 @@ export interface SandRootDirArgs {
 /**
  * Resolve the Sand data root exactly like `getSandRootDir` (`source/host/host-paths.ts:66-73`):
  * absolute `SAND_DATA_ROOT`, then the `--user-data-dir` / `SAND_USER_DATA_DIR` override joined
- * with `sand-data`, then `~/.grokbot` for a packaged build or `~/.cursor/<variant>` otherwise.
+ * with `sand-data`, then `~/.dbbot` for a packaged build or `~/.cursor/<variant>` otherwise.
+ * A `~/.grokbot` of the previous product name still wins over a fresh `~/.dbbot`, so this
+ * resolver points at the same profile the desktop application uses.
  */
 export function resolveSandRootDir(args: SandRootDirArgs = {}): string {
   const argv = args.argv ?? [];
@@ -418,7 +421,10 @@ export function resolveSandRootDir(args: SandRootDirArgs = {}): string {
     return join(isAbsolute(trimmed) ? trimmed : resolve(cwd, trimmed), "sand-data");
   }
   const variant = env["SAND_PACKAGED"] === "1" ? (env["SAND_LAB"] === "1" ? "sand-lab" : "sand") : "sand-dev";
-  return variant === "sand" ? join(home, ".grokbot") : join(home, ".cursor", variant);
+  if (variant !== "sand") return join(home, ".cursor", variant);
+  const canonical = join(home, ".dbbot");
+  const previous = join(home, ".grokbot");
+  return existsSync(canonical) || !existsSync(previous) ? canonical : previous;
 }
 
 /** The directory that holds one subdirectory per chat. */

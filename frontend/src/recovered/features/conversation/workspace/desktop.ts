@@ -1,5 +1,6 @@
 import type { DesktopBridge } from "../../../contracts/desktop-bridge";
 import type { DraftAttachment } from "./model";
+import { formatAttachmentTooLargeNotice } from "../../../../../../source/shared/media/attachment-limits";
 
 // Immutable root: ef4e9831b65d39633f09c9ad0c083b98b7ebf52e3bb558182aee5bde31f876fa
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=4778285 (D9n/F9n unnamed-file staging; UTF-8 region SHA-256 9d660cff2cc10e4b2aea9a6d72a5a5d69d1574a16b75cc7f7b0e5fd5700dd135)
@@ -25,33 +26,31 @@ export interface StageFileFailure {
   reason: StageFileFailureReason;
 }
 
-const VIDEO_EXTENSIONS = new Set(["m4v", "mov", "mp4", "ogv", "webm"]);
-
 function stageFileName(file: StageableFile): string {
   if (file.name.length > 0) return file.name;
   return file.type?.startsWith("image/") === true ? "image.png" : "file";
 }
 
-function isVideoFileName(name: string): boolean {
-  const slash = Math.max(name.lastIndexOf("/"), name.lastIndexOf("\\"));
-  const base = name.slice(slash + 1).toLowerCase();
-  const dot = base.lastIndexOf(".");
-  return dot > 0 && VIDEO_EXTENSIONS.has(base.slice(dot + 1));
-}
-
+/**
+ * Отказ по файлам — по-русски.
+ *
+ * Раньше здесь стоял английский текст с цифрой «max 25 MB» для всех файлов
+ * без разбора: скан отчёта на 40 МБ отклонялся как слишком большой, хотя
+ * документы принимаются до 100 МБ. Теперь цифру и объяснение даёт
+ * `formatAttachmentTooLargeNotice` из `source/shared/media/attachment-limits` —
+ * тот же код, по которому считается лимит при приёме файла.
+ */
 export function formatStageAttachmentFailureNotice(failures: readonly StageFileFailure[]): string | null {
   if (failures.length === 0) return null;
   const first = failures[0];
   if (failures.length === 1 && first != null) {
-    if (first.reason === "too-large") {
-      const max = isVideoFileName(first.name) ? "200 MB" : "25 MB";
-      return `"${first.name}" is too large to attach (max ${max}${isVideoFileName(first.name) ? " for video" : ""}).`;
-    }
-    if (first.reason === "empty") return `"${first.name}" is empty, so it wasn't attached.`;
-    return `Couldn't attach "${first.name}".`;
+    if (first.reason === "too-large") return formatAttachmentTooLargeNotice(first.name);
+    if (first.reason === "empty") return `Файл «${first.name}» пустой — прикрепить нечего. Пришлите файл с текстом.`;
+    return `Не получилось прикрепить файл «${first.name}».`;
   }
-  if (failures.every((failure) => failure.reason === "too-large")) return `${failures.length} files are too large to attach (max 25 MB, or 200 MB for video).`;
-  return `${failures.length} files couldn't be attached.`;
+  if (failures.every((failure) => failure.reason === "too-large"))
+    return `Не прикрепились файлы (${failures.length}): ${failures.map((failure) => formatAttachmentTooLargeNotice(failure.name)).join(" ")}`;
+  return `Не прикрепились файлы (${failures.length}). Попробуйте прикрепить их по одному.`;
 }
 
 export async function stageComposerFiles(

@@ -45,8 +45,8 @@ export function maybeNormalizeExecBoundaryError(error: unknown): unknown {
     // to strip, on a path that had no such guard, so the cause is kept in `cause` for the
     // log and kept out of both messages.
     const normalized = new CustomToolCallError(ToolErrorClassification.UNEXPECTED_ENVIRONMENT, {
-      clientVisibleErrorMessage: "Not available: this needs a signed-in Grok Bot account, and this host has none.",
-      modelVisibleErrorMessage: "This call cannot succeed on this host, and retrying it will not help: it needs a signed-in Grok Bot account and this host has no inference credential. Do not call this tool again. Tell the user it needs an account.",
+      clientVisibleErrorMessage: "Not available: this needs a signed-in DB Bot account, and this host has none.",
+      modelVisibleErrorMessage: "This call cannot succeed on this host, and retrying it will not help: it needs a signed-in DB Bot account and this host has no inference credential. Do not call this tool again. Tell the user it needs an account.",
       error: "no inference credential for the Cursor backend",
     });
     setErrorCause(normalized, error);

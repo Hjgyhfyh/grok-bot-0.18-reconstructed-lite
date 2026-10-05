@@ -27,7 +27,7 @@ function surfaceCopy(surface: AutoReviewSurface): { title: string; subject: stri
 
 function locationForSurface(surface: AutoReviewSurface): string | undefined {
   if (surface === "host_shell") return "Выполняется на вашем компьютере";
-  if (surface === "box_shell" || surface === "computer") return "Выполняется на компьютере Grok Bot";
+  if (surface === "box_shell" || surface === "computer") return "Выполняется на компьютере DB Bot";
   return undefined;
 }
 
@@ -100,7 +100,7 @@ function AutoReviewApprovalBody({ approval, entryId, isStale }: { approval: Auto
   const canAct = approval.status === "pending" && state.status === "pending" && action != null && providers?.scope.agentId != null && !isStale;
   const copy = surfaceCopy(approval.surface);
   const summary = approval.command ?? approval.summary;
-  const hideSummary = approval.command === undefined || approval.summary === "Run a command on your local computer" || approval.summary === "Run a command on Grok Bot's computer" || approval.summary === "Run a command on the agent's VM" || /^Run [“"]/.test(approval.summary) || /^Use .+ tool .+ with /.test(approval.summary);
+  const hideSummary = approval.command === undefined || approval.summary === "Run a command on your local computer" || approval.summary === "Run a command on DB Bot's computer" || approval.summary === "Run a command on the agent's VM" || /^Run [“"]/.test(approval.summary) || /^Use .+ tool .+ with /.test(approval.summary);
   const redactedRule = redactProposedRule(approval.proposedRule);
   const settledNote = state.status === "settled" && state.resolution === "always"
     ? `Правило «всегда разрешать» добавлено в настройки автопроверки${redactedRule === undefined ? "" : `: «${redactedRule}»`}`

@@ -42,7 +42,7 @@ export const PRE_DISPATCH_KINDS = new Set(["refused", "dns"]);
  * refusal from the main process into this one, so the message is the only signal
  * left here. Changing it breaks `tests/local-box-connection.test.mjs`.
  */
-export const SIGN_IN_REQUIRED_MESSAGE = "Sign in to Cursor to run Grok Bot.";
+export const SIGN_IN_REQUIRED_MESSAGE = "Sign in to Cursor to run DB Bot.";
 export const CREDENTIALS_REFUSAL_CAUSE_SUMMARY = "credentials";
 
 function hasSignInRequiredMessage(error: unknown): boolean {

@@ -370,7 +370,13 @@ test("the instruction reaches the prompt once, between the base rules and the ag
   assert.equal(countOf(prompt, 'source="agent_instructions"'), 1,
     "the fenced body of the instruction was opened more than once, so a reader cannot tell where the user's text starts and stops");
 
-  const base = prompt.indexOf("## SendMessage is your only voice");
+  // The two neighbours are found by what they ARE, not by the English heading they once
+  // carried: wave 2 translated the base prompt, so pinning `## SendMessage is your only
+  // voice` measured the translation rather than the order. The base rules start at the
+  // first markdown heading of the assembled prompt, and the fence is defined by the first
+  // mention of the fence tag itself — which is the marker, not the prose around it.
+  const base = prompt.search(/^#{2,3} /m);
+  const fenceRule = prompt.indexOf(FENCE_TAG);
   const heading = prompt.indexOf(AGENT_INSTRUCTIONS_HEADING);
   const profile = prompt.indexOf("Agent profile:");
   assert.equal(base !== -1 && base < heading, true,
@@ -381,7 +387,7 @@ test("the instruction reaches the prompt once, between the base rules and the ag
   const fence = prompt.indexOf(`<${FENCE_TAG} source="agent_instructions">`);
   assert.equal(fence > heading && fence < profile, true,
     "the instruction body is not fenced between the heading and the agent description");
-  assert.equal(prompt.indexOf("## Untrusted content") < fence, true,
+  assert.equal(fenceRule !== -1 && fenceRule < fence, true,
     "the rule that defines what a fence means now comes after the fenced text, so the text can be read before the rule that constrains it");
 });
 

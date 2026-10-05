@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "DB Bot Lite — настольный помощник на DeepSeek для одного пользователя. Вся работа идёт на своём компьютере.",
+  "keywords": ["db-bot", "db-bot-lite", "deepseek", "desktop-assistant", "offline", "windows"],
   "engines": {
     "node": ">=26.5.0 <27"
   },

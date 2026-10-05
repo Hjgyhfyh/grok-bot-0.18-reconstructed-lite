@@ -11,6 +11,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import {
+  getPreviousSandProductionRootDir,
   getSandProductionRootDir,
   resolveSandDataRootOverride,
   SAND_DATA_ROOT_ENV,
@@ -164,6 +165,25 @@ function settleWithoutLegacy(legacyRoot: string, canonicalRoot: string): DataRoo
   return { route: "canonical", reason: "canonical-existing", root: canonicalRoot };
 }
 
+/**
+ * The product was called "Grok Bot" before, and its data directory was `~/.grokbot`. A rename
+ * of that directory would have to move a live SQLite store, so instead the previous directory
+ * is adopted: when `~/.dbbot` is absent and `~/.grokbot` holds a real profile, the old path
+ * stays in use. Nothing of the user is lost, and the next clean profile goes to `~/.dbbot`.
+ */
+function settlePreviousProductRoot(previousRoot: string, canonicalRoot: string): DataRootSettlement | null {
+  if (inspectDataRootDirectory(canonicalRoot) === "directory") return null;
+  const previousState = inspectDataRootDirectory(previousRoot);
+  if (previousState === "absent") return null;
+  if (previousState === "unsafe") return { route: "legacy", reason: "canonical-conflict", root: previousRoot };
+  const occupancy = readCanonicalOccupancy(previousRoot);
+  if (occupancy === "foreign" || occupancy === "unreadable") {
+    return { route: "legacy", reason: "canonical-conflict", root: previousRoot };
+  }
+  markDataRoot(previousRoot);
+  return { route: "canonical", reason: "canonical-marked", root: previousRoot };
+}
+
 function migrateLegacyRoot(options: { legacyRoot: string; canonicalRoot: string; rename: (oldPath: string, newPath: string) => void }): DataRootSettlement {
   if (!markDataRoot(options.legacyRoot)) return { route: "legacy", reason: "migration-failed", root: options.legacyRoot };
   const moved = attemptSync(() => options.rename(options.legacyRoot, options.canonicalRoot));
@@ -196,7 +216,10 @@ export function settleStartupDataRoot(options: SettleStartupDataRootOptions): Da
   const legacyRoot = getLegacySandProductionRootDir(options.homeDir);
   const canonicalRoot = getSandProductionRootDir(options.homeDir);
   const legacyState = inspectDataRootDirectory(legacyRoot);
-  if (legacyState === "absent") return settleWithoutLegacy(legacyRoot, canonicalRoot);
+  if (legacyState === "absent") {
+    return settlePreviousProductRoot(getPreviousSandProductionRootDir(options.homeDir), canonicalRoot)
+      ?? settleWithoutLegacy(legacyRoot, canonicalRoot);
+  }
   if (legacyState === "unsafe" || inspectDataRootDirectory(dirname(legacyRoot)) !== "directory") {
     return { route: "legacy", reason: "legacy-unsafe", root: legacyRoot };
   }
@@ -226,7 +249,9 @@ export function resolveExistingSandProductionRootDir(homeDir = homedir()): strin
   const canonicalRoot = getSandProductionRootDir(homeDir);
   if (inspectDataRootDirectory(canonicalRoot) === "directory") return canonicalRoot;
   const legacyRoot = getLegacySandProductionRootDir(homeDir);
-  return inspectDataRootDirectory(legacyRoot) === "directory" ? legacyRoot : canonicalRoot;
+  if (inspectDataRootDirectory(legacyRoot) === "directory") return legacyRoot;
+  const previousRoot = getPreviousSandProductionRootDir(homeDir);
+  return inspectDataRootDirectory(previousRoot) === "directory" ? previousRoot : canonicalRoot;
 }
 
 export function applyStartupDataRootMigration(options: Omit<SettleStartupDataRootOptions, "hasDataRootOverride" | "homeDir"> & {

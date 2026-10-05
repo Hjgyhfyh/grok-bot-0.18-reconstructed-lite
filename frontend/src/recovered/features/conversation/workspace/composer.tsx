@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
-import { COMPOSER_ATTACHMENT_LIMIT, attachmentBasename, formatAttachmentBytes, inferAttachmentKind, isComposerDraftEmpty, type ComposerDraft, type DraftAttachment } from "./model";
+import { COMPOSER_ATTACHMENT_LIMIT, attachmentBasename, describeDroppedComposerFiles, formatAttachmentBytes, inferAttachmentKind, isComposerDraftEmpty, selectComposerFiles, type ComposerDraft, type DraftAttachment } from "./model";
 import { useVoiceSession, VoiceWaveform, type VoiceTranscriber } from "./voice";
 import { ComposerReplyPill, replyComposerPlaceholder, type ComposerReplyTarget } from "./reply-preview";
 import { PromptRichTextEditor, type PromptEditorControls, type PromptEditorProviders } from "./rich-text-editor";
@@ -63,16 +63,12 @@ export function hasFileDragData(types: Iterable<string> | null | undefined): boo
   return false;
 }
 
-export function selectComposerFiles(files: readonly File[], existingCount: number): File[] {
-  const remaining = Math.max(0, COMPOSER_ATTACHMENT_LIMIT - existingCount);
-  return files.slice(0, remaining);
-}
-
 export function ConversationComposer({ acceptedSendGeneration = 0, draft, disabled = false, notice, placeholder = "Спросите о чём угодно или перетащите файл.", transcribeAudio, onChange, onClearReplyTarget, onRemoveAttachment, onStageFiles, onSubmit, replyTarget, editorProviders, scopeKey }: ConversationComposerProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const editorControls = useRef<PromptEditorControls | null>(null);
   const dragDepth = useRef(0);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [droppedFilesNotice, setDroppedFilesNotice] = useState("");
   const draftRef = useRef(draft);
   const hasPayload = !isComposerDraftEmpty(draft);
   draftRef.current = draft;
@@ -81,6 +77,11 @@ export function ConversationComposer({ acceptedSendGeneration = 0, draft, disabl
   const voiceBusy = voice.isRecording || voice.isProcessing || voice.isActivating;
   const canSend = hasPayload && !disabled && !voiceBusy;
   const atLimit = draft.attachments.length >= COMPOSER_ATTACHMENT_LIMIT;
+  // ОтказComposer и отказ подготовки файлов показываются рядом: заведующая
+  // должна видеть, какие именно файлы не прикрепились.
+  const visibleNotice = [droppedFilesNotice, notice]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join(" ") || null;
 
   useEffect(() => voice.controller.onFinal((text) => {
     editorControls.current?.insertText(text);
@@ -117,9 +118,10 @@ export function ConversationComposer({ acceptedSendGeneration = 0, draft, disabl
   }, [onChange]);
 
   const stageFiles = useCallback((files: readonly File[]) => {
-    const accepted = selectComposerFiles(files, draft.attachments.length);
-    if (accepted.length > 0) void onStageFiles(accepted);
-  }, [draft.attachments.length, onStageFiles]);
+    const { accepted, dropped } = selectComposerFiles(files, draftRef.current.attachments.length);
+    setDroppedFilesNotice(describeDroppedComposerFiles(dropped));
+    if (accepted.length > 0) void onStageFiles([...accepted]);
+  }, [onStageFiles]);
 
   const stageSelectedFiles = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);
@@ -161,7 +163,7 @@ export function ConversationComposer({ acceptedSendGeneration = 0, draft, disabl
     <form className="sand-prompt-form" onSubmit={submit}>
       <div className="sand-prompt-shell" data-expanded={hasPayload || undefined} onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDragOver={onDragOver} onDrop={onDrop}>
         {isDragOver ? <div aria-hidden="true" className="sand-chat-drop-overlay"><div className="sand-chat-drop-overlay__badge">Отпустите файлы, чтобы добавить их</div></div> : null}
-        {notice ? <p aria-live="polite" className="sand-prompt-attachment-notice" role="status">{notice}</p> : null}
+        {visibleNotice ? <p aria-live="polite" className="sand-prompt-attachment-notice" role="status">{visibleNotice}</p> : null}
         {replyTarget == null || onClearReplyTarget == null ? null : <ComposerReplyPill onClear={onClearReplyTarget} target={replyTarget} />}
         {draft.attachments.length > 0 ? (
           <div aria-label="Вложения" className="sand-prompt-attachments" role="list">

@@ -4,7 +4,9 @@ import { join, resolve } from "node:path";
 import { findSystemErrno } from "../../shared/system-errno.js";
 
 export const LEGACY_PROFILE_NAME = "Sand";
-export const CANONICAL_PROFILE_NAME = "Grok Bot";
+export const CANONICAL_PROFILE_NAME = "DB Bot";
+/** Profile directory of the previous product name. Never created any more, but still read. */
+export const PREVIOUS_PROFILE_NAME = "Grok Bot";
 export const PROFILE_MARKER_FILENAME = ".grokbot-user-data-v1";
 
 export type WindowsUserDataSettlement =
@@ -16,8 +18,12 @@ type Attempt<T> = { readonly ok: true; readonly value: T } | { readonly ok: fals
 function attemptSync<T>(work: () => T): Attempt<T> { try { return { ok: true, value: work() }; } catch (error) { return { ok: false, error }; } }
 
 export function isWindowsUpdatedLaunch(argv: readonly string[]): boolean { return argv.includes("--updated"); }
-export function resolveWindowsUserDataPaths(appDataDir: string, joinPath = join): { legacy: string; canonical: string } {
-  return { legacy: joinPath(appDataDir, LEGACY_PROFILE_NAME), canonical: joinPath(appDataDir, CANONICAL_PROFILE_NAME) };
+export function resolveWindowsUserDataPaths(appDataDir: string, joinPath = join): { legacy: string; previous: string; canonical: string } {
+  return {
+    legacy: joinPath(appDataDir, LEGACY_PROFILE_NAME),
+    previous: joinPath(appDataDir, PREVIOUS_PROFILE_NAME),
+    canonical: joinPath(appDataDir, CANONICAL_PROFILE_NAME),
+  };
 }
 
 export function inspectWindowsProfileDirectory(path: string): "absent" | "directory" | "unsafe" {
@@ -84,6 +90,14 @@ export function settleWindowsUserDataMigration(options: WindowsUserDataMigration
   if (options.hasIsolatedUserData) return { route: "unchanged", reason: "isolated-user-data" };
   const paths = resolveWindowsUserDataPaths(options.appDataDir);
   if (!sameWindowsPath(paths.canonical, options.canonicalUserDataDir)) return { route: "unchanged", reason: "nondefault-user-data" };
+  // An installed "Grok Bot" left its Chromium profile in `%APPDATA%\Grok Bot`. That folder is
+  // never renamed: while `%APPDATA%\DB Bot` does not exist, the old one keeps being used, so
+  // `Local Storage`, the sidebar state and the window geometry are not lost.
+  if (inspectWindowsProfileDirectory(paths.previous) === "directory"
+    && inspectWindowsProfileDirectory(paths.canonical) === "absent") {
+    markWindowsProfileRoot(paths.previous);
+    return { route: "canonical", reason: "canonical-existing", root: paths.previous };
+  }
   const legacyState = inspectWindowsProfileDirectory(paths.legacy);
   const canonicalState = inspectWindowsProfileDirectory(paths.canonical);
   if (legacyState === "absent") {

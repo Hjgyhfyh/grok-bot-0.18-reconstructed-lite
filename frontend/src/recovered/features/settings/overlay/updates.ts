@@ -57,7 +57,7 @@ export function disabledUpdateMessage(status: UpdateStatus): string {
     case "not-packaged":
       return "В сборках для разработки обновления отключены";
     case "lab-build":
-      return "Grok Bot Lab — разовая тестовая сборка, она никогда не обновляется сама";
+      return "DB Bot Lab — разовая тестовая сборка, она никогда не обновляется сама";
     case "unsupported-platform":
       return "На этой системе обновления недоступны";
     case "disabled-by-env":
@@ -73,17 +73,17 @@ export function updateStatusMessage(status: UpdateStatus): UpdateStatusMessage {
     case "checking":
       return { text: "Проверяем обновления…", tone: "default" };
     case "available":
-      return { text: `Доступна версия Grok Bot ${state.version}`, tone: "default" };
+      return { text: `Доступна версия DB Bot ${state.version}`, tone: "default" };
     case "downloading": {
       const progress = state.progress != null ? ` (${Math.round(state.progress * 100)}%)` : "";
-      return { text: `Скачиваем Grok Bot ${state.version}…${progress}`, tone: "default" };
+      return { text: `Скачиваем DB Bot ${state.version}…${progress}`, tone: "default" };
     }
     case "staging":
-      return { text: `Готовим Grok Bot ${state.version}…`, tone: "default" };
+      return { text: `Готовим DB Bot ${state.version}…`, tone: "default" };
     case "ready":
       return state.lastCheck?.result === "error"
-        ? { text: `Проверка обновлений не удалась: ${state.lastCheck.errorMessage ?? "неизвестная ошибка"}. Grok Bot ${state.version} готов. Перезапустите, чтобы обновиться.`, tone: "error" }
-        : { text: `Grok Bot ${state.version} готов. Перезапустите, чтобы обновиться.`, tone: "ready" };
+        ? { text: `Проверка обновлений не удалась: ${state.lastCheck.errorMessage ?? "неизвестная ошибка"}. DB Bot ${state.version} готов. Перезапустите, чтобы обновиться.`, tone: "error" }
+        : { text: `DB Bot ${state.version} готов. Перезапустите, чтобы обновиться.`, tone: "ready" };
     case "idle":
       return state.lastCheck == null
         ? { text: "", tone: "default" }
@@ -112,10 +112,10 @@ export function egressTunnelStatusDescription(status: EgressTunnelStatus): strin
     case "connected":
       return status.activeStreams > 0
         ? `Подключено — через этот компьютер идёт ${status.activeStreams} ${connectionWord(status.activeStreams)}, всего за сеанс ${status.relayedStreams}.`
-        : `Подключено — компьютер готов пропускать интернет-трафик Grok Bot (за сеанс пропущено ${status.relayedStreams}).`;
+        : `Подключено — компьютер готов пропускать интернет-трафик DB Bot (за сеанс пропущено ${status.relayedStreams}).`;
     case "connecting":
-      return "Подключаемся к компьютеру Grok Bot…";
+      return "Подключаемся к компьютеру DB Bot…";
     case "off":
-      return "Включено, но трафик пока не идёт — ждём подключения компьютера Grok Bot.";
+      return "Включено, но трафик пока не идёт — ждём подключения компьютера DB Bot.";
   }
 }

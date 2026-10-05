@@ -110,8 +110,9 @@ CI не собирает и не упаковывает приложение. С
 
 | Что | Путь |
 |---|---|
-| Данные агентов | `~/.grokbot/agents/<uuid>/` — `store.db`, `profile.json`, `settings.json`, `avatar.png` |
-| Общие настройки | `~/.grokbot/settings.json` |
+| Данные агентов | `~/.dbbot/agents/<uuid>/` — `store.db`, `profile.json`, `settings.json`, `avatar.png` |
+| Общие настройки | `~/.dbbot/settings.json` |
+| Папка прежнего имени | `~/.grokbot/` — не создаётся больше, но пока `~/.dbbot` нет, приложение работает с ней (`PREVIOUS_SAND_PRODUCTION_DATA_DIRNAME` в `source/host/host-paths.ts`) |
 | Скиллы отчётов | `skills/*.md` — 10 скиллов, читаются агентом |
 | Сцена сборки | `.build/app/` |
 | SQLite | встроенный `node:sqlite` (`DatabaseSync`), синхронный, без `await` |

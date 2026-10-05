@@ -43,7 +43,7 @@ export const ONBOARDING_JOB_BUBBLE_Y_OFFSET = 50;
 export const ONBOARDING_BOX_PROBE_MS = 2_500;
 export const ONBOARDING_BOX_WAIT_TIMEOUT_MS = 60_000;
 
-export const MEET_WELCOME_TEXT = "Добро пожаловать в Grok Bot";
+export const MEET_WELCOME_TEXT = "Добро пожаловать в DB Bot";
 export const MEET_TYPED_TEXT = "Передайте любую задачу своей команде помощников";
 
 export const COMPUTER_DEMO_FRAMES = [
@@ -281,7 +281,7 @@ export function onboardingCreateErrorMessage(reason: unknown): string {
 
 export function handOffStatus(input: { isComputerReady: boolean; pullPercent: number | null; computerState: string | null }): string {
   if (input.isComputerReady) return "Готовим вашу команду…";
-  if (input.pullPercent != null) return `Настраиваем Grok Bot… ${Math.round(input.pullPercent)}%`;
+  if (input.pullPercent != null) return `Настраиваем DB Bot… ${Math.round(input.pullPercent)}%`;
   if (input.computerState === "hibernated") return "Будим ваш компьютер…";
-  return "Настраиваем Grok Bot…";
+  return "Настраиваем DB Bot…";
 }

@@ -9,8 +9,7 @@ import type {
   ProductionCoordinatorPorts,
 } from "../coordinator/production-provider.js";
 import type { ProductionServiceContext } from "../main-production-services.js";
-import type { BoxConnectionInfo } from "../../shared/node/egress-tunnel/box-connection.js";
-import { createSettingsRoutedHostConnector } from "../box/local-docker-host-connector.js";
+import type { GatewayConnection } from "../box/gateway-descriptor-cache.js";
 
 function requireFunction(value: unknown, label: string): asserts value is (...args: never[]) => unknown {
   if (typeof value !== "function") {
@@ -46,12 +45,12 @@ export function createProductionCoordinatorGatewayBinding(): Pick<
         safeStorage: context.native.safeStorage,
         getAccountScope: () => context.accountLifecycle.getAccountScope() ?? undefined,
       });
-      const remote = createSettingsRoutedHostConnector(createRemoteHostConnector(
+      const remote = createRemoteHostConnector(
         deps,
         context.env,
         context.requireUpdate(),
         descriptorFastPath,
-      ), context.settings.settingsStore) as unknown as {
+      ) as unknown as {
         connect(): unknown | Promise<unknown>;
         recreate?: (...args: any[]) => unknown;
         forceRecreate?: (...args: any[]) => unknown;
@@ -63,12 +62,12 @@ export function createProductionCoordinatorGatewayBinding(): Pick<
         "generated local-exec credential issuer",
       );
       const wrappedBase: {
-        connect(): Promise<BoxConnectionInfo>;
+        connect(): Promise<GatewayConnection>;
         issueLocalExecDaemonCredential(...args: any[]): unknown;
         recreate?: (...args: any[]) => unknown;
         forceRecreate?: (...args: any[]) => unknown;
       } = {
-        connect: async () => await remote.connect() as BoxConnectionInfo,
+        connect: async () => await remote.connect() as GatewayConnection,
         issueLocalExecDaemonCredential: remote.issueLocalExecDaemonCredential.bind(remote),
       };
       if (remote.recreate != null) wrappedBase.recreate = remote.recreate.bind(remote);
