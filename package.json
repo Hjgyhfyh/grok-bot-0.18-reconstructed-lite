@@ -8,7 +8,7 @@
     "node": ">=26.5.0 <27"
   },
   "scripts": {
-    "build": "node scripts/clean-build.mjs",
+    "build": "node scripts/build-from-source.mjs",
     "check": "npm run typecheck && npm run source:typecheck && npm test",
     "frontend:build": "vite build --config frontend/vite.config.ts",
     "native:patch": "node scripts/apply-third-party-patches.mjs",

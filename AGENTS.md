@@ -1,273 +1,264 @@
-# AGENTS.md — read this before touching anything
+# AGENTS.md — прочитай целиком, прежде чем что-то менять
 
-This file is the handover note for a fresh session. An agent that starts from zero will
-repeat every mistake below. Read it whole, then read the sections for your task.
+Проект: **DB Bot Lite 1.0.0** — настольный помощник на DeepSeek для одного человека.
+Репозиторий: `https://github.com/Hjgyhfyh/grok-bot-0.18-reconstructed-lite` (приватный).
+Пользователь: заведующая детской библиотеки города Новоуральска. Работает на слабом компьютере:
+8 ГБ RAM, RTX 1050 Ti, Windows 10.
 
-Project: Grok Bot 0.18, reconstructed, Windows-first.
-Remote: `https://github.com/Hjgyhfyh/grok-bot-0.18-reconstructed` (private, LFS payload included).
-
----
-
-## 0. The three mistakes that cost the most time
-
-These are real. They were made in this project and each one shipped a broken feature while
-everything looked green.
-
-**1. A hardcoded fallback list disguised a broken call.**
-The custom-model picker had a preload wrapper that called `listInferenceRouterModels`, but that
-method was missing from `MAIN_METHOD_TABLE`. `bridgeRpcEdge` only builds functions for keys in that
-table, so the call threw a `TypeError`. The renderer caught it, showed a "network error" state, and
-fell back to a list of 33 model ids baked into the patch. The dropdown looked perfect and worked for
-nothing. **Lesson: a list that always has entries in it is not evidence that the thing producing it
-works.** Ask what happens when the call behind it fails.
-
-**2. Two agents edited the same file and nobody noticed.**
-Both were live at once in a shared working directory. The result was error counts swinging 8 → 3 → 0
-across files neither agent had touched, which read like flakiness in the type checker. One agent lost
-a full charge of work proving a claim that was already refuted elsewhere in the same session.
-**Lesson: one file, one owner. State your owned files up front and refuse anything outside them.**
-
-**3. "Verified" was being used to mean "I checked the easy part."**
-A feature was reported working end to end when only the settings screen and the build had been
-exercised. **Lesson: if you say verified, say what you actually ran, and name what you did not run.**
+Этот файл — передача смены. Начинаешь с нуля — прочти всё, потом свой раздел.
 
 ---
 
-## 1. Hard rules
+## 0. Три ошибки, которые дорого стоили в исходном проекте
 
-### The renderer is checksum-pinned. Never edit `src/app/dist`.
+**1. Заглушка выдавала себя за рабочую функцию.**
+Выбор модели вызывал `listInferenceRouterModels`, которого не было в `MAIN_METHOD_TABLE`.
+`bridgeRpcEdge` строит функции только по ключам этой таблицы — вызов падал с `TypeError`,
+интерфейс ловил ошибку и показывал список из 33 моделей, зашитых в патче. Выпадающий список
+выглядел идеально и не делал ничего. **Правило: список, который всегда непустой, не доказательство
+того, что то, что его наполняет, работает.**
 
-`src/app/dist` holds the shipped 0.18 payload. It is in `.gitignore` (line 5) and is copied verbatim
-into the staged build by `scripts/lib/build-asar.mjs:178`. The renderer is **not** rebuilt from source.
+**2. Два агента правили один файл.**
+Оба были живы одновременно в общей рабочей папке. Число ошибок прыгало 8 → 3 → 0 по файлам,
+которых никто из них не трогал, — это читалось как нестабильность тайпчекера.
+**Правило: один файл — один владелец. Сразу объявляй свои файлы и отказывайся от чужих.**
 
-All renderer edits go through `scripts/lib/router-renderer-patch.mjs` via
-`applyOriginalRendererRouterPatch({ stageRoot })` plus `replaceExactlyOnce(source, before, after, label)`.
-
-- `replaceExactlyOnce` throws on zero matches **and** on more than one. Silent skipping is impossible.
-  If it throws, the upstream chunk moved — do not "fix" it by loosening the check.
-- Lines **5–11** of that file are anchors that must stay byte-identical. Baseline md5 prefixes:
-  `5 ABBDC82204 · 6 60F9ABAEF8 · 7 4AF368A8ED · 8 A1CC810621 · 9 4143D5C2BA · 10 5AFB1B34C9 · 11 881C5D6D30`
-- `COMPONENT_SOURCE` is a multi-line `String.raw`. If an editor writes it CRLF, the injected code
-  gains `\r\n`, the chunk bytes change, and `patched.sha256` changes — while `verify` still passes,
-  because it compares against the record the same run produced.
-- Comments go at the **start of a line only**. A mid-line `//` swallows the closing brace and you get
-  `TS1005 '}' expected` at end of file. Run `acorn.parse(COMPONENT_SOURCE)` after every edit.
-- The chunk map stays at exactly two entries: role `registry` (`index-lA9cgT4O.js`) and role `panel`
-  (`index-BoDVc20G.js`). A third chunk is rejected in three independent places —
-  `router-renderer-patch.mjs:125`, `macos-package-verification.mjs:105`, and the comment at `:128-132`.
-- The provenance record has a hard whitelist of top-level keys: `schemaVersion`, `mode`, `chunks`,
-  `features`, `transformations`. A new top-level field breaks the packaged-artifact check. New items may
-  only be appended **inside** `features` or `transformations`.
-
-### Build and packaging are strictly sequential. Never run them in parallel.
-
-There are no locks anywhere in this pipeline. Two concurrent builds produce `ENOENT` on the asset
-directory, or `Staged package changed or ASAR drifted after snapshot`.
-
-- `npm run build` → writes `.build/fidelity/**` only.
-- `npm run package` → `npm run check && scripts/package-windows.mjs`, writes
-  `dist\Grok Bot 0.18 Reconstructed`.
-- **`node scripts/clean-build.mjs` is NOT `npm run build`.** It calls the non-fidelity variant: staging
-  `.build/app`, renderer built from `frontend/`, and **the router patch is never applied**. Only
-  `npm run build`, `npm run package` and `npm run package:diagnostic` take the fidelity route.
-- Packaging fails with `EPERM` while the app runs from `dist`, because the live `Grok Bot.exe` holds
-  handles on the exe, the DLLs and `resources\app.asar`. `rm` has no `maxRetries`; it fails instantly.
-  Close the app first, with `.CloseMainWindow()`. **Never `Stop-Process` a process you did not start** —
-  the singleton lock belongs to whoever launched it.
-- After a failed build, `dist\Grok Bot 0.18 Reconstructed` is **stale**. `npm run build` never touches
-  it. Run `node scripts/verify.mjs` before believing what you launched.
-
-### CI does not check any of this.
-
-`.github/workflows/check.yml` runs only `npm run check`, `npm run frontend:build` and
-`npm run publication:check`. It never builds, packages or verifies. A broken renderer patch will sit
-in a merged branch with a green pipeline. **The mandatory local ritual before committing anything that
-touches `scripts/`, `source/**` or `manifests/**` is `npm run build` followed by `node scripts/verify.mjs`.**
-
-### Do not touch credential or authentication logic.
-
-Screens and labels only. Faking a signed-in state is forbidden. `inferenceProvider: "custom"` is the
-supported path to running without an account — use it, do not simulate a login.
+**3. «Проверено» означало «я проверил лёгкую часть.**
+Фичу объявили работающей от начала до конца, хотя запустили только экран настроек и сборку.
+**Правило: говоришь «проверено» — назови, что именно ты запускал, и что ты НЕ запускал.**
 
 ---
 
-## 2. Where things live
+## 1. Главное архитектурное решение: собираемся из исходников
 
-| Thing | Location |
+Исходный проект «Grok Bot 0.18 reconstructed» имел две сборки. Одна брала **оригинальный
+минифицированный бандл** из `src/app/dist/**` и патчила его байты в байты. Вторая собирала
+всё из TypeScript.
+
+Fidelity-сборка **мёртвая**: `.gitattributes` отправлял `src/app/dist/**` в Git LFS, а эти
+объекты удалены с сервера. В репозитории лежали только 130-байтные указатели. Папка `src/app/dist`
+удалена целиком. Скрипты, которые требовали оригинальный рантайм, больше не используются.
+
+Значит всё приложение строится так:
+
+| Что | Откуда | Чем |
+|---|---|---|
+| Рендерер (UI) | `frontend/src/main.tsx` → `frontend/src/production` → `frontend/src/recovered` | `vite build` |
+| Основной процесс | `source/electron-main/main.ts` | `esbuild` |
+| Хост | `source/host/main.ts` | `esbuild` |
+| Preload | `source/electron-preload/preload.ts` | `esbuild` |
+| Демон локальных команд | `source/local-exec-daemon/main.ts` | `esbuild` |
+
+Сцена сборки: `.build/app/`. Готовый архив: `.build/app.asar` + `.build/app.asar.unpacked`.
+
+Проверенное состояние на момент передачи смены:
+
+```
+npm ci --no-audit --no-fund --ignore-scripts      # 320 пакетов, 421 МБ, ~6 минут
+npx tsc --project frontend/tsconfig.json --noEmit # чисто
+npx tsc --project source/tsconfig.json  --noEmit  # чисто
+npm run frontend:build                            # ~1.1 секунды
+```
+
+---
+
+## 2. Жёсткие правила
+
+### Правило «один файл — один владелец»
+Прежде чем что-то менять, объяви список своих файлов. Файлы других агентов не трогать.
+Если задача невыполнима без чужого файла — сначала скажи об этом, а не правь молча.
+
+### Рендерер пересобирается, а не патчится
+`frontend/vite.config.ts` полностью обходится в production-сборке (`configFile: false`).
+Правки UI вносятся в `frontend/src/**`. Никаких замен строк в минифицированных чанках.
+
+### Сборка строго последовательная
+В конвейере нет блокировок. Две параллельные сборки дают `ENOENT` или
+`Staged package changed or ASAR drifted after snapshot`. Никогда не запускай две сборки разом.
+
+### Сначала закрой приложение
+Упаковка падает с `EPERM`, пока запущено приложение из `dist/`: живой `.exe` держит
+дескрипторы на exe, DLL и `resources\app.asar`. Закрывай через `.CloseMainWindow()`.
+**Никогда не делай `Stop-Process` процессу, который ты не запускал** — блокировка экземпляра
+принадлежит тому, кто запустил.
+
+### Успешный CI ничего не значит
+CI не собирает и не упаковывает приложение. Сломанная сборка спокойно попадёт в `main` при
+зелёном пайплайне. Обязательная проверка перед коммитом: `npm run build` и упаковка.
+
+---
+
+## 3. Чего в проекте нет и не должно появиться
+
+| Нет | Почему |
 |---|---|
-| Agent store, per agent | `~/.grokbot/agents/<uuid>/` — `store.db`, `profile.json`, `settings.json`, `avatar.png` |
-| Sand root | `getSandRootDir()` — `$SAND_DATA_ROOT`, else `--user-data-dir`, else `~/.grokbot` |
-| Settings | `~/.grokbot/settings.json` — read by both desktop **and** the coordinator, it is literally the same file |
-| SQLite | built-in `node:sqlite` `DatabaseSync`, synchronous, no await. There is **no** `better-sqlite3` in this repo |
-| Box secrets | `~/.grokbot/box-secrets.json` |
-| Gateway descriptor | `<root>/gateway.json` |
-| Roster transport | `window.coordinatorPort`, a `MessagePort` — **not** `window.desktop` |
+| Аккаунтов, входа, авторизации | Один пользователь, работает офлайн |
+| Облачных агентов | Агент работает на компьютере пользователя |
+| Телеметрии, Sentry, Statsig | Никаких сведений наружу |
+| Удалённой песочницы / VM / Docker-контейнера | Всё локально |
+| VNC и просмотра экрана удалённой машины | Экрана удалённой машины нет |
+| Git-истории и синхронизации | Работа одного человека |
+| Синхронизации хранилища с облаком | То же |
+| Тёмных тем | Только светлые |
+| Других провайдеров моделей | Только DeepSeek |
 
-**Agents are not reached through `window.desktop`.** The whole roster travels over
-`window.coordinatorPort`. `window.desktop.agent` holds only settings, model selection, sidebar sections
-and forever-box controls. Probing `window.desktop` for agent CRUD finds nothing, and that is correct.
-
----
-
-## 3. Running without a Cursor account
-
-This is the app's whole point now. What was true, and what changed.
-
-- `createLocalSession` (`source/host/extensions/session/agent-session.ts:102-108`) already creates a real
-  agent on local disk with no network, no token and no coordinator. It is a **live fallback**, selected at
-  line ~109, not dead code. *The entry point was missing, not the capability.*
-- The blocker was one line: a signed-out status resolved the account slot to `null`, so
-  `applyClaim` refused to launch the coordinator, `production-provider.requestRendererPort` never granted
-  the renderer its `MessagePort`, and all ~140 `COORDINATOR_METHOD_TABLE` methods were unreachable —
-  including `listAgents`, `createAgent` and `getOnboardingSeen`, which is the renderer's very first call.
-- It now resolves to the exported `LOCAL_ACCOUNT_SLOT` (`"local"`). Set `SAND_LOCAL_ACCOUNT_SLOT=0` to
-  restore the old refuse-to-start rule. A real signed-in account still wins: the local fallback only
-  applies when nobody is signed in, and `authorizeAccount` is still consulted — a `false` from it keeps
-  the runtime unlaunched.
-
-**Known remaining wall:** the renderer still gates the roster fetch on a non-empty account slot
-(`roster.connect()` is the only caller of `listAgents`). Until that gate is removed, the sidebar can
-still read "No saved agents yet." even though the coordinator is now alive. That gate is renderer-side
-and must be changed in `COMPONENT_SOURCE`, not in the host.
-
-**Will never work without an account** — do not pretend otherwise: the `cursor` model provider, private
-and team MCP marketplaces, shared groups, skill publishing, box image auto-update, the gate-backed
-feature flags (GC, memory dreaming, conversation size limits), writing box secrets, VNC to a remote box.
-
-**Silent degradation to watch for:** `cursor-experiments.ts:38` never pins its flags without an
-authenticated network bootstrap, so session GC, legacy-blob retirement and memory synthesis quietly
-never run. Nothing throws. If you touch those areas, check the flags are actually being read.
+Не «дорабатывай» эти подсистемы. Если что-то из этого тянется в сборку — это ошибка.
 
 ---
 
-## 4. Writing code
+## 4. Где что лежит
 
-### Adding a method to the desktop bridge needs THREE places
+| Что | Путь |
+|---|---|
+| Данные агентов | `~/.grokbot/agents/<uuid>/` — `store.db`, `profile.json`, `settings.json`, `avatar.png` |
+| Общие настройки | `~/.grokbot/settings.json` |
+| Скиллы отчётов | `skills/*.md` — 10 скиллов, читаются агентом |
+| Сцена сборки | `.build/app/` |
+| SQLite | встроенный `node:sqlite` (`DatabaseSync`), синхронный, без `await` |
 
-Missing the first one fails silently, which is exactly how the model picker broke.
+**`better-sqlite3` в проекте нет. Не добавляй.** Транзакции пишутся руками:
+`db.exec("BEGIN IMMEDIATE")` / `COMMIT` / `ROLLBACK`.
 
-1. `source/shared/rpc/main.ts` — add `<method>: { args: "object" | "none" }` to `MAIN_METHOD_TABLE`.
-   **Without this, nothing is served and nothing throws.** `bridgeRpcEdge` builds no function, and
-   `serveEdge` registers no `ipcMain.handle`. Its completeness check is one-way: every table method needs
-   a handler, but a handler missing from the table is silently ignored.
-2. `source/electron-main/main-edge.ts` — the handler in the `handlers` literal inside
-   `createMainEdgeHandlers`.
-3. `source/electron-preload/preload.ts` — the wrapper in the `agent` literal:
-   `<method>: (arg) => edge("<method>", { arg })`.
-
-Note the `edge` helper does `mainEdge[method]!(...)`. That non-null assertion **lies** when the table
-entry is missing. `MainPreloadEdge` is `Record<string, (...args:any[]) => any>`, so TypeScript cannot
-catch it either. After adding a method, grep the built `.build/fidelity/app/dist/electron-main/main.cjs`
-for `var MAIN_METHOD_TABLE = {` and confirm the name is inside it. That step is the one that was missed.
-
-### Test conventions — these are conventions, not suggestions
-
-`npm test` is `node --test tests/*.test.mjs`. Node v26.7.0, Windows.
-
-- **Every test file opens with a block comment naming the defect it closes**, in past tense: what broke,
-  why nothing noticed, what the test now proves. Read `tests/host-lock.test.mjs` and
-  `tests/routed-provider-dispatch.test.mjs` and match that voice. It is the strongest convention here.
-- Test names are full English sentences about the obligation, not the function called.
-- `assert/strict` always. Every non-trivial assertion carries a **meaning** as its third argument, not a
-  value: `assert.equal(n, 1, "the coordinator was never created for a signed-out status")`.
-- **There is no shared loader helper.** Copy an existing one — `tests/coordinator-relaunch-cap.test.mjs`
-  for the `bundle(entries)` shape, `tests/decision-cache.test.mjs` for the single-entry shape,
-  `tests/plugin-search-jev.test.mjs` when you need two independent instances of module state.
-  `esbuild.build`, `format: "esm"`, `platform: "node"`, `target: "node22"`, into a
-  `mkdtemp(os.tmpdir(), "grok-<area>-")`, then `import(... + "?" + Date.now())` so the import cache
-  cannot hand you the previous build.
-- Two independent module states need **two bundles**. Sharing one lets the cache assertions pass falsely.
-- **Never hand-write a list of minified names.** `freeComponentTags()` in
-  `tests/router-renderer-panel-render.test.mjs:438` computes free identifiers from the AST instead. A
-  hand-written list goes stale the moment upstream renames, and the failure is a component rendering as
-  an unknown tag — with a green build.
-- Put a `safetyCeiling` on anything you test for looping. Without one the test does not fail, it hangs.
-- A static guard must prove it found something. If a counter is zero, that is a failing test, not a pass.
-- Save and restore `process.env`, keep the touched names in one list, and explicitly `delete` inherited
-  variables that leak in from the shell.
-- On Windows: parameterise the platform as an **argument** rather than skipping. See
-  `windows-shell-tool-portability.test.mjs`, which passes `"win32"` in and asserts on every host.
-  `windowsHide: true` on any spawn. Always `path.join`, never a hand-written `/`.
-
-### The proof standard
-
-"Tests pass" is not evidence. After the suite is green, flip an expectation in your own new test to the
-opposite of reality, re-run, and **show the failure**. Then restore and show green again. An agent that
-cannot make its test fail has written a test that proves nothing — fix it before reporting.
-
-Equally: never roll back product code to make a test green. Twice in this project the failing thing was
-a **stub in the test**, not the product. Diagnose which one you are looking at before you touch
-anything.
-
-### Test counts are not facts
-
-Numbers move between runs on unchanged code, because agents are working concurrently. Re-run before
-you report any count. Say what you ran.
+**Агенты не доступны через `window.desktop`.** Весь список едет по `window.coordinatorPort`
+(это `MessagePort`). В `window.desktop.agent` лежат только настройки, выбор модели, разделы
+боковой панели и управление постоянным боксом. Искать там CRUD агентов бессмысленно — так и задумано.
 
 ---
 
-## 5. Environment traps that will cost you an hour
+## 5. Локальное выполнение команд
 
-- **UTF-8 BOM breaks `JSON.parse`.** PowerShell 5.1 `Set-Content -Encoding UTF8` writes `EF BB BF`. Three
-  of the repo's 21 `JSON.parse(readFileSync(...))` sites strip it; the rest do not. And the repo
-  *deliberately* writes BOM files (`source/packages/shell-exec/powershell.ts:45-48`). Strip it in anything
-  you write. Write files without a BOM via
+Два исполнителя, оба поднимаются на компьютере пользователя.
+
+**Основной путь агента** — `source/box-exec-daemon/`. Это не удалённая песочница: дочерний
+Node-процесс на `127.0.0.1:1337`, с корнем `<sandRoot>/box-workspace`. Через него агент
+выполняет Shell, Read, LS, фоновые команды и MCP. **Удаление = потеря Shell у агента.**
+
+**Путь к машине пользователя** — `source/local-exec-daemon/`: поднимается detached из
+`source/electron-main/local-exec/local-exec-native.ts`, доступен агенту через SSE
+`local-exec/requests`. Корень по умолчанию — `<sandRoot>/box-workspace`, выход за него
+отклоняется. Это то, что должно работать всегда.
+
+**Локальный ограничитель** — `source/packages/shell-exec/sandbox/**`: ограничивает права
+уже запущенного локального процесса. На Windows изолирует только сеть. Оставить.
+
+Имя `box` в этих путях — историческое. Переименование в `local-agent-exec` желательно, но
+**не должно ломать существующие данные**: миграция нужна, если переименовываешь.
+
+---
+
+## 6. Правила написания кода
+
+### Новый метод в мосте требует ТРЁХ мест
+1. `source/shared/rpc/main.ts` — добавить `<метод>: { args: "object" | "none" }` в `MAIN_METHOD_TABLE`.
+   **Без этого ничего не отдаётся и ничего не падает.** `bridgeRpcEdge` не строит функцию,
+   `serveEdge` не регистрирует обработчик. Проверка односторонняя: каждый метод таблицы должен
+   иметь обработчик, а обработчик без таблицы молча игнорируется.
+2. `source/electron-main/main-edge.ts` — обработчик в литерале `handlers` внутри `createMainEdgeHandlers`.
+3. `source/electron-preload/preload.ts` — обёртка в литерале `agent`: `<метод>: (arg) => edge("<метод>", { arg })`.
+
+Хелпер `edge` делает `mainEdge[method]!(...)`. Это не-строгое утверждение **лжёт**, когда
+запись в таблице пропущена, и TypeScript это не поймает: `MainPreloadEdge` — это
+`Record<string, (...args:any[]) => any>`. После добавления метода проверь сам: найди
+`var MAIN_METHOD_TABLE = {` в собранном `.build/app/dist/electron-main/main.cjs` и убедись,
+что имя внутри. Именно этот шаг однажды пропустили.
+
+### Тесты
+`npm test` — это `node --test tests/*.test.mjs`.
+
+- **Каждый тест начинается с блочного комментария о дефекте, который он закрывает**, в прошедшем
+  времени: что ломалось, почему это не заметили, что тест теперь доказывает.
+  Читай `tests/host-lock.test.mjs` и `tests/routed-provider-dispatch.test.mjs`, повторяй тон.
+- Имена тестов — полные фразы про обязанность, а не про функцию.
+- `assert/strict` всегда. У каждого нетривиального утверждения третий аргумент — **смысл**,
+  а не значение: `assert.equal(n, 1, "координатор не был создан при статусе без входа")`.
+- **Общего загрузчика нет.** Копируй существующий: `tests/coordinator-relaunch-cap.test.mjs` —
+  форма `bundle(entries)`, `tests/decision-cache.test.mjs` — одиночная запись,
+  `tests/plugin-search-jev.test.mjs` — когда нужно два независимых состояния модуля.
+  `esbuild.build`, `format: "esm"`, `platform: "node"`, `target: "node22"`, в
+  `mkdtemp(os.tmpdir(), "dbbot-<область>-")`, затем `import(... + "?" + Date.now())`.
+- Два независимых состояния модуля требуют **двух** сборок. Одна общая сборка делает
+  утверждения про кэш проходящими ложно.
+- На всё, что тестируется на зацикливание, ставь `safetyCeiling`. Без него тест не упадёт — он зависнет.
+- Статическая проверка обязана доказать, что что-то нашла. Нулевой счётчик — это провал, а не успех.
+- На Windows: платформу передавай **аргументом**, а не пропуском теста.
+
+### Стандарт доказательства
+«Тесты прошли» — не доказательство. Когда набор зелёный, поменяй ожидание в своём новом тесте
+на противоположное реальности, перезапусти и **покажи падение**. Потом верни и покажи зелёное.
+Тест, который не может упасть, не доказывает ничего.
+
+И никогда не откатывай код продукта ради зелёного теста. Дважды в исходном проекте виноват
+был **заглушка в тесте**, а не продукт. Сначала определи, что ты смотришь.
+
+Число тестов — не факт: оно двигается при неизменном коде, потому что агенты работают одновременно.
+Перезапусти перед тем, как назвать число, и скажи, что именно запускал.
+
+---
+
+## 7. Ловушки окружения, которые съедают час
+
+- **В окружении заданы `GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_0`.** Любая команда `git` падает
+  с `fatal: unable to parse command-line config`. Перед каждой командой:
+  `$env:GIT_CONFIG_COUNT="0"`.
+- **BOM ломает `JSON.parse`.** PowerShell 5.1 `Set-Content -Encoding UTF8` пишет `EF BB BF`.
+  Пиши файлы без BOM:
   `[System.IO.File]::WriteAllText($p,$t,(New-Object System.Text.UTF8Encoding($false)))`.
-- **`[System.IO.File]` uses .NET's working directory, not PowerShell's.** Always absolute paths.
-- **Node and PowerShell disagree about trailing dots and spaces on Windows.** Node creates and reads
-  `a.`, `Test-Path` returns `False`. Node's `\\?\` paths disable that stripping.
-- **Environment variables are case-insensitive; JavaScript object keys are not.** A parent `Path` beats a
-  caller `path` by UTF-16 sort order. This silently broke `PATH` propagation once.
-- **Node uses `node:sqlite`**, synchronous. Hand-write transactions with
-  `db.exec("BEGIN IMMEDIATE")` / `COMMIT` / `ROLLBACK`. Do not add `better-sqlite3`.
-- **`WriteAllText` and `Get-Content` disagree about encodings** on the same file. Read bytes directly when
-  a check matters.
+- **`[System.IO.File]` использует рабочий каталог .NET, а не PowerShell.** Всегда абсолютные пути.
+- **Node и PowerShell не согласны насчёт точек и пробелов в конце имени на Windows.**
+  Node создаёт и читает `a.`, а `Test-Path` возвращает `False`. Node отключает это через пути `\\?\`.
+- **Переменные окружения регистронезависимы; ключи объектов JavaScript — нет.**
+  Родительский `Path` бьёт вызывающий `path` по порядку UTF-16. Это однажды молча сломало
+  распространение `PATH`.
+- **`WriteAllText` и `Get-Content` не согласны насчёт кодировок** одного и того же файла.
+  Когда важна точность, читай байты напрямую.
 
 ---
 
-## 6. Invariants that protect security
+## 8. Инварианты безопасности
 
-- A machine-sourced transcript row **must** carry `fromAgent` **and** `channel`. Without both it lands in
-  `AckObligations` and is shown as "the user's last message" — a prompt-injection vector. Any new delivery
-  tool must be added to `DELIVERY_TOOL_NAMES` in `source/host/runner/turn-shape.ts:5-8`.
-- Plain assistant text is **never** shown to the user. Only a real `SendMessage` tool call reaches them
-  (`turn-runtime.ts:47`). Do not weaken that.
-- Do **not** use the loopback gateway (`gateway-server.ts`) as a control surface. One bearer token grants
-  ~124 commands including `setHostSettings`, `setBoxSecrets` and `deleteAgents`, and it sits in plaintext
-  in `gateway.json`. Use the stdio MCP server for tooling.
-- Never put `projectRoot` in `profile.json` — `send-acceptance.ts:89` rewrites that file wholesale.
-
----
-
-## 7. Definition of done
-
-A task is done when you can state, with the command you ran:
-
-- `npx tsc --noEmit -p source/tsconfig.json` — clean
-- `npm test` — full suite green, with the number you actually observed
-- `npm run build` — exit 0
-- `node scripts/verify.mjs` — clean (CI will not do this for you)
-- `npm run package` — exit 0, with the app closed first
-- renderer invariants still true: the seven anchor md5s above, and `'Endpoint model list'` and
-  `'RRouterFallbackModels'` present in the shipped `app.asar`
-- if you touched the bridge: the method name confirmed present inside
-  `var MAIN_METHOD_TABLE` in the built `main.cjs`
-
-If any of that was not run, say which and why. Do not report success on a typecheck alone.
+- Строка транскрипта, пришедшая с машины, **обязана** нести `fromAgent` **и** `channel`.
+  Без обоих она попадает в `AckObligations` и показывается как «последнее сообщение
+  пользователя» — это вектор внедрения подсказок. Любой новый инструмент доставки
+  добавляй в `DELIVERY_TOOL_NAMES` в `source/host/runner/turn-shape.ts`.
+- Обычный текст ассистента **никогда** не показывается пользователю. До него доходит только
+  настоящий вызов инструмента `SendMessage` (`turn-runtime.ts`). Не ослабляй это.
+- **Не используй loopback-шлюз (`gateway-server.ts`) как панель управления.** Один
+  bearer-токен открывает ~124 команды, включая `setHostSettings`, `setBoxSecrets` и
+  `deleteAgents`, и лежит открытым текстом в `gateway.json`. Для инструментов есть stdio MCP-сервер.
+- **Никогда не клади `projectRoot` в `profile.json`** — `send-acceptance.ts` переписывает
+  этот файл целиком.
 
 ---
 
-## 8. Reading the runtime
+## 9. Что считать готовым
 
-The app is packaged at `dist\Grok Bot 0.18 Reconstructed\Grok Bot.exe`.
+Задача выполнена, если можно назвать команду, которую ты запускал, и её результат:
 
-To look at the live renderer, launch with `--remote-debugging-port=9341`, fetch
-`http://127.0.0.1:9341/json/list`, open a `WebSocket` to `webSocketDebuggerUrl` (global in Node v26), and
-send `Runtime.evaluate` with `returnByValue: true, awaitPromise: true`.
+```
+npx tsc --project frontend/tsconfig.json --noEmit   # чисто
+npx tsc --project source/tsconfig.json  --noEmit   # чисто
+npm test                                            # полный набор зелёный, с настоящим числом
+npm run build                                       # код 0
+```
 
-Wrap every expression in `(async()=>{ ... })()` — the evaluator does not await bare `await`.
+Плюс, если трогал сборку или упаковку:
 
-Use a private `--user-data-dir` for any second instance; the singleton lock belongs to the first.
+```
+node scripts/verify.mjs        # чисто — CI этого за тебя не сделает
+```
 
-**`agent-create`, `agent-kill` and anything that reads `.dsh/relay` from inside a session is not part of
-this project's task. Do not do it unless the user asks in that same message.**
+Если что-то из этого не запускалось — скажи что и почему. **Не сдавай работу по одному тайпчеку.**
+
+---
+
+## 10. Как смотреть на живое приложение
+
+Приложение лежит в `dist\DB Bot\DB Bot.exe`.
+
+Чтобы заглянуть в живой рендерер, запусти с `--remote-debugging-port=9341`, возьми
+`http://127.0.0.1:9341/json/list`, открой `WebSocket` на `webSocketDebuggerUrl`
+(глобальный в Node 26) и отправь `Runtime.evaluate` с `returnByValue: true, awaitPromise: true`.
+
+Каждое выражение оборачивай в `(async()=>{ ... })()` — вычислитель не ждёт голый `await`.
+
+Для второго экземпляра бери отдельный `--user-data-dir`: блокировка экземпляра принадлежит первому.
