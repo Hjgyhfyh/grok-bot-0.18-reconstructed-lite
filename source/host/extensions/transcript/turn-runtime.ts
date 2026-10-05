@@ -1,0 +1,1243 @@
+import { randomUUID } from "node:crypto";
+import { isMessageAddress } from "../../../shared/message-reference.js";
+import { sandDualSurfaceToolTelemetry } from "../../../shared/agents/agent-tool-names.js";
+import { SAND_REACTION_AGENT } from "../../../shared/transcript.js";
+import { UNKNOWN_CONNECTOR_TAG } from "../../../shared/observability/connector-auth-telemetry.js";
+import { sandErrorDetail } from "../../ports/telemetry.js";
+import {
+  isContextOverflowDeadEnd,
+  isConversationTooLargeRefusal,
+  isFirstTokenStallError,
+  isProviderCapacityError,
+  isRetryableProviderError,
+  isTransientStreamError,
+  serverRetryAfterMsFromError,
+} from "../../runner/transient-stream-error.js";
+import {
+  beginTurnTrace,
+  markTurnTraceError,
+  resolveTurnTraceOutcome,
+  setTurnTraceAttributes,
+  type HostTrace,
+} from "../../send-trace-host.js";
+import { brandedEnumOf, brandedErrno } from "../../../shared/errors/bounded.js";
+import { SandError, sandErrorWireCode } from "../../../shared/errors/registry.js";
+import { findSystemErrno } from "../../../shared/system-errno.js";
+import {
+  describeAgentRunError,
+  findBackendConnectError,
+  PROVIDER_OVERLOAD_ERROR_DETAIL,
+  PROVIDER_OVERLOAD_ERROR_TITLE,
+  PROVIDER_OVERLOADED_ERROR_KIND,
+  TURN_CANCELLED_ERROR_TITLE,
+  USER_CANCELLED_ERROR_KIND,
+} from "./agent-run-error.js";
+import { ErrorDetails } from "../../../packages/proto/generated/aiserver/v1/utils_pb.js";
+import {
+  createSendMessageEntry,
+  describeRepliedMessageQuote,
+  isUserMessageEntry,
+  stampBoxRequestEntry,
+  type SendMessage,
+} from "./send-message-shaping.js";
+import { nextEntryId } from "./transcript-entry-ids.js";
+import type {
+  TranscriptEntry,
+  TranscriptManagerLike,
+} from "./transcript-hub.js";
+import { getTranscript, updateEntry } from "./transcript-store.js";
+import type { LiveTranscriptSession } from "./session-runtime.js";
+
+export const MAX_REPLY_NUDGES = 3;
+export const REPLY_NUDGE_PROMPT =
+  "Your previous turn left the user without the result they're waiting on — you never called SendMessage that turn, or every SendMessage you tried failed to deliver. Either way they received nothing and are still waiting. Do not assume a send from an earlier turn covered it: an opening acknowledgement back then did not deliver this result (ack ≠ delivery). Deliver the result now by actually invoking the SendMessage tool — make a real tool/function call, not text you write. Plain assistant text is NEVER shown to the user; only a real SendMessage tool invocation reaches them, so if you don't call the tool they just keep seeing silence.";
+export const CLOSING_SEND_NUDGE_PROMPT =
+  "Your previous turn acknowledged the user and then ran tool calls, but ended without a follow-up SendMessage — the last thing the user saw is that opening acknowledgement, so whatever the tool calls produced after it never reached them. If that work produced the result or answer they are waiting on, deliver it now by actually invoking the SendMessage tool — make a real tool/function call, not text you write. Plain assistant text is NEVER shown to the user; only a real SendMessage tool invocation reaches them. If the work is genuinely unfinished, continue it and send the result once you have it.";
+export const TASK_ERROR_RESULT_CLASS = "task_error_result";
+export const CONNECT_CODE_NAMES = [
+  "Canceled",
+  "Unknown",
+  "InvalidArgument",
+  "DeadlineExceeded",
+  "NotFound",
+  "AlreadyExists",
+  "PermissionDenied",
+  "ResourceExhausted",
+  "FailedPrecondition",
+  "Aborted",
+  "OutOfRange",
+  "Unimplemented",
+  "Internal",
+  "Unavailable",
+  "DataLoss",
+  "Unauthenticated",
+] as const;
+export const connectCodeTag = brandedEnumOf(CONNECT_CODE_NAMES, "Other");
+
+export interface TurnTraceContext {
+  withName(name: string): unknown;
+}
+
+export type TurnCompletedSpanRecorder = (
+  context: unknown,
+  options: {
+    readonly startTime: Date;
+    readonly attributes: Readonly<Record<string, unknown>>;
+  },
+  endTime: Date,
+) => void;
+
+let turnCompletedSpanRecorder: TurnCompletedSpanRecorder | undefined;
+
+/** Supplies the bundle-scope tracing helper without guessing an OTel runtime. */
+export function setTurnCompletedSpanRecorder(
+  recorder: TurnCompletedSpanRecorder | undefined,
+): void {
+  turnCompletedSpanRecorder = recorder;
+}
+
+export function recordTurnQueueWaitSpan(args: {
+  traceCtx: unknown;
+  queueStartEpochMs?: number;
+  queueStartPerfMs?: number;
+  conversationId: string;
+  clientNonce?: string;
+}): void {
+  if (
+    turnCompletedSpanRecorder == null ||
+    args.queueStartEpochMs == null ||
+    args.queueStartPerfMs == null ||
+    args.traceCtx == null ||
+    typeof args.traceCtx !== "object" ||
+    !("withName" in args.traceCtx) ||
+    typeof args.traceCtx.withName !== "function"
+  ) {
+    return;
+  }
+  try {
+    const queueWaitMs = Math.max(
+      0,
+      Math.round(performance.now() - args.queueStartPerfMs),
+    );
+    turnCompletedSpanRecorder(
+      (args.traceCtx as TurnTraceContext).withName("turn-queue-wait"),
+      {
+        startTime: new Date(args.queueStartEpochMs),
+        attributes: {
+          "sand.queue_wait_ms": queueWaitMs,
+          "sand.conversation_id": args.conversationId,
+          ...(args.clientNonce != null && args.clientNonce.length > 0
+            ? { "sand.client_nonce": args.clientNonce }
+            : {}),
+        },
+      },
+      new Date(args.queueStartEpochMs + queueWaitMs),
+    );
+  } catch {}
+}
+
+/**
+ * The registry-less `ConnectError.findDetails()` call used to sit under a local guard here,
+ * because `agent-run-error.ts` — its owner — passed no registry and `findDetails` dereferences
+ * its argument before it looks at the error (`@connectrpc/connect` 1.x,
+ * `connect-error.js:92`). That raised `TypeError: Cannot use 'in' operator …` for *every*
+ * `ConnectError`, and `abstract-user-message-action-handler.ts:2129` throws exactly one of
+ * those for a turn the user stopped: the handler meant to report the turn raised a second,
+ * different error instead, and the turn died without a reason on the one path where the user
+ * already had one.
+ *
+ * The classifier now decodes through the registry `ErrorDetails` and refuses to raise, so the
+ * guard is gone rather than kept beside the repair. `describeAgentRunFailure` stays as the
+ * named boundary `runTurn` reads, and no longer needs a fallback: there is no second error
+ * here that could replace the one being reported.
+ */
+export function describeAgentRunFailure(error: unknown): Record<string, unknown> {
+  return describeAgentRunError(error);
+}
+
+export function connectCodeOf(error: unknown): string | undefined {
+  const connectError = findBackendConnectError(error, false);
+  if (connectError == null || typeof connectError.code !== "number") {
+    return undefined;
+  }
+  return connectCodeTag(CONNECT_CODE_NAMES[connectError.code - 1]);
+}
+
+export interface TurnResult {
+  sentMessageCount: number;
+  reacted: boolean;
+  aborted: boolean;
+  quiescedForUpgrade?: boolean;
+  streamOutputProduced?: boolean;
+  endedOnSilentToolCalls?: boolean;
+  awaitingUserSelection?: boolean;
+}
+
+export interface AgentRunner {
+  run(prompt: string, options: Record<string, unknown>): Promise<TurnResult>;
+  wouldRecoverViaPrepend?(
+    recent: readonly unknown[],
+    latestMessageId: string,
+    skippedMessageId: string,
+  ): Promise<boolean>;
+  getObservedToolCallCount?(): number;
+}
+
+export interface TurnOptions extends Record<string, unknown> {
+  readonly selectedImages: readonly unknown[];
+  readonly messageId?: string;
+  readonly recentUserMessages?: readonly { id: string; text: string }[];
+  readonly selectedVideos?: readonly unknown[];
+  readonly attachedFilePaths?: readonly string[];
+  readonly replyContext?: { targetId: string };
+  readonly isFork?: boolean;
+  readonly traceCtx?: unknown;
+  readonly queueStartEpochMs?: number;
+  readonly queueStartPerfMs?: number;
+  readonly clientNonce?: string;
+  readonly ackToken?: string;
+}
+
+export function isDeliveryOwed(
+  result: Pick<TurnResult, "sentMessageCount" | "reacted">,
+): boolean {
+  return result.sentMessageCount === 0 && !result.reacted;
+}
+
+export function classifyAgentError(error: unknown): Record<string, unknown> {
+  if (isProviderCapacityError(error)) {
+    const retryAfterMs = serverRetryAfterMsFromError(error);
+    if (retryAfterMs !== undefined) {
+      return SandError.backendCapacityDeferred({
+        connectCode: connectCodeOf(error),
+        retryAfterMs,
+      });
+    }
+    return SandError.providerOverloaded({ connectCode: connectCodeOf(error) });
+  }
+  if (isFirstTokenStallError(error)) return SandError.firstTokenStall();
+  if (isContextOverflowDeadEnd(error)) return SandError.contextWindowOverflow();
+  if (isConversationTooLargeRefusal(error)) {
+    return SandError.conversationTooLarge();
+  }
+  const connectCode = connectCodeOf(error);
+  if (isRetryableProviderError(error)) {
+    if (isTransientStreamError(error)) {
+      return SandError.streamReset({
+        connectCode,
+        errno: brandedErrno(findSystemErrno(error)),
+      });
+    }
+    return SandError.turnRetryable({ connectCode });
+  }
+  if (connectCode !== undefined) {
+    return SandError.backendRejected({ connectCode });
+  }
+  return SandError.agentUnclassified();
+}
+
+// ---------------------------------------------------------------------------
+// Why a turn said nothing.
+//
+// A turn that dies on the provider used to leave nothing behind at all. The action
+// handler throws `response.error` out of the step, `stream-attempt.ts` rethrows it,
+// the runner lets it through, and the only record was a console line and an error
+// tray entry that a later message pushed off screen. Fourteen user messages and no
+// answers left the user with nothing to act on.
+//
+// The text below is therefore composed from a closed table of sentences plus three
+// bounded facts: an HTTP status, a `Retry-After` count and a registry error code. The
+// provider's own message never enters it. `APICallError` (ai 4.3.17) carries
+// `requestBodyValues` — the whole prompt — plus `url`, `responseHeaders` and a stack
+// whose arguments can hold the credential, so anything copied out of the error
+// object is a leak waiting to happen. Selecting a sentence by shape cannot leak,
+// because nothing that came off the wire is ever read.
+// ---------------------------------------------------------------------------
+
+export const PROVIDER_FAILURE_NOTICE = "provider_failure";
+export const EMPTY_DELIVERY_NOTICE = "empty_delivery";
+export const TURN_NOTICE_ID_PREFIX = "notice-turn-";
+
+/** A user-visible reason, plus the machine code it was derived from. */
+export interface TurnFailureNotice {
+  readonly text: string;
+  readonly errorCode?: string;
+}
+
+function noticeKindSuffix(noticeKind: string): string {
+  return noticeKind.replace(/[^a-z0-9]+/g, "");
+}
+
+const USER_ABORT_MESSAGE = "User aborted request";
+// `Code.Canceled` in `@connectrpc/connect`, i.e. the first entry of `CONNECT_CODE_NAMES`.
+const CANCELED_CONNECT_CODE = 1;
+// `OPENAI_COMPATIBLE_API_KEY` ends in `API_KEY` and has no word boundary before it,
+// so the name is matched without one on purpose.
+const API_KEY_NAME = /API[_ -]?KEY/i;
+const MISSING_CREDENTIAL_WORD =
+  /\b(missing|needs|need|required|absent|not set|not configured)\b/i;
+
+/** Walks `cause` and `errors[]` once, with cycle protection. */
+function walkFailureNodes(
+  error: unknown,
+  visit: (node: Record<string, any>) => void,
+): void {
+  const seen = new Set<unknown>();
+  const stack: unknown[] = [error];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (current == null || typeof current !== "object" || seen.has(current))
+      continue;
+    seen.add(current);
+    const node = current as Record<string, any>;
+    visit(node);
+    stack.push(node.cause);
+    if (Array.isArray(node.errors)) stack.push(...node.errors);
+  }
+}
+
+/**
+ * The HTTP status an OpenAI-compatible provider answered with. `APICallError` keeps
+ * it on `statusCode`; a couple of transports spell it `status`.
+ */
+export function providerHttpStatusOf(error: unknown): number | undefined {
+  let status: number | undefined;
+  walkFailureNodes(error, (node) => {
+    if (status !== undefined) return;
+    const raw = node.statusCode ?? node.status;
+    const value = typeof raw === "number" ? raw : Number(raw);
+    if (Number.isInteger(value) && value >= 100 && value <= 599)
+      status = value;
+  });
+  return status;
+}
+
+/**
+ * A turn the user stopped is not a failure to explain: they already know. `408` and `409` are
+ * deliberately absent from the test — those are provider deadlines, not a local cancel.
+ *
+ * `ConnectError` rewrites its own message (`[canceled] User aborted request`) and keeps the
+ * original in `rawMessage`, so both spellings are read. Its numeric `code` is read directly
+ * rather than through `findBackendConnectError`, because the probe that decodes it throws on a
+ * detail-less `ConnectError` and the one error that must never be misreported is this one.
+ */
+export function isUserCancelledTurn(error: unknown): boolean {
+  let cancelled = false;
+  walkFailureNodes(error, (node) => {
+    if (cancelled) return;
+    if (
+      node.name === "AbortError" ||
+      node.message === USER_ABORT_MESSAGE ||
+      node.rawMessage === USER_ABORT_MESSAGE ||
+      (typeof node.findDetails === "function" &&
+        node.code === CANCELED_CONNECT_CODE)
+    )
+      cancelled = true;
+  });
+  return cancelled;
+}
+
+/**
+ * A credential that was never supplied, as opposed to one the provider refused. The
+ * shape test never reads the key: only the words around it, and only when no HTTP
+ * status arrived at all, because a 401 about a key is a different sentence.
+ */
+export function isMissingProviderCredential(error: unknown): boolean {
+  if (providerHttpStatusOf(error) !== undefined) return false;
+  let missing = false;
+  walkFailureNodes(error, (node) => {
+    if (missing) return;
+    const message = typeof node.message === "string" ? node.message : "";
+    if (API_KEY_NAME.test(message) && MISSING_CREDENTIAL_WORD.test(message))
+      missing = true;
+  });
+  return missing;
+}
+
+function readHeader(headers: unknown, name: string): string | undefined {
+  if (headers == null || typeof headers !== "object") return undefined;
+  const getter = (headers as { get?: unknown }).get;
+  const raw =
+    typeof getter === "function"
+      ? (getter as (key: string) => unknown).call(headers, name)
+      : (headers as Record<string, unknown>)[name];
+  return typeof raw === "string" ? raw : undefined;
+}
+
+/** Seconds the provider asked the client to wait, as a whole number. */
+function retryAfterSecondsOf(error: unknown): number | undefined {
+  const fromBackend = serverRetryAfterMsFromError(error);
+  if (fromBackend !== undefined)
+    return Math.max(1, Math.round(fromBackend / 1_000));
+  let seconds: number | undefined;
+  walkFailureNodes(error, (node) => {
+    if (seconds !== undefined) return;
+    const parsed = Number(readHeader(node.responseHeaders, "retry-after"));
+    if (Number.isFinite(parsed) && parsed >= 0)
+      seconds = Math.min(Math.round(parsed), 3_600);
+  });
+  return seconds;
+}
+
+/**
+ * A title the backend itself wrote. Only one short single line is taken: a title carrying a
+ * line break or a control character is not a title, and accepting one would let a stack or a
+ * pasted request body ride along in a field the renderer prints as a sentence.
+ *
+ * `findDetails` is given the `ErrorDetails` registry it requires. Called with no registry it
+ * raises `TypeError: Cannot use 'in' operator …` before it ever looks at this error, which is
+ * why this used to be wrapped in a guard that hid the repair in `agent-run-error.ts`.
+ */
+function curatedBackendTitleOf(error: unknown): string | undefined {
+  const connectError = findBackendConnectError(error, false);
+  if (connectError == null) return undefined;
+  try {
+    const decoded = connectError.findDetails(ErrorDetails) as Array<{
+      details?: { title?: string };
+    }>;
+    const title = decoded[0]?.details?.title?.trim();
+    return title != null &&
+      title.length > 0 &&
+      !/[\r\n\u0000-\u001f\u007f]/.test(title)
+      ? title.slice(0, 120)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The sentence the agent writes into its own transcript when a turn dies on the
+ * provider. Returns `undefined` only when the turn was stopped by the user.
+ */
+export function describeProviderTurnFailure(
+  error: unknown,
+): TurnFailureNotice | undefined {
+  if (isUserCancelledTurn(error)) return undefined;
+  const status = providerHttpStatusOf(error);
+  const backendTitle = curatedBackendTitleOf(error);
+  let title: string;
+  let detail: string;
+  if (status === undefined && backendTitle === undefined && isMissingProviderCredential(error)) {
+    title = "No API key is configured for the model provider.";
+    detail =
+      "Add the key in Settings → Router and send the message again. The key itself is not shown here.";
+  } else if (status === 401) {
+    title = "The model provider refused the API key (HTTP 401).";
+    detail =
+      "The key for this provider is missing, wrong or expired. Fix it in Settings → Router and send the message again. The key itself is not shown here.";
+  } else if (status === 403) {
+    title = "The model provider refused this request (HTTP 403).";
+    detail =
+      "The configured key is not allowed to use this model. Change the key or the model in Settings → Router.";
+  } else if (status === 404) {
+    title = "The model provider has no such model or endpoint (HTTP 404).";
+    detail =
+      "The base URL or the model id in Settings → Router does not exist on this provider.";
+  } else if (status === 429) {
+    const waitSeconds = retryAfterSecondsOf(error);
+    title = "The model provider is rate limiting this key (HTTP 429).";
+    detail =
+      waitSeconds === undefined
+        ? "Too many requests reached the provider. Sending the message again after a short wait usually works."
+        : `Too many requests reached the provider, which asked to wait about ${waitSeconds}s. Sending the message again after that usually works.`;
+  } else if (status === 400 || status === 422) {
+    title = `The model provider refused the request (HTTP ${status}).`;
+    detail =
+      "The provider rejected the request itself. A shorter conversation or a different model usually helps.";
+  } else if (status !== undefined && status >= 500) {
+    title = `The model provider failed with a server error (HTTP ${status}).`;
+    detail =
+      "The fault is on the provider side. Sending the message again usually works.";
+  } else if (isFirstTokenStallError(error)) {
+    title = "The model provider stopped responding.";
+    detail =
+      "No answer arrived within the time limit. Sending the message again usually works.";
+  } else if (isContextOverflowDeadEnd(error)) {
+    title = "This conversation no longer fits the model's context window.";
+    detail =
+      "Start a new chat, or ask the agent to summarise the earlier turns before continuing.";
+  } else if (isConversationTooLargeRefusal(error)) {
+    title = "This conversation is too large for the provider to accept.";
+    detail =
+      "Start a new chat to continue; this one has passed the size the agent is allowed to send.";
+  } else if (isProviderCapacityError(error)) {
+    title = PROVIDER_OVERLOAD_ERROR_TITLE;
+    detail = PROVIDER_OVERLOAD_ERROR_DETAIL;
+  } else if (isTransientStreamError(error)) {
+    title =
+      "The connection to the model provider broke before the answer finished.";
+    detail =
+      "Nothing usable arrived from the provider. Sending the message again usually works.";
+  } else if (status !== undefined) {
+    title = `The model provider refused the request (HTTP ${status}).`;
+    detail =
+      "The provider answered with an error instead of a reply. Sending the message again usually works.";
+  } else if (backendTitle !== undefined) {
+    title = backendTitle;
+    detail =
+      "The backend refused this turn. The error tray carries the full report and any fix it offers.";
+  } else {
+    title = "This turn failed before the agent could answer.";
+    detail =
+      "The failure was not a model provider request this build can name. Sending the message again usually works.";
+  }
+  return {
+    text: `${title} ${detail}`,
+    errorCode: sandErrorWireCode(classifyAgentError(error)),
+  };
+}
+
+/**
+ * A turn that ran to its end and still delivered nothing. Nothing threw here — the
+ * reply-nudge ladder already ran and the agent never called SendMessage — so this
+ * is the only place the user can be told the difference between a provider that
+ * answered with nothing and an agent that answered itself.
+ */
+export function describeEmptyDeliveryNotice(
+  streamOutputProduced: boolean,
+): TurnFailureNotice {
+  return streamOutputProduced
+    ? {
+        text: "The agent finished this turn without sending an answer. It produced output but never called SendMessage, so nothing reached this chat. Sending the message again usually works.",
+      }
+    : {
+        text: "The model provider answered with nothing. The request completed but no text came back, so this chat has no reply. Sending the message again usually works.",
+      };
+}
+
+type CardPredicate = (entry: TranscriptEntry) => boolean;
+type CardUpdate = (entry: TranscriptEntry) => TranscriptEntry;
+
+function messageOf(entry: TranscriptEntry): Record<string, any> | undefined {
+  return typeof entry.message === "object" && entry.message != null
+    ? (entry.message as Record<string, any>)
+    : undefined;
+}
+
+export class TurnRuntime {
+  readonly replyThreadTargets = new Map<LiveTranscriptSession, string>();
+  readonly forkTurnSessions = new Set<LiveTranscriptSession>();
+  readonly activeRequestPrompts = new Map<string, string>();
+  readonly activeRequestSources = new Map<string, string>();
+  readonly activeTurnEpochs = new Map<string, number>();
+  readonly activeTurns = new Map<string, Record<string, any>>();
+  readonly reportedDualSurfaceToolCalls = new Map<string, Set<string>>();
+  readonly reportedToolCallErrors = new Map<string, Set<string>>();
+  readonly reportedToolCallStalls = new Map<string, Set<string>>();
+  readonly pendingToolCallStarts = new Map<string, Map<string, number>>();
+
+  constructor(readonly tm: TranscriptManagerLike) {}
+
+  /**
+   * Writes one `notice` row — the kind the renderer already draws as a note inside the
+   * conversation, so the reason lands where the user is already waiting instead of in a
+   * tray that scrolls away. The active agent goes through `appendEntry`, which updates
+   * the live transcript and persists in one step; any other agent is written straight to
+   * its own `store.db`, which is the same split `shared-rooms.ts` uses for its notices.
+   */
+  recordTurnNotice(
+    session: LiveTranscriptSession,
+    notice: TurnFailureNotice & { readonly noticeKind: string },
+  ): void {
+    const entry: TranscriptEntry = {
+      kind: "notice",
+      id: `${TURN_NOTICE_ID_PREFIX}${noticeKindSuffix(notice.noticeKind)}-${randomUUID()}`,
+      text: notice.text,
+      timestampMs: Date.now(),
+      noticeKind: notice.noticeKind,
+      ...(notice.errorCode == null ? {} : { errorCode: notice.errorCode }),
+    };
+    if (this.tm.sessions.activeSession?.id === session.id) {
+      this.tm.appendEntry(entry);
+      return;
+    }
+    session.db.appendTranscriptEntry(entry);
+    void this.tm.roster.emitAgentUpdate(session.id);
+  }
+
+  settleCardStatus(args: {
+    runSession?: LiveTranscriptSession | null;
+    isForActiveAgent: boolean;
+    matchesCard: CardPredicate;
+    applyStatus: CardUpdate;
+  }): void {
+    const targetSession =
+      args.runSession ?? this.tm.sessions.activeSession ?? null;
+    const dbTarget = targetSession?.db
+      .getTranscriptEntries()
+      .find(args.matchesCard) as TranscriptEntry | undefined;
+    const persisted =
+      targetSession != null && dbTarget != null
+        ? (targetSession.db.updateTranscriptEntry(
+            dbTarget.id,
+            args.applyStatus,
+          ) as TranscriptEntry | null)
+        : null;
+    const liveTarget = args.isForActiveAgent
+      ? getTranscript().find(args.matchesCard)
+      : undefined;
+    const live =
+      liveTarget == null ? null : updateEntry(liveTarget.id, args.applyStatus);
+    const shipped = live ?? persisted;
+    if (shipped != null)
+      this.tm.roster.emit(
+        { type: "updated", entry: shipped },
+        targetSession?.id,
+      );
+  }
+
+  markReportedOnce(args: {
+    reported: Map<string, Set<string>>;
+    sessionId: string;
+    toolCallId: string;
+  }): boolean {
+    let seen = args.reported.get(args.sessionId);
+    if (seen == null) {
+      seen = new Set();
+      args.reported.set(args.sessionId, seen);
+    }
+    if (seen.has(args.toolCallId)) return false;
+    seen.add(args.toolCallId);
+    return true;
+  }
+
+  reportToolCallDiagnostic(
+    session: LiveTranscriptSession,
+    observation: Record<string, any>,
+  ): void {
+    const requestId =
+      observation.requestId ??
+      this.tm.runLifecycle.lastRequestIdBySession.get(session.id);
+    const base = {
+      conversationId: session.id,
+      requestId,
+      toolName: observation.toolName,
+      toolCallId: observation.toolCallId,
+      connector: observation.connector,
+    };
+    if (observation.kind === "error") {
+      if (
+        !this.markReportedOnce({
+          reported: this.reportedToolCallErrors,
+          sessionId: session.id,
+          toolCallId: observation.toolCallId,
+        })
+      )
+        return;
+      this.tm.telemetry.reportToolCallError({
+        ...base,
+        errorClass: observation.errorClass,
+        durationMs: observation.durationMs,
+      });
+    } else {
+      if (
+        !this.markReportedOnce({
+          reported: this.reportedToolCallStalls,
+          sessionId: session.id,
+          toolCallId: observation.toolCallId,
+        })
+      )
+        return;
+      this.tm.telemetry.reportToolCallStalled({
+        ...base,
+        elapsedMs: observation.elapsedMs,
+      });
+    }
+  }
+
+  async runTurn(
+    session: LiveTranscriptSession,
+    runner: AgentRunner,
+    prompt: string,
+    options: TurnOptions,
+    epoch: number,
+  ): Promise<void> {
+    const turnTrace = beginTurnTrace({
+      parentCtx: options.traceCtx,
+      conversationId: session.id,
+      turnType: "user",
+      ...(options.queueStartEpochMs == null
+        ? {}
+        : { startTime: options.queueStartEpochMs }),
+      attributes: {
+        "sand.turn_epoch": epoch,
+        ...(options.clientNonce
+          ? { "sand.client_nonce": options.clientNonce }
+          : {}),
+        ...(options.messageId == null
+          ? {}
+          : { "sand.message_id": options.messageId }),
+        ...(options.isFork === true ? { "sand.is_fork": true } : {}),
+      },
+    });
+    const turnCtx = turnTrace?.context ?? options.traceCtx;
+    try {
+      recordTurnQueueWaitSpan({
+        traceCtx: turnCtx,
+        ...(options.queueStartEpochMs == null
+          ? {}
+          : { queueStartEpochMs: options.queueStartEpochMs }),
+        ...(options.queueStartPerfMs == null
+          ? {}
+          : { queueStartPerfMs: options.queueStartPerfMs }),
+        conversationId: session.id,
+        ...(options.clientNonce == null
+          ? {}
+          : { clientNonce: options.clientNonce }),
+      });
+      if (
+        epoch !== this.tm.sendPipeline.currentTurnEpoch(session) &&
+        options.messageId != null
+      ) {
+        const latest = this.tm.sendPipeline.latestRecoverySends.get(session.id);
+        const rawText = options.recentUserMessages?.find(
+          (message) => message.id === options.messageId,
+        )?.text;
+        const recoverable =
+          options.selectedImages.length === 0 &&
+          (options.selectedVideos?.length ?? 0) === 0 &&
+          (options.attachedFilePaths?.length ?? 0) === 0 &&
+          options.isFork !== true &&
+          options.replyContext == null &&
+          rawText != null &&
+          rawText === prompt.trim() &&
+          epoch >
+            (this.tm.sendPipeline.recoveryBreakEpochs.get(session.id) ?? 0) &&
+          latest != null &&
+          latest.epoch === this.tm.sendPipeline.currentTurnEpoch(session) &&
+          runner.wouldRecoverViaPrepend != null &&
+          (await runner.wouldRecoverViaPrepend(
+            latest.recentUserMessages,
+            latest.messageId,
+            options.messageId,
+          ));
+        if (recoverable) {
+          this.tm.telemetry
+            .startTurn({ conversationId: session.id, turnType: "new" })
+            .finalize("cancelled");
+          this.tm.ackObligations.retireAckRunToken(
+            session.id,
+            options.ackToken,
+          );
+          setTurnTraceAttributes(turnTrace, { "sand.outcome": "superseded" });
+          this.tm.runLifecycle.endSessionRun(session);
+          return;
+        }
+      }
+
+      const trimmed = prompt.trim();
+      if (trimmed) this.activeRequestPrompts.set(session.id, trimmed);
+      else this.activeRequestPrompts.delete(session.id);
+      if (options.replyContext != null)
+        this.replyThreadTargets.set(session, options.replyContext.targetId);
+      else this.replyThreadTargets.delete(session);
+      if (options.isFork === true) this.forkTurnSessions.add(session);
+      else this.forkTurnSessions.delete(session);
+      this.activeTurnEpochs.set(session.id, epoch);
+      const startedAtMs = Date.now();
+      const turn = this.tm.telemetry.startTurn({
+        conversationId: session.id,
+        turnType: "new",
+      });
+      this.activeTurns.set(session.id, turn);
+      this.activeRequestSources.set(session.id, "turn");
+      try {
+        const unansweredPrompts =
+          this.tm.widgetResponses.collectUnansweredQuestionPrompts(session);
+        const reactionNotices =
+          this.tm.widgetResponses.collectUserReactionNotices(session);
+        const result = await runner.run(prompt, {
+          ...options,
+          ...unansweredPrompts,
+          ...reactionNotices,
+          traceCtx: turnCtx,
+          appendReplyReminder: true,
+          requestSource: "turn",
+          onModelResolved: (modelId: string) => turn.setModel(modelId),
+        });
+        let settledResult = result;
+        if (result.quiescedForUpgrade)
+          this.tm.upgradeResume.markAgentResumePending(session, "turn");
+        else if (
+          !result.aborted &&
+          epoch === this.tm.sendPipeline.currentTurnEpoch(session)
+        ) {
+          const settled = await this.ensureUserReply(
+            runner,
+            result,
+            session,
+            epoch,
+            options.ackToken,
+            turnCtx,
+            turnTrace,
+            turn,
+          );
+          settledResult = settled.result;
+          if (
+            settled.deliveryOwed &&
+            !settledResult.aborted &&
+            settledResult.quiescedForUpgrade !== true &&
+            epoch === this.tm.sendPipeline.currentTurnEpoch(session)
+          ) {
+            this.tm.telemetry.reportTurnEmptyDelivery({
+              conversationId: session.id,
+              requestId: this.tm.runLifecycle.lastRequestIdBySession.get(
+                session.id,
+              ),
+              source: "turn",
+              requestSource: "turn",
+              replyNudgeAttempts: settled.replyNudgeAttempts,
+              toolCallCount: runner.getObservedToolCallCount?.() ?? 0,
+              streamOutputProduced: settled.streamOutputProduced,
+              durationMs: Date.now() - startedAtMs,
+              ackOutstanding:
+                this.tm.ackObligationStore?.get(session.id) != null,
+            });
+            // Telemetry is not a place the user reads. A provider that answers with an
+            // empty 200 or a body that is not an event stream throws nothing at all, so
+            // this is the only path that can say "the provider answered with nothing"
+            // instead of leaving the message unanswered.
+            this.recordTurnNotice(session, {
+              ...describeEmptyDeliveryNotice(settled.streamOutputProduced),
+              noticeKind: EMPTY_DELIVERY_NOTICE,
+            });
+          }
+        }
+        turn.finalize(
+          result.aborted || result.quiescedForUpgrade ? "cancelled" : "success",
+        );
+        setTurnTraceAttributes(turnTrace, {
+          "sand.outcome": resolveTurnTraceOutcome(settledResult),
+        });
+        await this.tm.roster.emitAgentUpdate(session.id);
+        this.tm.automationRuntime.emitAutomations(session);
+      } catch (error) {
+        console.error(
+          `[sand][turn] agent run failed for ${session.id}`,
+          error,
+        );
+        turn.finalize(
+          "error",
+          classifyAgentError(error),
+          sandErrorDetail(error),
+        );
+        markTurnTraceError(turnTrace, error);
+        // The tray is a global notification that the next message pushes off screen; the
+        // agent's own history is where the user comes looking for why this turn said
+        // nothing. Written before the tray so a tray failure cannot lose the reason.
+        const notice = describeProviderTurnFailure(error);
+        if (notice != null)
+          this.recordTurnNotice(session, {
+            ...notice,
+            noticeKind: PROVIDER_FAILURE_NOTICE,
+          });
+        if (epoch === this.tm.sendPipeline.currentTurnEpoch(session)) {
+          const description = describeAgentRunFailure(error);
+          const requestId = session.db.getRequestIds().at(-1)?.id;
+          this.tm.trayErrors.pushError({
+            agentId: session.id,
+            title:
+              description.errorKind === PROVIDER_OVERLOADED_ERROR_KIND
+                ? PROVIDER_OVERLOAD_ERROR_TITLE
+                : description.errorKind === USER_CANCELLED_ERROR_KIND
+                  ? TURN_CANCELLED_ERROR_TITLE
+                  : "Agent failed to respond",
+            requestId,
+            ...description,
+          });
+        }
+        await this.tm.roster.emitAgentUpdate(session.id);
+      } finally {
+        for (const map of [
+          this.activeTurns,
+          this.reportedDualSurfaceToolCalls,
+          this.reportedToolCallErrors,
+          this.reportedToolCallStalls,
+          this.pendingToolCallStarts,
+          this.activeRequestPrompts,
+          this.activeRequestSources,
+        ])
+          map.delete(session.id);
+        this.tm.runLifecycle.lastRequestIdBySession.delete(session.id);
+        this.replyThreadTargets.delete(session);
+        this.forkTurnSessions.delete(session);
+        if (this.activeTurnEpochs.get(session.id) === epoch)
+          this.activeTurnEpochs.delete(session.id);
+        this.tm.ackObligations.retireAckRunToken(session.id, options.ackToken);
+        this.tm.runLifecycle.endSessionRun(session);
+      }
+    } finally {
+      try {
+        turnTrace?.span.end();
+      } catch {}
+      this.tm.traceFlusher();
+    }
+  }
+
+  async ensureUserReply(
+    runner: AgentRunner,
+    result: TurnResult,
+    session: LiveTranscriptSession,
+    epoch: number,
+    ackToken: string | undefined,
+    traceCtx: unknown,
+    turnTrace: HostTrace | undefined,
+    turn?: Record<string, any>,
+  ): Promise<{
+    result: TurnResult;
+    replyNudgeAttempts: number;
+    deliveryOwed: boolean;
+    streamOutputProduced: boolean;
+  }> {
+    let latest = result;
+    let attempts = 0;
+    let delivered = !isDeliveryOwed(result);
+    let streamOutputProduced = result.streamOutputProduced === true;
+    while (
+      isDeliveryOwed(latest) &&
+      attempts < MAX_REPLY_NUDGES &&
+      epoch === this.tm.sendPipeline.currentTurnEpoch(session)
+    ) {
+      attempts += 1;
+      latest = await runner.run(REPLY_NUDGE_PROMPT, {
+        hidden: true,
+        ackToken,
+        traceCtx,
+        onModelResolved: (id: string) => turn?.setModel(id),
+      });
+      delivered ||= !isDeliveryOwed(latest);
+      streamOutputProduced ||= latest.streamOutputProduced === true;
+      if (latest.aborted) break;
+    }
+    if (
+      latest.endedOnSilentToolCalls === true &&
+      !latest.aborted &&
+      latest.awaitingUserSelection !== true &&
+      epoch === this.tm.sendPipeline.currentTurnEpoch(session)
+    ) {
+      setTurnTraceAttributes(turnTrace, { "sand.closing_send_nudge": true });
+      let nudged: TurnResult | undefined;
+      try {
+        nudged = await runner.run(CLOSING_SEND_NUDGE_PROMPT, {
+          hidden: true,
+          ackToken,
+          traceCtx,
+          onModelResolved: (id: string) => turn?.setModel(id),
+        });
+        latest = nudged;
+        delivered ||= !isDeliveryOwed(nudged);
+        streamOutputProduced ||= nudged.streamOutputProduced === true;
+      } finally {
+        this.tm.telemetry.reportClosingSendNudge({
+          conversationId: session.id,
+          delivered:
+            nudged != null && (nudged.sentMessageCount > 0 || nudged.reacted),
+          sentMessageCount: nudged?.sentMessageCount ?? 0,
+          aborted: nudged?.aborted ?? false,
+        });
+      }
+    }
+    return {
+      result: latest,
+      replyNudgeAttempts: attempts,
+      deliveryOwed: !delivered,
+      streamOutputProduced,
+    };
+  }
+
+  resolveReplyTarget(
+    entries: readonly TranscriptEntry[],
+    candidateId: string,
+  ): string | undefined {
+    return entries.some((entry) => entry.id === candidateId)
+      ? candidateId
+      : undefined;
+  }
+
+  buildReplyContext(
+    entries: readonly TranscriptEntry[],
+    targetId?: string,
+  ): { targetId: string; quote: string } | undefined {
+    if (targetId == null) return undefined;
+    const target = entries.find((entry) => entry.id === targetId);
+    return target == null
+      ? undefined
+      : { targetId, quote: describeRepliedMessageQuote(target) };
+  }
+
+  handleAgentUpdate(
+    update: Record<string, any>,
+    session?: LiveTranscriptSession,
+  ): string | undefined {
+    const runSession =
+      session ??
+      this.tm.runLifecycle.activeRunSession ??
+      this.tm.sessions.activeSession ??
+      null;
+    const isForActiveAgent =
+      runSession == null ||
+      runSession.id === this.tm.sessions.activeSession?.id;
+    if (isForActiveAgent) this.tm.roster.applyAgentUpdateToOutline(update);
+    if (runSession != null) {
+      this.tm.runLifecycle.trackComposingFromUpdate(update, runSession.id);
+      this.tm.runLifecycle.trackRetryingFromUpdate(update, runSession);
+      this.tm.runLifecycle.trackActivityFromUpdate(update, runSession.id);
+    }
+    switch (update.type) {
+      case "client-side-tool-v2": {
+        if (runSession == null) return undefined;
+        const event = this.tm.clientSideToolV2.publish(runSession.id, update.update);
+        if (event != null) this.tm.roster.emitClientSideToolV2(event);
+        return undefined;
+      }
+      case "tool-call": {
+        if (update.status === "pending" && runSession != null) {
+          let starts = this.pendingToolCallStarts.get(runSession.id);
+          if (starts == null) {
+            starts = new Map();
+            this.pendingToolCallStarts.set(runSession.id, starts);
+          }
+          if (!starts.has(update.id)) starts.set(update.id, performance.now());
+          const dual = sandDualSurfaceToolTelemetry(update.name);
+          if (
+            dual != null &&
+            this.markReportedOnce({
+              reported: this.reportedDualSurfaceToolCalls,
+              sessionId: runSession.id,
+              toolCallId: update.id,
+            })
+          ) {
+            this.tm.telemetry.reportToolCallStarted({
+              conversationId: runSession.id,
+              requestId: this.tm.runLifecycle.lastRequestIdBySession.get(
+                runSession.id,
+              ),
+              toolName: dual.toolName,
+              toolCallId: update.id,
+              surface: dual.surface,
+            });
+          }
+        } else if (runSession != null) {
+          const starts = this.pendingToolCallStarts.get(runSession.id);
+          const started = starts?.get(update.id);
+          starts?.delete(update.id);
+          if (update.status === "failed")
+            this.reportToolCallDiagnostic(runSession, {
+              kind: "error",
+              toolCallId: update.id,
+              toolName: update.name,
+              connector: UNKNOWN_CONNECTOR_TAG,
+              errorClass: TASK_ERROR_RESULT_CLASS,
+              ...(started == null
+                ? {}
+                : { durationMs: Math.round(performance.now() - started) }),
+            });
+        }
+        return undefined;
+      }
+      case "request-id":
+        if (runSession != null) {
+          this.activeTurns.get(runSession.id)?.setRequestId(update.requestId);
+          this.tm.runLifecycle.lastRequestIdBySession.set(
+            runSession.id,
+            update.requestId,
+          );
+          this.tm.runLifecycle.trackTurnRequestId(
+            runSession.id,
+            update.requestId,
+          );
+        }
+        void this.tm.runLifecycle.recordRequestId(
+          update.requestId,
+          runSession,
+          update.source,
+        );
+        return undefined;
+      case "turn-ended":
+        if (runSession != null)
+          this.tm.runLifecycle.reportTurnUsage(runSession, update.usage);
+        return undefined;
+      case "send-message": {
+        const incoming = update.message as SendMessage;
+        if (
+          (incoming.type === "text" || incoming.type === "attachment") &&
+          typeof incoming.channel === "string" &&
+          incoming.channel.length > 0
+        )
+          this.tm.backgroundWakes.deliverToChannel(
+            runSession,
+            incoming,
+            incoming.channel,
+          );
+        if (incoming.type === "listener-connect")
+          this.notifyListenerConnect(runSession, incoming);
+        if (incoming.type === "connector" && incoming.variant === "connect")
+          this.notifyConnectorConnect(runSession, incoming);
+        const entries =
+          isForActiveAgent || runSession == null
+            ? getTranscript()
+            : (runSession.db.getTranscriptEntries() as TranscriptEntry[]);
+        const sendId = nextEntryId(entries, "send-message");
+        const validated = this.tm.sendPipeline.validateAiReplyTarget(
+          incoming,
+          sendId,
+          entries,
+        );
+        const threaded = this.tm.sendPipeline.applyAutoReplyThread(
+          validated,
+          runSession,
+          entries,
+        ) as SendMessage;
+        const batchId =
+          threaded.type === "attachment" && runSession != null
+            ? this.tm.sendPipeline.claimSendAttachmentBatchId(runSession.id)
+            : undefined;
+        const base = {
+          ...createSendMessageEntry(sendId, threaded, update.timestampMs),
+          ...(batchId == null ? {} : { batchId }),
+        };
+        const stamped =
+          update.boxHandoff == null
+            ? base
+            : stampBoxRequestEntry(base, update.boxHandoff);
+        const entry =
+          runSession != null && this.forkTurnSessions.has(runSession)
+            ? { ...stamped, branched: true }
+            : stamped;
+        if (isForActiveAgent || runSession == null) {
+          this.tm.sendPipeline.appendSendMessageEntry(entry);
+          const activeId = runSession?.id ?? this.tm.sessions.activeSession?.id;
+          this.tm.ackObligations.fulfillAckObligation(
+            activeId,
+            update.ackToken,
+          );
+          if (activeId != null) void this.tm.roster.emitAgentUpdate(activeId);
+        } else {
+          runSession.db.appendTranscriptEntry(entry);
+          this.tm.ackObligations.fulfillAckObligation(
+            runSession.id,
+            update.ackToken,
+          );
+          this.tm.sessionStore.markSessionActivity(runSession);
+          void this.tm.roster.emitAgentUpdate(runSession.id);
+        }
+        return sendId;
+      }
+      case "auto-review-status":
+        this.settleNestedStatus(
+          runSession,
+          isForActiveAgent,
+          "auto-review-approval",
+          "approval",
+          update.requestId,
+          update.status,
+        );
+        return undefined;
+      case "local-tool-permission-status":
+        this.settleNestedStatus(
+          runSession,
+          isForActiveAgent,
+          "local-tool-permission",
+          "ask",
+          update.requestId,
+          update.status,
+        );
+        return undefined;
+      case "react-to-message": {
+        const emoji = String(update.emoji ?? "").trim();
+        if (!emoji || !isMessageAddress(update.messageAddress))
+          return undefined;
+        const reactSession =
+          runSession ?? this.tm.sessions.activeSession ?? null;
+        const entries =
+          reactSession != null &&
+          reactSession.id !== this.tm.sessions.activeSession?.id
+            ? (reactSession.db.getTranscriptEntries() as TranscriptEntry[])
+            : getTranscript();
+        const target = entries.find(
+          (entry) => entry.id === update.messageAddress,
+        );
+        if (target == null) return undefined;
+        // The agent may react on either side of its own conversation: the user's
+        // messages and its own sends. Accepting only user messages turned every
+        // reaction aimed at the agent's own message into a silent no-op — the
+        // tool reported success and no pill ever appeared, because the target was
+        // discarded here. Group rooms already allowed both sides
+        // (`applyGroupMemberReaction`), so this is the one-agent path catching up.
+        if (!isUserMessageEntry(target) && target.kind !== "send-message")
+          return undefined;
+        const applied = this.tm.widgetResponses.applyReaction({
+          session: reactSession,
+          entryId: update.messageAddress,
+          emoji,
+          by: reactSession?.id ?? SAND_REACTION_AGENT,
+        });
+        return applied == null ? undefined : update.messageAddress;
+      }
+      default:
+        return undefined;
+    }
+  }
+
+  private notifyListenerConnect(
+    session: LiveTranscriptSession | null,
+    message: SendMessage,
+  ): void {
+    const ownerId = session?.id ?? this.tm.sessions.activeSession?.id;
+    if (ownerId == null) return;
+    try {
+      this.tm.onListenerConnectCard?.({
+        agentId: ownerId,
+        platform: message.platform,
+      });
+    } catch {}
+  }
+
+  private notifyConnectorConnect(
+    session: LiveTranscriptSession | null,
+    message: SendMessage,
+  ): void {
+    const ownerId = session?.id ?? this.tm.sessions.activeSession?.id;
+    if (ownerId == null) return;
+    try {
+      this.tm.onConnectorConnectCard?.({
+        agentId: ownerId,
+        connector: message.connector,
+        ...(message.serverId == null ? {} : { serverId: message.serverId }),
+      });
+    } catch {}
+  }
+
+  private settleNestedStatus(
+    runSession: LiveTranscriptSession | null,
+    isForActiveAgent: boolean,
+    type: string,
+    key: string,
+    requestId: string,
+    status: unknown,
+  ): void {
+    const matchesCard = (entry: TranscriptEntry) =>
+      messageOf(entry)?.type === type &&
+      messageOf(entry)?.[key]?.requestId === requestId;
+    const applyStatus = (entry: TranscriptEntry): TranscriptEntry => {
+      const message = messageOf(entry);
+      if (
+        message == null ||
+        message.type !== type ||
+        message[key]?.requestId !== requestId
+      )
+        return entry;
+      return {
+        ...entry,
+        message: { ...message, [key]: { ...message[key], status } },
+      };
+    };
+    this.settleCardStatus({
+      runSession,
+      isForActiveAgent,
+      matchesCard,
+      applyStatus,
+    });
+  }
+}

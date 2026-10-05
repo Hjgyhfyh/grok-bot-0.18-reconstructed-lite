@@ -1,0 +1,15 @@
+*.cjs text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.map text eol=lf
+*.node binary
+*.wasm binary
+*.icns binary
+
+# DB Bot Lite собирается полностью из исходников: frontend/ -> vite,
+# source/ -> esbuild. Оригинальный минифицированный бандл 0.18.0
+# (src/app/dist/**) и архивы оригинала (research-archives/**) больше не нужны:
+# их Git LFS-объекты удалены с сервера, fidelity-конвейер мёртв и вычищен.
