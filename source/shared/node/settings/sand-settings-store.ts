@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 import { DEFAULT_SAND_THEME_PREFERENCE, isSandThemePreference, type SandThemePreference } from "../../desktop.js";
@@ -96,6 +96,47 @@ function parseSettings(value: unknown): SandStoredSettings | null {
   return result;
 }
 
+/** Порядковый номер записи. Нужен, чтобы имена временных файлов не совпадали. */
+let settingsWriteSequence = 0;
+
+/**
+ * Спит синхронно. `persist` работает на чтении и записи, так что ждать тут
+ * приходится синхронно, а обычный `setTimeout` для этого не годится.
+ */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Подменяет файл и повторяет попытку, если Windows отказала из-за занятого
+ * файла.
+ *
+ * На Windows подмена имени над файлом, который кто-то открыл, падает с EPERM
+ * или EBUSY. Это НЕ поломка: главный процесс, координатор и хост пишут
+ * settings.json почти одновременно, и держатель файла отпускает его через
+ * миллисекунды. Раньше такая попытка была единственной, поэтому настройка
+ * просто терялась.
+ *
+ * Падать по-настоящему стоит только когда подмена не удалась за все попытки:
+ * тогда потеря данных действительно есть, и лучше сказать об этом прямо.
+ */
+function renameWithRetry(from: string, to: string): void {
+  const retryable = new Set(["EPERM", "EBUSY", "EACCES", "ENOTEMPTY"]);
+  const attempts = 12;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try { renameSync(from, to); return; }
+    catch (error) {
+      const code = (error as NodeJS.ErrnoException | null)?.code;
+      if (code === "ENOENT") throw error; // наш временный файл исчез — это не про занятость
+      lastError = error;
+      if (code == null || !retryable.has(code)) throw error;
+      sleepSync(5 * (attempt + 1));
+    }
+  }
+  throw lastError;
+}
+
 export class SandSettingsStore {
   constructor(readonly settingsPath: string) {}
   load(): SandStoredSettings {
@@ -119,7 +160,34 @@ export class SandSettingsStore {
     try { this.persist(migrated); } catch {}
     return migrated;
   }
-  persist(settings: SandStoredSettings): void { mkdirSync(dirname(this.settingsPath), { recursive: true }); const temp = `${this.settingsPath}.${process.pid}.tmp`; writeFileSync(temp, JSON.stringify(settings, null, 2), "utf8"); renameSync(temp, this.settingsPath); }
+  persist(settings: SandStoredSettings): void {
+    mkdirSync(dirname(this.settingsPath), { recursive: true });
+    // Запись идёт через временный файл и подмену им настоящего. Это правильно:
+    // читатели никогда не видят наполовину записанный JSON.
+    //
+    // Но имя временного файла раньше строилось ТОЛЬКО из номера процесса. Две
+    // записи внутри одного процесса получали одно и то же имя и начинали
+    // мешать друг другу: первая подменяла файл и уносила временный с собой,
+    // вторая потом переименовывала уже несуществующий файл и падала с ENOENT.
+    // Хуже того, вторая запись успевала затереть содержимое временного файла
+    // ДО первой подмены, и первая молча уносила в файл ЧУЖИЕ данные. Именно
+    // это мы и видели на живой машине: команда setHostSettings семь раз
+    // теряла значение, не сообщив об этом ни слова.
+    //
+    // Теперь имя уникально для каждой отдельной записи: номер процесса,
+    // счётчик и случайный хвост. Две одновременные записи не могут
+    // столкнуться даже внутри одного процесса.
+    const unique = `${process.pid}.${settingsWriteSequence++}.${Math.random().toString(36).slice(2, 8)}`;
+    const temp = `${this.settingsPath}.${unique}.tmp`;
+    try {
+      writeFileSync(temp, JSON.stringify(settings, null, 2), "utf8");
+      renameWithRetry(temp, this.settingsPath);
+    } finally {
+      // Временный файл мог остаться, если подмена сорвалась на всех попытках.
+      // Он не нужен нигде, и оставлять его в папке данных — мусор.
+      try { unlinkSync(temp); } catch {}
+    }
+  }
   private update(mutator: (settings: SandStoredSettings) => SandStoredSettings): void { this.persist(mutator(this.load())); }
   getHasSeenOnboarding(): boolean | undefined { return this.load().hasSeenOnboarding; }
   setHasSeenOnboarding(value: boolean): void { this.update((current) => { const { hasSeenOnboardingAccountScope: _old, ...rest } = current; return { ...rest, hasSeenOnboarding: value, ...(rest.mcpCustomInstructionsAccountScope === undefined ? {} : { hasSeenOnboardingAccountScope: rest.mcpCustomInstructionsAccountScope }) }; }); }

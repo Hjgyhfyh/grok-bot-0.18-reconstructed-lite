@@ -89,7 +89,27 @@ async function bundle(entries) {
   }
   const loaded = {};
   for (const [name, file] of names) loaded[name] = await import(pathToFileURL(file).href);
-  return { loaded, dispose: () => rmSync(directory, { recursive: true, force: true }) };
+  return { loaded, dispose: () => dropDirectory(directory) };
+}
+
+/**
+ * Removes a temporary directory without ever failing the run over it.
+ *
+ * Both `test.after` hooks below run once every check in the file has passed, so
+ * a throw from cleanup is reported as the whole file failing while each check
+ * inside it is green. A bare `rmSync` allows exactly that: without `maxRetries`
+ * the first Windows `EPERM` ends the attempt, and the machine that produces one
+ * is a scanner still holding a file this process wrote a moment ago. These
+ * directories hold freshly written `.mjs` bundles and the scripts of child
+ * processes that were killed moments earlier, so on a loaded machine that is a
+ * question of when rather than whether. `maxRetries` is the option `fs.rm`
+ * offers for these errors; a temporary directory under `os.tmpdir()` is not
+ * worth a green run over, so the last resort is to leave it for the OS.
+ */
+function dropDirectory(directory) {
+  try {
+    rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+  } catch {}
 }
 
 const { loaded, dispose } = await bundle([
@@ -111,7 +131,7 @@ test.after(() => dispose());
 const PREVIOUS_HOST_PID = 424_242;
 
 const workDir = mkdtempSync(path.join(os.tmpdir(), "grok-box-port-release-work-"));
-test.after(() => rmSync(workDir, { recursive: true, force: true }));
+test.after(() => dropDirectory(workDir));
 
 const holderScript = path.join(workDir, "port-holder.cjs");
 writeFileSync(holderScript, `
@@ -436,6 +456,40 @@ test("the pid holding the port is read from the running system, not guessed", as
   } finally {
     await holder.stop();
   }
+});
+
+test("the refusal takes another sample before it gives up on naming the holder", async () => {
+  let samples = 0;
+  const release = await waitForBoxExecDaemonPortRelease({
+    port: 1337,
+    // No release budget: this is the `created` path, where nothing of ours could
+    // have left a socket behind, so the wait itself costs nothing and the lookup
+    // is all that stands between the refusal and a named process.
+    timeoutMs: 0,
+    pollMs: 100,
+    // A busy machine answers `netstat -ano` with nothing twice in a row: the
+    // tool missed its own timeout, or the snapshot predates the socket. One
+    // sample turned that into "unknown holder", and the operator could not tell
+    // a dying predecessor from a foreign program.
+    holderPidFor: () => (++samples < 3 ? null : PREVIOUS_HOST_PID),
+    isPortBound: async () => true,
+    delay: async () => {},
+  });
+
+  assert.equal(release.released, false, "a port that never went quiet was reported as released");
+  assert.equal(
+    release.holderPid,
+    PREVIOUS_HOST_PID,
+    "the refusal named no process after the lookup answered, so a predecessor still cannot be told from a foreign listener",
+  );
+  assert.ok(
+    samples >= 3,
+    `the lookup trusted one sample of the machine (${samples} taken), so a stale netstat snapshot decides the refusal`,
+  );
+  assert.ok(
+    release.waitedMs <= 5_000,
+    `the release wait itself ran for ${release.waitedMs}ms, so the retries were folded into the wait the caller budgeted`,
+  );
 });
 
 test("a startup failure on this host's own account never reaches the running host", async () => {

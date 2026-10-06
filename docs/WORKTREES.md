@@ -148,8 +148,8 @@ and sync it after the agent says it has stopped editing.
 
 ## Never do these from inside a slot
 
-1. **Never run `npm run build`, `npm run package`, `npm run package:diagnostic`
-   or `node scripts/clean-build.mjs` without the main agent's build slot.**
+1. **Never run `npm run build` or `npm run package:win` without the main agent's
+   build slot.**
    These are strictly sequential operations with no locks anywhere in the
    pipeline. Note the reason is *not* the obvious one: `scripts/lib/config.mjs`
    derives `repoRoot` from the script's own location, so a build inside a slot

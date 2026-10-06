@@ -28,6 +28,14 @@ export const BOX_EXEC_DAEMON_STOP_TIMEOUT_MS = 5_000;
 export const BOX_EXEC_DAEMON_PORT_RELEASE_TIMEOUT_MS = 5_000;
 export const BOX_EXEC_DAEMON_PORT_RELEASE_POLL_MS = 100;
 
+// The pid lookup carries its own budget, and it is deliberately not the one
+// above. `waitedMs` answers "how long did this host wait for the port to go
+// quiet"; the lookup runs once that wait is already over and only decides what
+// the refusal says. Folding it into the release budget would report a
+// diagnostic cost as if it were the release wait.
+export const BOX_EXEC_DAEMON_PORT_HOLDER_LOOKUP_TIMEOUT_MS = 1_500;
+export const BOX_EXEC_DAEMON_PORT_HOLDER_LOOKUP_POLL_MS = 150;
+
 export interface OwnedBoxExecDaemon {
   readonly pid: number;
   readonly entryPath: string;
@@ -62,6 +70,16 @@ export interface BoxExecDaemonProcessOptions {
 }
 
 /**
+ * Лежит ли путь внутри asar-архива, то есть внутри `...\app.asar\...`.
+ *
+ * Признак честный и проверяемый по самой строке пути. `app.asar.unpacked`
+ * отброшен: там на диске настоящие каталоги, и рабочим каталогом он быть может.
+ */
+export function isInsideAsarArchive(entryPath: string): boolean {
+  return entryPath.split(/[\\/]/).some(segment => segment.endsWith(".asar"));
+}
+
+/**
  * Кандидаты рабочего каталога для запуска демона, в порядке предпочтения.
  *
  * Раньше каталог был один: `path.dirname(entryPath)`. При сборке из исходников он
@@ -75,18 +93,25 @@ export interface BoxExecDaemonProcessOptions {
  * Почему нельзя просто проверить `statSync(...).isDirectory()`: Electron
  * подменяет `statSync` для путей внутри архива и отвечает `isDirectory: true`
  * на несуществующий на диске каталог. Проверено на живой упакованной сборке.
- * Единственный честный признак — попытка запуска, поэтому список отдаётся
- * наружу, а `startBoxExecDaemonProcess` идёт по нему, пока процесс не появится.
  *
- * Каталог точки входа остаётся первым, чтобы сборка из исходников вела себя
- * как раньше.
+ * Перебор по списку нужен для `options.cwd`, который задаёт вызывающий. Каталог
+ * точки входа внутри архива из списка убран: рабочим каталогом процесса может
+ * быть только настоящий каталог, а `app.asar` — файл. Попытка запуска из него
+ * не могла удаться никогда, и каждая такая попытка оставляла в журнале хоста
+ * ENOENT как будто что-то сломалось, хотя демон тут же поднимался со второго
+ * кандидата. Сборка из исходников не меняется: её каталог точки входа настоящий.
  */
 export function resolveBoxExecDaemonCwdCandidates(options: {
   readonly entryPath: string;
   readonly workspaceRoot: string;
   readonly cwd?: string;
 }): readonly string[] {
-  const candidates = [options.cwd, path.dirname(options.entryPath), options.workspaceRoot];
+  const entryDirectory = path.dirname(options.entryPath);
+  const candidates = [
+    options.cwd,
+    isInsideAsarArchive(options.entryPath) ? undefined : entryDirectory,
+    options.workspaceRoot,
+  ];
   return candidates.filter((candidate): candidate is string => candidate != null && candidate.length > 0);
 }
 
@@ -290,6 +315,44 @@ export function readPortHolderPid(
 }
 
 /**
+ * The pid holding the port, or `null` when the machine cannot say.
+ *
+ * `readPortHolderPids` shells out to `netstat -ano`, which is a snapshot of the
+ * whole machine rather than of this one process. Two things go wrong with a
+ * single snapshot, and both answer in the same honest-looking way: `netstat`
+ * misses its own timeout on a busy machine and yields nothing, and the socket it
+ * was asked about is missing from the picture at the moment the picture was
+ * taken. Either way the caller gets `null`, and a refusal that names no pid
+ * cannot tell a dying predecessor from a foreign program - which is the one
+ * thing that refusal exists to do.
+ *
+ * So the lookup takes a second sample instead of trusting the first, and stops
+ * as soon as one sample answers. A machine that answers at once still pays a
+ * single `netstat`, exactly as before; only a machine that said "I do not know"
+ * pays for the retries. The loop is capped by the deadline and by the iteration
+ * count, because a lookup that never answers still has to end.
+ */
+async function readHolderPidWithRetries(options: {
+  readonly holderPidFor: (host: string, port: number) => number | null;
+  readonly host: string;
+  readonly port: number;
+  readonly delay: (milliseconds: number) => Promise<void>;
+  readonly now: () => number;
+}): Promise<number | null> {
+  const deadline = options.now() + BOX_EXEC_DAEMON_PORT_HOLDER_LOOKUP_TIMEOUT_MS;
+  const attempts = Math.ceil(
+    BOX_EXEC_DAEMON_PORT_HOLDER_LOOKUP_TIMEOUT_MS / BOX_EXEC_DAEMON_PORT_HOLDER_LOOKUP_POLL_MS,
+  );
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const pid = options.holderPidFor(options.host, options.port);
+    if (pid != null) return pid;
+    if (attempt === attempts || options.now() >= deadline) break;
+    await options.delay(BOX_EXEC_DAEMON_PORT_HOLDER_LOOKUP_POLL_MS);
+  }
+  return null;
+}
+
+/**
  * Waits a bounded time for a port to go quiet.
  *
  * The first probe happens before any sleeping, so a host that found the port
@@ -330,10 +393,14 @@ export async function waitForBoxExecDaemonPortRelease(
       return { released: true, waitedMs, holderPid: null, previousHostPid };
     }
   }
+  // Measured before the lookup, on purpose. `waitedMs` answers "how long did this
+  // host wait for the port", and the pid lookup that follows is a diagnostic on
+  // a port already known to be held, not part of that wait.
+  const waitedMs = now() - startedAt;
   return {
     released: false,
-    waitedMs: now() - startedAt,
-    holderPid: holderPidFor(host, port),
+    waitedMs,
+    holderPid: await readHolderPidWithRetries({ holderPidFor, host, port, delay: sleep, now }),
     previousHostPid,
   };
 }

@@ -231,6 +231,11 @@ ${adapterKeys.filter(name => name !== "coordinator" && name !== "ipc").map(name 
 };
 
 try {
+  // Окно создано — приложение начало работать. С этого момента баннер (он же
+  // ловит ошибку загрузки) пишет в журнал молча и больше не показывает плашку
+  // «DB Bot не запустился». Слушатель ставится ДО старта, окно создаётся после
+  // app.whenReady(), поэтому пропустить событие нельзя.
+  app.on("browser-window-created", () => globalThis.__dbBotStartup?.markReady());
   startElectronMainProduction({
     native: createElectronProductionNativeBindings({ app, safeStorage, ipcMain, BrowserWindow, Menu, shell, screen }),
     moduleDir: __dirname,
@@ -329,36 +334,127 @@ async function walkFiles(root, current = root) {
 
 const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
 
-function bundleBanner(label) {
+/**
+ * Сколько ждать, прежде чем показать окно об ошибке запуска.
+ *
+ * Ошибка приходит раньше, чем становится ясно, запустилось приложение или нет:
+ * фоновая служба может отклонить обещание за полсекунды до появления окна и
+ * ничему не помешать. Поэтому решение отложено — если окно успело появиться,
+ * плашка не показывается вовсе. Восемь секунд с запасом перекрывают обычный
+ * старт (окно открывается за 2-3 секунды) и не заставляют человека ждать вечно.
+ */
+export const startupFailureDialogDelayMs = 8000;
+
+/**
+ * Баннер, который esbuild ставит в начало каждого бандля.
+ *
+ * `startupDialog` включает окно с текстом только для главного процесса: у хоста,
+ * демонов, preload и воркеров своего окна нет, и их сбой не означает, что не
+ * открылась сама программа.
+ */
+export function bundleBanner(label, { startupDialog = false } = {}) {
   return [
     'const __cleanImportMetaUrl = require("node:url").pathToFileURL(__filename).href;',
     `// Deterministic from-source bundle: ${label}`,
     "// Баннер идёт ДО всех require, которые esbuild ставит в начало бандла.",
     "// В упакованном Electron на Windows process.stderr — заглушка: ошибка загрузки",
     "// модуля исчезает без следа, и снаружи это выглядит как «процесс жив, окна нет».",
-    "const __dbBotFatal = (kind) => (error) => {",
+    "//",
+    "// Журнал ведётся ЛЮБОЙ ошибки: process.stderr в упакованном приложении бесполезен,",
+    "// а запись на диск работает всегда. А вот окно с текстом показывается только когда",
+    "// приложение НЕ дошло до работающего окна: точка входа вызывает",
+    "// __dbBotStartup.markReady() в момент создания окна, и после этого любая ошибка в",
+    "// фоне пишется в журнал молча.",
+    "const __dbBotState = { ready: false, reported: false, timer: null, logPath: null };",
+    "const __dbBotStartup = {",
+    "  markReady() {",
+    "    __dbBotState.ready = true;",
+    "    if (__dbBotState.timer != null) { clearTimeout(__dbBotState.timer); __dbBotState.timer = null; }",
+    "  },",
+    "};",
+    "globalThis.__dbBotStartup = __dbBotStartup;",
+    "const __dbBotErrorText = (error) => String((error && (error.stack || error.message)) || error);",
+    "const __dbBotShortText = (error) => {",
+    "  const text = String((error && (error.message || error)) || error);",
+    "  return text.length > 400 ? `${text.slice(0, 400)}…` : text;",
+    "};",
+    "// Человеческое объяснение системного кода. Пользователь не читает «EPERM», а",
+    "// именно это сообщение он видел в окне и не мог понять.",
+    "const __dbBotExplain = (error) => {",
+    "  const code = String((error && error.code) || \"\");",
+    "  const text = String((error && error.message) || error || \"\");",
+    "  if (code === \"EPERM\" || code === \"EACCES\") return \"Windows не дал программе доступ к файлу или папке.\";",
+    "  if (code === \"ENOENT\" || /Cannot find module|MODULE_NOT_FOUND/.test(text)) return \"в программе не хватает файла, который она искала.\";",
+    "  if (code === \"ENOSPC\") return \"на диске закончилось место.\";",
+    "  return \"программа не смогла продолжить запуск.\";",
+    "};",
+    "const __dbBotWriteLog = (kind, error) => {",
     "  try {",
     "    const fs = require(\"node:fs\");",
     "    const nodePath = require(\"node:path\");",
-    "    const detail = String((error && (error.stack || error.message)) || error);",
     "    const root = process.env.SAND_DATA_ROOT || process.env.APPDATA || process.cwd();",
     "    const file = nodePath.join(root, \"db-bot-start-error.log\");",
     "    fs.mkdirSync(root, { recursive: true });",
-    "    fs.appendFileSync(file, `[${new Date().toISOString()}] ${kind}: ${detail}\\n`);",
-    "    try {",
-    "      require(\"electron\").dialog.showErrorBox(",
-    "        \"DB Bot не запустился\",",
-    "        `Не удалось запустить программу.\\n\\n${String((error && error.message) || error)}\\n\\nПодробности записаны в файл: ${file}`,",
-    "      );",
-    "    } catch {}",
-    "  } catch {}",
+    "    fs.appendFileSync(file, `[${new Date().toISOString()}] ${kind}: ${__dbBotErrorText(error)}\\n`);",
+    "    __dbBotState.logPath = file;",
+    "    return file;",
+    "  } catch (logError) {",
+    "    // Журнал не записался — это не повод молчать: плашка всё равно нужна.",
+    "    return null;",
+    "  }",
+    "};",
+    // Плашка ставится только бандлу главного процесса. Хост, демоны, preload и
+    // воркеры молча пишут в журнал: у них нет окна, и сбой такого процесса не
+    // означает, что не открылась сама программа.
+    ...(startupDialog ? [
+      "const __dbBotStartupDialogDelayMs = (() => {",
+      "  const override = Number(process.env.DB_BOT_STARTUP_DIALOG_DELAY_MS);",
+      `  return Number.isFinite(override) && override >= 0 ? override : ${startupFailureDialogDelayMs};`,
+      "})();",
+      "const __dbBotShowStartupFailure = (error) => {",
+      "  try {",
+      "    const file = __dbBotState.logPath || \"(файл создать не удалось)\";",
+      "    require(\"electron\").dialog.showErrorBox(",
+      "      \"DB Bot не запустился\",",
+      "      [",
+      "        \"Программа не смогла открыть окно.\",",
+      "        \"\",",
+      "        `Что произошло: ${__dbBotExplain(error)}`,",
+      "        \"\",",
+      "        \"Что делать:\",",
+      "        \"1. Закройте программу и откройте её снова.\",",
+      "        \"2. Если окно снова не появилось, пришлите разработчику файл с подробностями:\",",
+      "        `   ${file}`,",
+      "        \"\",",
+      "        `Сообщение для разработчика: ${__dbBotShortText(error)}`,",
+      "      ].join(\"\\n\"),",
+      "    );",
+      "  } catch {}",
+      "};",
+    ] : []),
+    "const __dbBotFatal = (kind) => (error) => {",
+    "  __dbBotWriteLog(kind, error);",
+    ...(startupDialog ? [
+      "  // Окно уже открыто: ошибка в фоне. Плашка здесь — пугающий выдуманный сбой,",
+      "  // которого у пользователя нет.",
+      "  if (__dbBotState.ready) return;",
+      "  // Решение уже принимается.",
+      "  if (__dbBotState.timer != null) return;",
+      "  __dbBotState.timer = setTimeout(() => {",
+      "    __dbBotState.timer = null;",
+      "    if (__dbBotState.ready || __dbBotState.reported) return;",
+      "    __dbBotState.reported = true;",
+      "    __dbBotShowStartupFailure(error);",
+      "  }, __dbBotStartupDialogDelayMs);",
+      "  if (typeof __dbBotState.timer.unref === \"function\") __dbBotState.timer.unref();",
+    ] : []),
     "};",
     "process.on(\"uncaughtException\", __dbBotFatal(\"uncaughtException\"));",
     "process.on(\"unhandledRejection\", __dbBotFatal(\"unhandledRejection\"));",
   ].join("\n");
 }
 
-async function runEsbuild({ outfile, stdin, entryPoints, external, label }) {
+async function runEsbuild({ outfile, stdin, entryPoints, external, label, startupDialog = false }) {
   await mkdir(path.dirname(outfile), { recursive: true });
   const result = await esbuild({
     absWorkingDir: repoRoot,
@@ -385,7 +481,7 @@ async function runEsbuild({ outfile, stdin, entryPoints, external, label }) {
       "supports-color": path.join(repoRoot, "scripts/lib/stubs/supports-color.cjs"),
       "jsonc-parser": path.join(repoRoot, "node_modules/jsonc-parser/lib/esm/main.js"),
     },
-    banner: { js: bundleBanner(label) },
+    banner: { js: bundleBanner(label, { startupDialog }) },
     bundle: true,
     define: { "import.meta.url": "__cleanImportMetaUrl" },
     entryPoints: entryPoints?.map(entry => path.join(repoRoot, entry)),
@@ -570,6 +666,9 @@ export async function buildFromSource({
       entryPoints: stdin == null ? [bundle.entry] : null,
       external,
       label,
+      // Плашку «DB Bot не запустился» имеет право показать только тот процесс,
+      // у которого есть своё окно. Всё остальное молча пишет в журнал.
+      startupDialog: bundle.kind === "electron-main",
     });
     if (bundle.kind === "electron-main") {
       const bundled = await readFile(outfile, "utf8");

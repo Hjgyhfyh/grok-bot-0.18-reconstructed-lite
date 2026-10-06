@@ -249,7 +249,7 @@ if (Test-Path -LiteralPath $hostCjs) {
     $env:SAND_HOST_GATEWAY_URL = "http://127.0.0.1:$gatewayPort"
     $env:SAND_HOST_GATEWAY_TOKEN = $gatewayToken
 } else {
-    Write-Warning "box bundle not found: $hostCjs -- run: npm run package"
+    Write-Warning "box bundle not found: $hostCjs -- run: npm run build"
 }
 
 if ($Debug) {

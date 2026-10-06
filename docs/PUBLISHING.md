@@ -31,11 +31,11 @@ downloads may contain only LFS pointer files.
 
 Before adding a public remote:
 
-1. Run `npm run publication:check` on the committed clean branch. It performs
-   the archive/init/add flow above and requires the new index to have the exact
-   same Git tree.
-2. Run `npm ci`, `npm run bootstrap`, `npm run check`, `npm run package`, and
-   `npm run verify` from a fresh clone/export.
+1. Run `node scripts/verify-publication-tree.mjs` on the committed clean branch.
+   It performs the archive/init/add flow above and requires the new index to
+   have the exact same Git tree.
+2. Run `npm ci`, `npm run check`, `npm run build`, and `npm run package:win`
+   from a fresh clone/export.
 3. Confirm `git status --ignored` shows no generated payload selected for Git.
 4. Run `git lfs ls-files` and verify both preserved 0.18.0 installers appear.
 5. Scan the exported tree and full new history for credentials and absolute

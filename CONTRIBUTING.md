@@ -11,11 +11,11 @@ npm run check
 npm run frontend:build
 ```
 
-On macOS, after `npm run bootstrap`, package changes should also pass:
+Packaging changes must also pass on Windows:
 
 ```sh
-npm run package
-npm run verify
+npm run build
+npm run package:win
 ```
 
 Use focused commits. Explain whether a change affects reviewed runtime source,

@@ -47,7 +47,30 @@ async function bundle(entries) {
   }
   const loaded = {};
   for (const [name, file] of names) loaded[name] = await import(pathToFileURL(file).href);
-  return { loaded, dispose: () => rmSync(directory, { recursive: true, force: true }) };
+  return { loaded, dispose: () => dropBundleDir(directory) };
+}
+
+/**
+ * Removes the temporary build directory, and refuses to fail the run over it.
+ *
+ * `test.after` runs after every check in the file has already passed, so a throw
+ * from here is reported as the whole file failing while each check inside it is
+ * green - which is exactly what the acceptance run saw once in eight full runs.
+ * The bare `rmSync` is what made it possible: without `maxRetries` a single
+ * Windows `EPERM` ends the attempt at once, and the machine that produces one
+ * is a scanner still holding a `.mjs` file this process wrote a moment ago. On a
+ * loaded machine, under a full parallel run, that is a question of when rather
+ * than whether.
+ *
+ * `maxRetries` is the option `fs.rm` offers for exactly those errors, and
+ * `dropRoot` below already relies on it. A temporary directory under
+ * `os.tmpdir()` is not worth a green run over, so the last resort is to leave it
+ * for the OS rather than to report a false failure.
+ */
+function dropBundleDir(directory) {
+  try {
+    rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+  } catch {}
 }
 
 const { loaded, dispose } = await bundle([
@@ -168,7 +191,13 @@ test("a directory with no store.db is a placeholder, not a kept agent", async ()
     const materialization = store.materialization;
     const agentId = "55555555-5555-4555-8555-555555555555";
     mkdirSync(path.join(rootDir, agentId), { recursive: true });
-    writeFile(path.join(rootDir, agentId, "profile.json"), "{}");
+    // Awaited, unlike the copy that stood here. `writeFile` returns a promise,
+    // and a promise nobody awaits reports nothing when it fails: its rejection
+    // is unhandled, and an unhandled rejection ends the test process, so the
+    // whole file fails with every check inside it green. The race was invisible
+    // here because `isPrunedPlaceholder` reads `store.db` and answers `true` at
+    // the missing-database branch whether or not this file has landed.
+    await writeFile(path.join(rootDir, agentId, "profile.json"), "{}");
 
     assert.equal(await materialization.isPrunedPlaceholder(agentId), true,
       "a directory with no database answered 'not a placeholder' and held its cap slot forever");
