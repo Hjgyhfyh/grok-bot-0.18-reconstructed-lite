@@ -4341,10 +4341,16 @@ export const EXPERIMENTS = {
       },
       terminal_tip: {
         client: true,
+        // DB Bot Lite has no Statsig client, so `getDynamicConfig` returns these
+        // values verbatim (cursor-experiments.ts:69). The original text offered
+        // the user a `curl … | bash` line that installs the Cursor CLI from
+        // cursor.com. That is a foreign service, and piping a download into a
+        // shell is not something this program asks a librarian to do. The tip
+        // stays switched off and carries no address.
         fallbackValues: {
           enabled: false,
-          message: "Install Cursor CLI?",
-          action: "curl https://cursor.com/install -fsS | bash",
+          message: "",
+          action: "",
           show_every_hours: 0,
           show_count: 0
         },
@@ -5530,8 +5536,12 @@ Requirements:
       },
       browser_default_url_config: {
         client: true,
+        // Reached for the same reason as `terminal_tip`: no Statsig client means
+        // the fallback is what the in-app browser actually opens. `cursor.com`
+        // was the previous value. An empty address makes the browser open its
+        // own empty page instead of a foreign site.
         fallbackValues: {
-          defaultUrl: "https://cursor.com"
+          defaultUrl: ""
         }
       },
       glass_per_app_tabs_config: {

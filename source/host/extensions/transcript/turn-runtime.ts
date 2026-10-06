@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { isMessageAddress } from "../../../shared/message-reference.js";
 import { sandDualSurfaceToolTelemetry } from "../../../shared/agents/agent-tool-names.js";
 import { SAND_REACTION_AGENT } from "../../../shared/transcript.js";
+import { DEEPSEEK_MISSING_KEY_MESSAGE } from "../../../shared/inference-router.js";
 import { UNKNOWN_CONNECTOR_TAG } from "../../../shared/observability/connector-auth-telemetry.js";
 import { sandErrorDetail } from "../../ports/telemetry.js";
 import {
@@ -277,6 +278,27 @@ const API_KEY_NAME = /API[_ -]?KEY/i;
 const MISSING_CREDENTIAL_WORD =
   /\b(missing|needs|need|required|absent|not set|not configured)\b/i;
 
+/**
+ * Отказы этой сборки, которые она же и пишет по-русски, — в них нет ни одного слова из
+ * `MISSING_CREDENTIAL_WORD`, поэтому проверка ниже проходила только по Cursor-формулировке
+ * `OPENAI_COMPATIBLE_API_KEY is missing`.
+ *
+ * `readDeepSeekApiKey()` (`host/extensions/inference/deepseek-credential.ts`) бросает
+ * `DEEPSEEK_MISSING_KEY_MESSAGE` при пустом хранилище секретов, и это единственный способ,
+ * которым ход может остаться без ключа: `provider-session.ts:303` читает ключ на каждом запросе.
+ * Такой ход уезжал в безымянную ветку `else` последней строки `describeProviderTurnFailure` и
+ * говорил пользователю, что «эта сборка не может назвать причину», и предложение «отправьте
+ * сообщение снова — обычно помогает». Ни то ни другое неправда: причина известна насквозь, а
+ * повтор её не меняет.
+ *
+ * Связь с константой намеренная и односторонняя: сообщение пишется в одном месте, а тест рядом
+ * поднимает настоящий `readDeepSeekApiKey()` на пустом хранилище, поэтому переписывание константы
+ * ломает тест здесь, а не возвращает тихо прежний ответ.
+ */
+const OWN_MISSING_CREDENTIAL_MESSAGES: readonly string[] = [
+  DEEPSEEK_MISSING_KEY_MESSAGE,
+];
+
 /** Walks `cause` and `errors[]` once, with cycle protection. */
 function walkFailureNodes(
   error: unknown,
@@ -348,6 +370,8 @@ export function isMissingProviderCredential(error: unknown): boolean {
   walkFailureNodes(error, (node) => {
     if (missing) return;
     const message = typeof node.message === "string" ? node.message : "";
+    if (OWN_MISSING_CREDENTIAL_MESSAGES.some((own) => message.includes(own)))
+      missing = true;
     if (API_KEY_NAME.test(message) && MISSING_CREDENTIAL_WORD.test(message))
       missing = true;
   });
@@ -418,69 +442,72 @@ export function describeProviderTurnFailure(
   const backendTitle = curatedBackendTitleOf(error);
   let title: string;
   let detail: string;
+  // Пользователь здесь — заведующая библиотекой, а не инженер. Всё, что видит
+  // человек, должно быть по-русски и говорить, что делать. Прежде эти строки
+  // были английскими, и отказ читался как ошибка чужой программы.
   if (status === undefined && backendTitle === undefined && isMissingProviderCredential(error)) {
-    title = "No API key is configured for the model provider.";
+    title = "Для модели не задан ключ.";
     detail =
-      "Add the key in Settings → Router and send the message again. The key itself is not shown here.";
+      "Впишите ключ в настройках, в разделе «Модель», и отправьте сообщение снова. Сам ключ здесь не показывается.";
   } else if (status === 401) {
-    title = "The model provider refused the API key (HTTP 401).";
+    title = "Служба модели отклонила ключ (HTTP 401).";
     detail =
-      "The key for this provider is missing, wrong or expired. Fix it in Settings → Router and send the message again. The key itself is not shown here.";
+      "Ключ отсутствует, ошибочен или истёк. Исправьте его в настройках, в разделе «Модель», и отправьте сообщение снова. Сам ключ здесь не показывается.";
   } else if (status === 403) {
-    title = "The model provider refused this request (HTTP 403).";
+    title = "Служба модели отклонила этот запрос (HTTP 403).";
     detail =
-      "The configured key is not allowed to use this model. Change the key or the model in Settings → Router.";
+      "У этого ключа нет прав на выбранную модель. Смените ключ или модель в настройках, в разделе «Модель».";
   } else if (status === 404) {
-    title = "The model provider has no such model or endpoint (HTTP 404).";
+    title = "В службе модели нет такой модели или адреса (HTTP 404).";
     detail =
-      "The base URL or the model id in Settings → Router does not exist on this provider.";
+      "Адрес службы или имя модели в настройках, в разделе «Модель», этой службе неизвестны.";
   } else if (status === 429) {
     const waitSeconds = retryAfterSecondsOf(error);
-    title = "The model provider is rate limiting this key (HTTP 429).";
+    title = "Служба модели ограничивает этот ключ (HTTP 429).";
     detail =
       waitSeconds === undefined
-        ? "Too many requests reached the provider. Sending the message again after a short wait usually works."
-        : `Too many requests reached the provider, which asked to wait about ${waitSeconds}s. Sending the message again after that usually works.`;
+        ? "К запросам слишком много обращений. Подождите немного и отправьте сообщение снова."
+        : `К запросам слишком много обращений, служба попросила подождать около ${waitSeconds} с. Отправьте сообщение снова после паузы.`;
   } else if (status === 400 || status === 422) {
-    title = `The model provider refused the request (HTTP ${status}).`;
+    title = `Служба модели отклонила запрос (HTTP ${status}).`;
     detail =
-      "The provider rejected the request itself. A shorter conversation or a different model usually helps.";
+      "Служба отвергла сам запрос. Обычно помогает более короткий разговор или другая модель.";
   } else if (status !== undefined && status >= 500) {
-    title = `The model provider failed with a server error (HTTP ${status}).`;
+    title = `В службе модели сбой на её стороне (HTTP ${status}).`;
     detail =
-      "The fault is on the provider side. Sending the message again usually works.";
+      "Это сбой у службы. Отправьте сообщение снова — обычно помогает.";
   } else if (isFirstTokenStallError(error)) {
-    title = "The model provider stopped responding.";
+    title = "Служба модели перестала отвечать.";
     detail =
-      "No answer arrived within the time limit. Sending the message again usually works.";
+      "Ответа не было дольше отведённого времени. Отправьте сообщение снова — обычно помогает.";
   } else if (isContextOverflowDeadEnd(error)) {
-    title = "This conversation no longer fits the model's context window.";
+    title = "Этот разговор больше не помещается в окно модели.";
     detail =
-      "Start a new chat, or ask the agent to summarise the earlier turns before continuing.";
+      "Начните новый разговор или попросите помощника сжать то, что было раньше.";
   } else if (isConversationTooLargeRefusal(error)) {
-    title = "This conversation is too large for the provider to accept.";
+    title = "Этот разговор слишком большой для службы.";
     detail =
-      "Start a new chat to continue; this one has passed the size the agent is allowed to send.";
+      "Начните новый разговор: этот уже больше, чем помощник имеет право отправить.";
   } else if (isProviderCapacityError(error)) {
     title = PROVIDER_OVERLOAD_ERROR_TITLE;
     detail = PROVIDER_OVERLOAD_ERROR_DETAIL;
   } else if (isTransientStreamError(error)) {
     title =
-      "The connection to the model provider broke before the answer finished.";
+      "Связь со службой модели оборвалась, пока шёл ответ.";
     detail =
-      "Nothing usable arrived from the provider. Sending the message again usually works.";
+      "От службы не пришло ничего пригодного. Отправьте сообщение снова — обычно помогает.";
   } else if (status !== undefined) {
-    title = `The model provider refused the request (HTTP ${status}).`;
+    title = `Служба модели отклонила запрос (HTTP ${status}).`;
     detail =
-      "The provider answered with an error instead of a reply. Sending the message again usually works.";
+      "Вместо ответа служба вернула ошибку. Отправьте сообщение снова — обычно помогает.";
   } else if (backendTitle !== undefined) {
     title = backendTitle;
     detail =
-      "The backend refused this turn. The error tray carries the full report and any fix it offers.";
+      "Служба отклонила этот ход. Полный отчёт и подсказку, что исправить, лежат в карточке ошибок.";
   } else {
-    title = "This turn failed before the agent could answer.";
+    title = "Этот ход оборвался, ответ от помощника не получен.";
     detail =
-      "The failure was not a model provider request this build can name. Sending the message again usually works.";
+      "Сбой случился раньше, чем помощник успел ответить, и эта сборка не может назвать причину. Отправьте сообщение снова — обычно помогает.";
   }
   return {
     text: `${title} ${detail}`,
@@ -827,6 +854,11 @@ export class TurnRuntime {
         // agent's own history is where the user comes looking for why this turn said
         // nothing. Written before the tray so a tray failure cannot lose the reason.
         const notice = describeProviderTurnFailure(error);
+        // Ход, который не ответил, виден пользователю одной строкой и ничем
+        // больше. Настоящая причина оставалась только в одноразовой карточке
+        // ошибок, поэтому её писали в журнал хоста: там переживает и сам отказ,
+        // и его стек.
+        console.error(`[ход] ход не ответил: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
         if (notice != null)
           this.recordTurnNotice(session, {
             ...notice,

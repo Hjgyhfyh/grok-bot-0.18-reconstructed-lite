@@ -14,6 +14,7 @@ import {
 import { errorLogTag } from "../../../shared/errors.js";
 import {
   createSandCursorBackendClient,
+  CURSOR_BACKEND_DISABLED_MESSAGE,
   getSandInferenceBackendUrl,
 } from "../../../shared/node/cursor-backend/cursor-inference.js";
 import { LEGACY_WORKFLOW_FILENAME, parseWorkflowFile } from "../../../shared/workflow-model.js";
@@ -55,6 +56,11 @@ export function createSandSkillPublishClient(deps: {
     getMachineId(): Promise<string>;
   };
 }): SkillPublishClient {
+  // Публикация навыков уходила в аккаунт Cursor. В этой сборке службы нет, и
+  // клиент бросал исключение прямо здесь, роняя старт расширения mcp и весь
+  // хост. Навыки лежат в `skills/` на компьютере пользователя, публиковать их
+  // некуда и незачем.
+  if (getSandInferenceBackendUrl().length === 0) return new Proxy({} as SkillPublishClient, { get: () => () => { throw new SandSkillPublishError(CURSOR_BACKEND_DISABLED_MESSAGE); } });
   return createSandCursorBackendClient(DashboardService, {
     getAccessToken: async () => await deps.auth.getAccessToken({
       backendUrl: getSandInferenceBackendUrl(),

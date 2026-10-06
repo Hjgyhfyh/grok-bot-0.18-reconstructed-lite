@@ -42,5 +42,5 @@ function mirrorProfileIntoStore(db:ProfileStoreMirror,profile:SandAgentProfile):
  * closes the only one that did not: a name for an agent that is not there is not
  * worth a folder that says it is.
  */
-export function ensureProfileFile(dbPath:string,db:ProfileStoreMirror):string{const path=getSandProfilePath(dirname(dbPath));if(!existsSync(path)){if(!existsSync(dirname(path)))return path;writeSandProfileFile(path,{name:String(db.get("name")||"Grok").trim()||"Grok",description:db.getSandProfile?.().description?.trim()??"",title:"",avatarShape:"",avatarColor:""});return path}const profile=readSandProfileFile(path);if(profile!=null)mirrorProfileIntoStore(db,profile);return path}
+export function ensureProfileFile(dbPath:string,db:ProfileStoreMirror):string{const path=getSandProfilePath(dirname(dbPath));if(!existsSync(path)){if(!existsSync(dirname(path)))return path;writeSandProfileFile(path,{name:String(db.get("name")||"DB Bot").trim()||"DB Bot",description:db.getSandProfile?.().description?.trim()??"",title:"",avatarShape:"",avatarColor:""});return path}const profile=readSandProfileFile(path);if(profile!=null)mirrorProfileIntoStore(db,profile);return path}
 export function ensureSettingsFile(dbPath:string):string{const path=getSandSettingsPath(dirname(dbPath));if(!existsSync(path))writeSandSettingsFile(path,{});return path}

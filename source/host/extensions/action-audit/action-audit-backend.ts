@@ -9,7 +9,7 @@ import {
   SandAuditEvent_McpToolCall,
   SandAuditEvent_ShellCommand
 } from "../../../packages/proto/generated/aiserver/v1/dashboard_pb.js";
-import { createSandCursorBackendClient } from "../../../shared/node/cursor-backend/cursor-inference.js";
+import { createSandCursorBackendClient, getSandInferenceBackendUrl } from "../../../shared/node/cursor-backend/cursor-inference.js";
 import type { AuditEvent } from "./action-audit-service.js";
 
 const rounded = (value: number) => BigInt(Math.max(0, Math.round(value)));
@@ -88,6 +88,10 @@ export function createSandAuditBatchSender(deps: {
   readonly getAccessToken: (options: { readonly backendUrl: string }) => Promise<string>;
   readonly getMachineId: () => Promise<string>;
 }): (events: readonly AuditEvent[]) => Promise<void> {
+  // Журнал действий уходил службе Cursor. В этой сборке службы нет, и клиент
+  // бросал исключение прямо здесь, из-за чего старт расширения ронял хост.
+  // Отправлять некуда: сведения наружу не уходят, поэтому отправитель — заглушка.
+  if (getSandInferenceBackendUrl().length === 0) return async () => {};
   const service = DashboardService as typeof DashboardService & {
     readonly methods: typeof DashboardService.methods & {
       readonly recordSandAuditEvents: MethodInfoUnary<RecordSandAuditEventsRequest, RecordSandAuditEventsResponse>;

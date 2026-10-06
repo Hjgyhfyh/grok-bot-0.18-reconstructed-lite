@@ -3,7 +3,7 @@ import { createRealPollingPolicy } from "../../../internal/scheduling.js";
 import { defineHostExtension } from "../../../internal/host-extensions.js";
 import { getConfiguredBackendUrl } from "../../../shared/node/cursor-token.js";
 import { AutomationsService } from "../../../packages/proto/generated/aiserver/v1/automations_connect.js";
-import { createSandCursorBackendClient } from "../../../shared/node/cursor-backend/cursor-inference.js";
+import { createSandCursorBackendClient, CURSOR_BACKEND_DISABLED_MESSAGE, getSandInferenceBackendUrl } from "../../../shared/node/cursor-backend/cursor-inference.js";
 import { inspectAgentAutomationDefinitions } from "../../automations/automation-store.js";
 import { getSandAgentsRootDir } from "../../storage/agent-paths.js";
 import { HostExtensions } from "../extension-ids.generated.js";
@@ -49,14 +49,21 @@ export const automationsExtension = defineHostExtension({
     };
     const routineSyncFailureTrayIds = new Map<string, string>();
     let notifySchedulingAuthorityChanged = () => {};
+    // Облачные сценарии, слушатели Slack и GitHub работали через службу Cursor.
+    // В этой сборке службы нет, и клиент бросал исключение прямо здесь, роняя
+    // старт расширения automations и весь хост. Клиент-заглушка отвечает отказом
+    // на любой вызов: локальные сценарии от него не зависят.
+    const cloudClient: CloudSyncClient = getSandInferenceBackendUrl().length === 0
+      ? new Proxy({} as CloudSyncClient, { get: () => () => Promise.reject(new Error(CURSOR_BACKEND_DISABLED_MESSAGE)) })
+      : createSandCursorBackendClient(AutomationsService, {
+        getAccessToken: deps.auth.getAccessToken,
+        getMachineId: async () => await deps.auth.getMachineId()
+      }) as unknown as CloudSyncClient;
     const cloudSyncOptions: ConstructorParameters<typeof SandAutomationCloudSync>[0] & {
       inspectLocalDefinitions(agentId: string): ReturnType<typeof inspectAgentAutomationDefinitions>;
       reportShadowPrune(report: Record<string, unknown>): void;
     } = {
-      client: createSandCursorBackendClient(AutomationsService, {
-        getAccessToken: deps.auth.getAccessToken,
-        getMachineId: async () => await deps.auth.getMachineId()
-      }) as unknown as CloudSyncClient,
+      client: cloudClient,
       reportDiagnostic: (diagnostic) => deps.telemetry.logs.reportHostExtensionDiagnostic(diagnostic),
       hasCredential: () => deps.auth.peekAccessToken() != null,
       listAgentIds: async () => (await deps.transcript.listAgents()).map(({ id }) => id),

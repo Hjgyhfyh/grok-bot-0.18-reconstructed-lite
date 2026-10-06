@@ -133,7 +133,14 @@ test("Router settings use the trusted backend and display recorded inference usa
     2,
     "хост должен звать createProviderPromptSession() ровно дважды: сессия хода и сессия суммаризации",
   );
-  assert.match(providers, /parameters: jsonSchema\(parameters\)/);
+  // Схемы инструментов уходили к DeepSeek как есть, и у `Task` не было `type`.
+  // Провайдер отвергал весь запрос («Invalid schema for function 'Task'»), и ход
+  // падал целиком. Пины ниже держат нормализацию, без неё схема вернётся в сеть
+  // ровно такой, какой её принёс агент.
+  assert.match(providers, /parameters: jsonSchema\(normalizeToolParameters\(parameters\)\)/,
+    "схема инструмента уходит к провайдеру без обязательного type: \"object\"");
+  assert.match(providers, /function normalizeToolParameters\(schema: unknown, depth = 0\)/,
+    "в файле нет нормализации схемы инструмента");
   assert.match(providers, /You are DB Bot, a local desktop assistant/);
   // Панели расхода по-прежнему нужно число, но выбирать провайдера больше нечем: получатель
   // записи принимает только счётчики, а строка пишется под фиксированным

@@ -365,7 +365,26 @@ async function runEsbuild({ outfile, stdin, entryPoints, external, label }) {
     // `supports-color` приходит транзитивно из `debug` и в упакованном
     // приложении всё равно ничего не проверяет: stdout в Electron на Windows
     // заглушка. Подмена описана в `scripts/lib/stubs/supports-color.cjs`.
-    alias: { "supports-color": path.join(repoRoot, "scripts/lib/stubs/supports-color.cjs") },
+    //
+    // `jsonc-parser` 3.3.1 объявляет ДВА входа: `main` — это UMD-обёртка с
+    // AMD-стилем `define([..., "./impl/format", ...])`, а `module` — обычные
+    // `import`. esbuild для `platform: "node"` берёт поля в порядке
+    // `["main", "module"]`, то есть СНАЧАЛА UMD, и UMD-обёртка переживает
+    // сборку как есть:
+    //
+    //   var N = h((O, d) => { (function (n) { ... })(require) });
+    //   ... let o = require("./impl/format") ...
+    //
+    // Относительные `./impl/*` после сворачивания обёртки ищутся от корня
+    // БАНДЛА, а не от пакета, и `host-main.cjs` падает при загрузке с
+    // `Cannot find module './impl/format'`. Из-за этого хост агентов не
+    // стартует: помощника не создать, поле ввода не появляется, в углу
+    // висит `Reconnecting`. Пакет устроен одинаково в `lib/umd/impl` и
+    // `lib/esm/impl`, так что подмена на ESM-вход ничего не теряет.
+    alias: {
+      "supports-color": path.join(repoRoot, "scripts/lib/stubs/supports-color.cjs"),
+      "jsonc-parser": path.join(repoRoot, "node_modules/jsonc-parser/lib/esm/main.js"),
+    },
     banner: { js: bundleBanner(label) },
     bundle: true,
     define: { "import.meta.url": "__cleanImportMetaUrl" },

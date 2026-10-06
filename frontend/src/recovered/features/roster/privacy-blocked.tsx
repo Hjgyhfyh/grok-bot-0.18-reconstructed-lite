@@ -6,14 +6,20 @@ import { SandButton } from "../../ui/sand-kit-primitives";
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5335962 (external privacy settings URL)
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5337901 (modal lifecycle)
 
-export const PRIVACY_SETTINGS_URL = "https://cursor.com/dashboard/settings?openPrivacy=true";
+/**
+ * Адрес настроек приватности в учётной записи Cursor удалён.
+ *
+ * Он вёл на `cursor.com/dashboard/settings`. Такой учётной записи в DB Bot Lite
+ * нет, и настройки приватности у неё не существует. Константа оставлена, потому
+ * что на неё ссылается тип диалога.
+ */
+export const PRIVACY_SETTINGS_URL = "" as const;
 
 export const PRIVACY_BLOCK_LABELS = {
   title: "Обновите режим приватности",
   description: "Режим приватности (старый) несовместим с DB Bot. Переключитесь на новый режим приватности — данные по-прежнему не используются для обучения.",
-  support: "Эта настройка общая с Cursor. Вернуться к старому режиму нельзя.",
-  signOut: "Выйти",
-  openSettings: "Открыть настройки приватности"
+  support: "Эта настройка была сделана при установке программы на этот компьютер.",
+  dismiss: "Понятно"
 } as const;
 
 export function isRosterPrivacyBlockFailure(value: unknown): boolean {
@@ -71,11 +77,17 @@ export function PrivacyBlockedDialog({ bridge, onStatus }: PrivacyBlockedDialogP
     };
   }, []);
 
-  const signOut = async () => {
+  const dismiss = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      onStatus(await bridge.cursorAccount.logout());
+      // Перечитываем состояние через мост. Прежние две кнопки вызывали
+      // `cursorAccount.logout()` и открывали адрес cursor.com: в DB Bot Lite
+      // выходить не из чего, а адрес настроек приватности чужой учётной
+      // записи для этой программы не существует.
+      onStatus(await bridge.cursorAccount.getStatus());
+    } catch {
+      // Состояние не прочиталось — оставляем диалог, как и раньше.
     } finally {
       setBusy(false);
     }
@@ -89,10 +101,7 @@ export function PrivacyBlockedDialog({ bridge, onStatus }: PrivacyBlockedDialogP
       </header>
       <p>{PRIVACY_BLOCK_LABELS.support}</p>
       <footer>
-        <SandButton disabled={busy} onClick={() => void signOut()} sentiment="danger" size="sm">{PRIVACY_BLOCK_LABELS.signOut}</SandButton>
-        <SandButton disabled={busy} onClick={() => void bridge.openExternal(PRIVACY_SETTINGS_URL)} ref={openSettingsRef} size="sm" variant="secondary">
-          {PRIVACY_BLOCK_LABELS.openSettings}
-        </SandButton>
+        <SandButton disabled={busy} onClick={() => void dismiss()} ref={openSettingsRef} size="sm">{PRIVACY_BLOCK_LABELS.dismiss}</SandButton>
       </footer>
     </section>
   );

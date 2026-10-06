@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { McpServerSummary, McpToolSummary, PluginVariableField } from "../../../contracts/desktop-bridge";
 import { createPluginServerToolsController, type PluginServerToolsController } from "./server-tools";
-import { createPluginPrivateSkillCopyController, pluginPrivateSkillMarketplaceUrl } from "./desktop";
+import { createPluginPrivateSkillCopyController } from "./desktop";
 import { PluginGitHubAuthBanner, type PluginGitHubAuthBannerProps } from "./github-auth-banner";
 import { canRenamePluginAccount, canUpdatePrivateSkill, missingRequiredPluginFields, normalizePluginSetupValues, pluginAccountAction, pluginAccountLabel, pluginPrivateSkillSourceLabel, pluginPrivateSkillSubtitle, pluginTeamPolicyActions, pluginTeamPolicyLabel, togglePluginTool, type PluginInstallMode, type PluginPrivateSkill, type PluginSkillPublishTargets } from "./model";
 import "./browser.css";
@@ -384,18 +384,18 @@ export function PluginSkillDetail({ skill, onBack, onDelete, onUpdate, onLoadPub
       setUnpublishPending(false);
     }
   };
-  const copyLink = () => {
-    if (skill.source !== "plugin" || skill.pluginId == null) return;
-    void copyController.copy(pluginPrivateSkillMarketplaceUrl(skill.pluginId));
-  };
-  const copyLabel = copyStatus === "copied" ? "Скопировано" : copyStatus === "error" ? "Не удалось скопировать" : "Копировать ссылку";
+  // Кнопки «Копировать ссылку» здесь больше нет. Она клала в буфер обмена
+  // адрес `cursor.com/marketplace?pluginId=…`: это был единственный путь, на
+  // котором DB Bot Lite отдавал наружу идентификатор установленного
+  // расширения. Пользователю незачем отправлять такую ссылку дальше.
+  const copyLabel: string | null = null;
   return <article className="sand-plugins-skill-detail">
     <header>
       <button aria-label="Назад" onClick={onBack} type="button">←</button>
       <div><h2>{skill.name}</h2><span>{pluginPrivateSkillSourceLabel(skill)}</span></div>
     </header>
     {skill.description.length > 0 ? <p>{skill.description}</p> : null}
-    {onResync != null || onUnpublish != null || skill.source === "plugin" && skill.pluginId != null ? <div>{onResync != null ? <button disabled={savePending || deletePending || publishPending || syncPending || unpublishPending} onClick={() => void sync()} type="button">{syncPending ? "Обновляем…" : syncConfirmed ? "Обновлено" : "Обновить"}</button> : null}{skill.source === "plugin" && skill.pluginId != null ? <button onClick={copyLink} type="button">{copyLabel}</button> : null}{onUnpublish != null ? <button disabled={savePending || deletePending || publishPending || syncPending || unpublishPending} onClick={() => void unpublish()} type="button">{unpublishPending ? "Снимаем…" : "Снять с публикации"}</button> : null}{syncError != null ? <p role="alert">{syncError}</p> : null}{unpublishError != null ? <p role="alert">{unpublishError}</p> : null}</div> : null}
+    {onResync != null || onUnpublish != null || copyLabel != null ? <div>{onResync != null ? <button disabled={savePending || deletePending || publishPending || syncPending || unpublishPending} onClick={() => void sync()} type="button">{syncPending ? "Обновляем…" : syncConfirmed ? "Обновлено" : "Обновить"}</button> : null}{copyLabel != null ? <button onClick={() => void copyController.copy("")} type="button">{copyLabel}</button> : null}{onUnpublish != null ? <button disabled={savePending || deletePending || publishPending || syncPending || unpublishPending} onClick={() => void unpublish()} type="button">{unpublishPending ? "Снимаем…" : "Снять с публикации"}</button> : null}{syncError != null ? <p role="alert">{syncError}</p> : null}{unpublishError != null ? <p role="alert">{unpublishError}</p> : null}</div> : null}
     <div>
       <label>Имя<input onChange={(event) => setName(event.currentTarget.value)} readOnly={!editable} spellCheck={false} type="text" value={name} /></label>
       <label>Описание<input onChange={(event) => setDescription(event.currentTarget.value)} placeholder="Когда применять…" readOnly={!editable} spellCheck={false} type="text" value={description} /></label>

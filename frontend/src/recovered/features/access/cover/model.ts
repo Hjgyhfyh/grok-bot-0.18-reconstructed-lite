@@ -5,7 +5,15 @@ import type { CursorAccountDesktopBridge, DesktopBridge } from "../../../contrac
 // Immutable root sha256: ef4e9831b65d39633f09c9ad0c083b98b7ebf52e3bb558182aee5bde31f876fa
 
 export const ACCESS_BLOCKED_FAILURE_CODE = "sand-access-blocked" as const;
-export const ACCESS_ONBOARDING_URL = "https://cursor.com/bot/onboarding" as const;
+/**
+ * Адрес, который открывала кнопка на обложке доступа, удалён.
+ *
+ * Он вёл на `cursor.com/bot/onboarding`. В DB Bot Lite нет ни учётной записи
+ * Cursor, ни платёжного тарифа, ни команды: кнопка «Перейти на Ultra» уводила
+ * пользователя на чужую страницу оплаты. Константа оставлена пустой строкой,
+ * потому что на неё ссылается тип `AccessCoverCopy`.
+ */
+export const ACCESS_ONBOARDING_URL = "" as const;
 
 export type SandAccessState = "granted" | "unavailable" | "paymentRequired" | "unknown";
 export type SandAccessBlockReason =
@@ -62,59 +70,45 @@ export interface AccessCoverCopy {
 }
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=4734556
+// Тексты про тарифы Ultra, Premium и пробный период убраны. DB Bot Lite —
+// одна программа для одного человека, оплаты в ней нет; прежние надписи
+// обещали пользователю покупку, которой не существует, и уводили на сайт.
 export function accessNoticeCopy(access: SandAccess): AccessCoverCopy | null {
   if (access.state === "checking" || access.state === "unknown" || access.state === "granted") return null;
   if (access.reason === "teamPrivacyMode") {
     return {
       title: "Режим приватности команды запрещает DB Bot",
-      body: "DB Bot не работает в режиме приватности (Legacy). Попросите администратора команды отключить его.",
-      action: "Подробнее"
+      body: "DB Bot не работает в режиме приватности (Legacy). Обратитесь к тому, кто устанавливал программу.",
+      action: null
     };
   }
   if (access.reason === "teamSetupRequired") {
     return {
-      title: "Команда ещё не настроила DB Bot",
-      body: "Администратор команды должен закончить настройку DB Bot, потом участники смогут писать сообщения.",
-      action: "Подробнее"
+      title: "Программа ещё не настроена",
+      body: "Установку программы должен закончить тот, кто ставил её на этот компьютер.",
+      action: null
     };
   }
   if (access.reason === "teamAccessRequired") {
     return {
-      title: "Команда не открыла DB Bot для этой учётной записи",
-      body: "В настройках команды DB Bot закрыт. Открыть его может администратор команды.",
-      action: "Запросить доступ"
+      title: "Программа закрыта на этом компьютере",
+      body: "В настройках программы DB Bot закрыт. Открыть его может тот, кто устанавливал DB Bot.",
+      action: null
     };
   }
-  if (access.reason === "notOffered") {
-    return { title: "DB Bot недоступен для этой учётной записи", body: "Здесь нечего настраивать и покупать.", action: null };
-  }
-  if (access.reason === "freeTrialAvailable") {
-    return { title: "Чтобы писать сообщения, включите пробный период DB Bot", body: "Эта учётная запись может попробовать DB Bot.", action: "Начать пробный период" };
-  }
-  if (access.reason === "paywallIndividual") {
-    return { title: "Для DB Bot нужен тариф Ultra", body: "Перейдите на тариф Ultra, чтобы писать сообщения в DB Bot.", action: "Перейти на Ultra" };
-  }
-  if (access.reason === "paywallTeamMember") {
-    return { title: "Для DB Bot нужно место Premium", body: "Попросите администратора команды перевести эту учётную запись на место Premium.", action: "Запросить доступ" };
-  }
-  if (access.reason === "paywallTeamAdmin") {
-    return { title: "Для DB Bot нужно место Premium", body: "Переведите эту учётную запись на место Premium, чтобы писать сообщения.", action: "Управлять местами" };
-  }
-  if (access.state === "unavailable") {
-    return { title: "DB Bot недоступен для этой учётной записи", body: "Отправка выключена, пока у этой учётной записи нет доступа. Проверьте условия на сайте.", action: "Проверить доступ" };
-  }
-  if (access.state === "paymentRequired") {
-    return { title: "DB Bot не входит в этот тариф", body: "Отправка выключена, пока у учётной записи нет DB Bot. Посмотрите варианты на сайте.", action: "Проверить доступ" };
-  }
-  return null;
+  return {
+    title: "DB Bot пока недоступен",
+    body: "Помощники не отвечают. Перезапустите программу; если это не помогло, обратитесь к тому, кто её устанавливал.",
+    action: null
+  };
 }
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5544115
 export function accessCoverCopy(access: SandAccess): AccessCoverCopy {
   return accessNoticeCopy(access) ?? {
-    title: "DB Bot пока недоступен для этой учётной записи",
-    body: "Проверьте на сайте, что нужно этой учётной записи.",
-    action: "Проверить доступ"
+    title: "DB Bot пока недоступен",
+    body: "Помощники не отвечают. Перезапустите программу; если это не помогло, обратитесь к тому, кто её устанавливал.",
+    action: null
   };
 }
 
@@ -139,6 +133,12 @@ export async function readFreshSandAccess(
   return projectSandAccess(await bridge.getSandAccessFresh());
 }
 
+/**
+ * Открыть страницу регистрации. В DB Bot Lite регистрации нет, поэтому функция
+ * ничего не делает и ничего наружу не отправляет. Она осталась, потому что
+ * экспортируется из модуля вместе с остальным контрактом обложки.
+ */
 export function openAccessOnboarding(bridge: Pick<DesktopBridge, "openExternal">): Promise<void> {
-  return bridge.openExternal(ACCESS_ONBOARDING_URL);
+  void bridge;
+  return Promise.resolve();
 }

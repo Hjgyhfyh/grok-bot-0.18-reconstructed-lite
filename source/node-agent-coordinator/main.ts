@@ -1,5 +1,4 @@
 import { hostname } from "node:os";
-import { pathToFileURL } from "node:url";
 
 import { createRealExpiryPolicy, createRealPollingPolicy, createRealRetryPolicy, realClock } from "../internal/scheduling.js";
 import { COORDINATOR_TRANSPORT_STATE_FAMILY } from "../shared/rpc/coordinator-port.js";
@@ -64,7 +63,13 @@ export interface ComposeCoordinatorDependencies {
 }
 
 export async function composeCoordinator(dependencies: ComposeCoordinatorDependencies = {}): Promise<void> {
+  // Первая строка печатается ДО всего остального и уходит в
+  // <корень данных>/coordinator.log: главный процесс перехватывает потоки
+  // координатора. Без неё отказ до первого await выглядел как «процесс молча
+  // завершился с кодом 0», и искать причину приходилось вручную.
+  process.stderr.write(`node-agent-coordinator: запуск, pid=${process.pid}, argv=${JSON.stringify(process.argv.slice(1))}\n`);
   const carrierIntake = await (dependencies.adoptCarrier ?? adoptCarrier)();
+  process.stderr.write(`node-agent-coordinator: переносчик принят=${String(carrierIntake.adopted)}${carrierIntake.adopted ? "" : `, отказ=${carrierIntake.rejection.detail}`}\n`);
   if (!carrierIntake.adopted) {
     process.stderr.write(`node-agent-coordinator: ${carrierIntake.rejection.detail}\n`);
     process.exit(2);
@@ -290,10 +295,9 @@ export async function composeCoordinator(dependencies: ComposeCoordinatorDepende
   gatewayClient.start();
 }
 
-const invokedPath = process.argv[1];
-if (invokedPath !== undefined && import.meta.url === pathToFileURL(invokedPath).href) {
-  void composeCoordinator().catch((error) => {
-    process.stderr.write(`node-agent-coordinator: composition failure: ${String(error)}\n`);
-    process.exit(1);
-  });
-}
+// ТОЧКУ ВХОДА НУЖНО СМОТРЕТЬ В `scripts/build-from-source.mjs` (`coordinatorEntry`),
+// а не здесь. Пока вызов был и здесь, и там, координатор собирался ДВАЖДЫ:
+// второй `adoptCarrier` вешал свой слушатель на тот же `parentPort`, оба
+// переносчика подхватывали один и тот же перенос, и оба состава бились за одни
+// и те же три порта. Наружу это выглядело как «координатор молча завершился с
+// кодом 0», а интерфейс показывал бесконечное «Reconnecting».

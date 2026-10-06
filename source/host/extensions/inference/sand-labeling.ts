@@ -8,6 +8,7 @@ import {
 } from "../../../packages/proto/generated/aiserver/v1/inference_pb.js";
 import {
   createSandCursorBackendClient,
+  getSandInferenceBackendUrl,
   type SandInferenceOptions,
 } from "../../../shared/node/cursor-backend/cursor-inference.js";
 import { errorLogTag } from "../../../shared/errors.js";
@@ -27,7 +28,10 @@ export interface PromptExecutor {
   stream(...args: readonly unknown[]): unknown;
 }
 
-export function createSandLabelingClient(options: Omit<SandInferenceOptions, "backendUrl">): LabelingClient {
+export function createSandLabelingClient(options: Omit<SandInferenceOptions, "backendUrl">): LabelingClient | undefined {
+  // Службы Cursor в сборке нет. Разметка — это разметка, а не ход: её отказ не
+  // должен стоить ответа пользователю, поэтому без адреса службы её нет.
+  if (getSandInferenceBackendUrl().length === 0) return undefined;
   const client = createSandCursorBackendClient(InferenceService, options) as unknown as {
     recordAgentFollowupClassification(request: AgentFollowupCategorizationRequest): Promise<unknown>;
     recordAgentPostTurnLabeling(request: AgentPostTurnLabelingRequest): Promise<unknown>;

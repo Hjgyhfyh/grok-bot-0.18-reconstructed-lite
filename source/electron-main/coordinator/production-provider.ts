@@ -1,5 +1,7 @@
 import { statSync } from "node:fs";
 
+import { getSandRootDir } from "../../host/host-paths.js";
+
 import type {
   ProductionCoordinatorService,
   ProductionDisposable,
@@ -429,8 +431,39 @@ export function createProductionCoordinatorAdapter<
       });
       const createRuntime = () =>
         createCoordinatorRuntime({
-          fork: (path, options) =>
-            ports.utilityProcess.fork(path, [], { serviceName: options.serviceName }),
+          fork: (path, options) => {
+            // `utilityProcess.fork` без `stdio` НИЧЕДА не пишет: ни в консоль
+            // родителя, ни в файл. А хост агентов может упасть при старте — и
+            // тогда интерфейс молча показывает «Reconnecting», не объясняя
+            // ничего. Ровно эта тишина стоила нам двух неразобранных дней.
+            //
+            // Поэтому просим pipe и подписываемся на потоки: всё, что
+            // координатор печатает, попадает в <корень данных>/coordinator.log.
+            // Пользователю это тоже полезно — в Настройках можно показать
+            // путь к журналу, когда он звонит в поддержку.
+            //
+            // Локальное объявление `fork` в `ProductionCoordinatorUtilityProcess`
+            // уже настоящего Electron: в нём перечислено только `serviceName`.
+            // Расширяем его здесь и НЕ трогаем объявление — оно используется
+            // ещё в нескольких местах, и подмена типа там была бы лишней.
+            type CoordinatorChild = { stdout?: { on?: (event: string, handler: (chunk: unknown) => void) => unknown }; stderr?: { on?: (event: string, handler: (chunk: unknown) => void) => unknown }; on?: (event: string, handler: (code: unknown) => void) => unknown; pid?: number };
+            type ForkWithStdio = (modulePath: string, args: readonly string[], options: { serviceName: string; stdio: "pipe" }) => unknown;
+            const { appendFileSync: appendLog } = require("node:fs") as typeof import("node:fs");
+            const { join: joinPath } = require("node:path") as typeof import("node:path");
+            const logFile = joinPath(getSandRootDir(), "coordinator.log");
+            const note = (line: string) => { try { appendLog(logFile, `${line}\n`, "utf8"); } catch { /* журнал не обязателен */ } };
+            note(`[запуск] форк координатора, путь=${path}, корень данных=${getSandRootDir()}`);
+            const child = (ports.utilityProcess.fork as unknown as ForkWithStdio)(path, [], { serviceName: options.serviceName, stdio: "pipe" });
+            const streams = child as CoordinatorChild;
+            note(`[запуск] форк вернул: потоки stdout=${streams?.stdout != null ? "есть" : "НЕТ"}, stderr=${streams?.stderr != null ? "есть" : "НЕТ"}, pid=${String(streams?.pid)}`);
+            // Код выхода координатора. Без него повторяющийся форк выглядит как
+            // «он просто перезапускается», и причина остаётся неизвестной.
+            try { streams?.on?.("exit", (code: unknown) => note(`[запуск] координатор завершился, код=${String(code)}`)); } catch { /* подписка необязательна */ }
+            const write = (prefix: string) => (chunk: unknown) => note(`${prefix}${String(chunk)}`);
+            streams?.stdout?.on?.("data", write(""));
+            streams?.stderr?.on?.("data", write("[ошибка] "));
+            return child as ReturnType<typeof ports.utilityProcess.fork>;
+          },
           createChannel: () => new ports.MessageChannelMain(),
           executors: executors as unknown as Record<
             string,

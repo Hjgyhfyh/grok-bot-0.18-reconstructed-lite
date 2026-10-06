@@ -112,8 +112,8 @@ export function pluginPrivateSkillSubtitle(skill: Pick<PluginPrivateSkill, "sour
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L1377
 export function pluginPrivateSkillSourceLabel(skill: Pick<PluginPrivateSkill, "source">): string {
-  if (skill.source === "managed") return "Управляется Cursor";
-  if (skill.source === "plugin") return "Доступно вашей команде";
+  if (skill.source === "managed") return "Установлено программой";
+  if (skill.source === "plugin") return "Доступно вашей программе";
   return "Личный навык";
 }
 

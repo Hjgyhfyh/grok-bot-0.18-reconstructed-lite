@@ -1,5 +1,5 @@
 import type { DesktopBridge } from "../../../contracts/desktop-bridge";
-import { accessCoverCopy, openAccessOnboarding, type SandAccess } from "./model";
+import { accessCoverCopy, type SandAccess } from "./model";
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5537116
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5421612
@@ -23,7 +23,9 @@ export function AccessCover({ access, bridge, isVisible }: AccessCoverProps) {
         <div>
           <div>
             <div><span>{copy.title}</span><span>{copy.body}</span></div>
-            {copy.action === null ? null : <button onClick={() => void openAccessOnboarding(bridge)} type="button">{copy.action}</button>}
+            {/* Кнопка, открывавшая `https://cursor.com/bot/onboarding`, убрана.
+                В DB Bot Lite нет ни команды, ни учётной записи, ни платёжного
+                тарифа: показывать пользователю «купить Ultra» здесь не о чем. */}
           </div>
         </div>
       </div>

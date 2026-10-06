@@ -7,10 +7,16 @@ export const GATEWAY_COMMAND_FAILED = "gateway-command-failed";
 export const GATEWAY_UNREACHABLE = "gateway-unreachable";
 export const GATEWAY_TRANSPORT_FAILED = "gateway-transport-failed";
 
-export function failureFor(error: unknown): { code: string; message: string; transportKind?: string } {
-  if (error instanceof SandGatewayCommandError) return { code: GATEWAY_COMMAND_FAILED, message: error.message };
-  if (error instanceof SandGatewayUnreachableError) return { code: GATEWAY_UNREACHABLE, message: error.message, transportKind: error.kind };
-  return { code: GATEWAY_TRANSPORT_FAILED, message: error instanceof Error ? error.message : String(error) };
+export function failureFor(error: unknown, method?: string): { code: string; message: string; transportKind?: string } {
+  // Имя команды — часть отказа. Без него в интерфейсе остаётся «gateway-command-failed»
+  // и текст ошибки, а какая именно команда не сработала, приходится искать по всему коду.
+  const named = (failure: { code: string; message: string; transportKind?: string }) =>
+    method == null || method.length === 0 || failure.message.includes(method)
+      ? failure
+      : { ...failure, message: `${method}: ${failure.message}` };
+  if (error instanceof SandGatewayCommandError) return named({ code: GATEWAY_COMMAND_FAILED, message: error.message });
+  if (error instanceof SandGatewayUnreachableError) return named({ code: GATEWAY_UNREACHABLE, message: error.message, transportKind: error.kind });
+  return named({ code: GATEWAY_TRANSPORT_FAILED, message: error instanceof Error ? error.message : String(error) });
 }
 
 export interface GatewayCommandClient {
@@ -24,7 +30,7 @@ export function createGatewayRequestDispatch(client: GatewayCommandClient, serve
       const value = validateCoordinatorReply(method, await client.dispatchCommand(method, args, { ...(signal === undefined ? {} : { signal }) }));
       return { status: "ok", value };
     } catch (error) {
-      return { status: "failed", failure: failureFor(error) };
+      return { status: "failed", failure: failureFor(error, method) };
     }
   };
 }

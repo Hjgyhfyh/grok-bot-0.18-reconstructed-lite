@@ -5,6 +5,7 @@ import {
   CURSOR_MARKETPLACE_REQUEST_TIMEOUT_MS,
 } from "../marketplace/cursor-marketplace-client.js";
 import { rememberPluginLogoUrl } from "../marketplace/cursor-marketplace-logo-registry.js";
+import { getSandInferenceBackendUrl } from "../cursor-backend/cursor-inference.js";
 export { bestEffortToken } from "../marketplace/cursor-marketplace-client.js";
 export { resolvePluginLogo } from "./mcp-marketplace-logo.js";
 import {
@@ -198,6 +199,15 @@ export async function fetchMarketplaceMcpPlugins(
   plugins: SandMarketplacePlugin[];
   includesPrivateMarketplaces: boolean;
 }> {
+  // The marketplace lives on the Cursor backend, and DB Bot Lite has no address
+  // for it: `getSandInferenceBackendUrl()` is empty. The listing used to be
+  // attempted anyway, and `new URL()` threw `ERR_INVALID_URL` inside
+  // `createConnectTransport`, which surfaced as an unhandled rejection at every
+  // start-up once the app reached the extensions screen. An empty catalogue is
+  // the honest answer: there is nothing to list and nothing to dial.
+  if (getSandInferenceBackendUrl().length === 0) {
+    return { plugins: [], includesPrivateMarketplaces: false };
+  }
   const client = deps.createClient(getAccessToken, getMachineId),
     response = await client.listMarketplacePlugins(
       { excludeCloudAgentPlugins: true },

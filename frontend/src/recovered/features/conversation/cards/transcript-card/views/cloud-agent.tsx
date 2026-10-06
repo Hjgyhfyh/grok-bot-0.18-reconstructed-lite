@@ -35,12 +35,12 @@ function CloudAgentStatusBadge({ status }: { status: CloudAgentStatus }) {
   return <span className={`sand-cursor-agent-card__status sand-cursor-agent-card__status--${projection.tone}`} data-tone={projection.tone} role="status"><span aria-hidden="true" className={projection.tone === "accent" ? "sand-cursor-agent-card__status-spinner" : "sand-cursor-agent-card__status-dot"} />{projection.label}</span>;
 }
 
-function CloudAgentBody({ info, onOpen, onOpenPr, disabled }: { info: CloudAgentInfo | null; onOpen: () => void; onOpenPr?: (url: string) => void; disabled: boolean }) {
+function CloudAgentBody({ info, onOpenPr, disabled }: { info: CloudAgentInfo | null; onOpenPr?: (url: string) => void; disabled: boolean }) {
   const titleId = useId();
   if (info == null) {
-    return <article aria-label="Облачный помощник Cursor" className="sand-cursor-agent-card" aria-busy="true"><div className="sand-cursor-agent-card__content sand-78zum5 sand-dt5ytf sand-1jnr06f sand-h8yej3 sand-euugli"><span aria-hidden="true" className="sand-cursor-agent-card__content" /><span aria-hidden="true" className="sand-cursor-agent-card__content" /><span aria-hidden="true" className="sand-cursor-agent-card__content" /></div></article>;
+    return <article aria-label="Облачный помощник" className="sand-cursor-agent-card" aria-busy="true"><div className="sand-cursor-agent-card__content sand-78zum5 sand-dt5ytf sand-1jnr06f sand-h8yej3 sand-euugli"><span aria-hidden="true" className="sand-cursor-agent-card__content" /><span aria-hidden="true" className="sand-cursor-agent-card__content" /><span aria-hidden="true" className="sand-cursor-agent-card__content" /></div></article>;
   }
-  const title = info.name?.trim() || "Облачный помощник Cursor";
+  const title = info.name?.trim() || "Облачный помощник";
   const hasPr = info.prUrl != null && info.prUrl.length > 0;
   return <article aria-labelledby={titleId} className="sand-cursor-agent-card">
     <div className="sand-cursor-agent-card__content sand-78zum5 sand-dt5ytf sand-1jnr06f sand-h8yej3 sand-euugli">
@@ -53,7 +53,10 @@ function CloudAgentBody({ info, onOpen, onOpenPr, disabled }: { info: CloudAgent
       {info.prompt?.trim().length ? <p className="sand-cursor-agent-card__prompt">{info.prompt}</p> : null}
       {info.branchName?.trim().length ? (() => { const icon = pullRequestIcon(info.prState ?? (hasPr ? "unknown" : "none")); return <span className="sand-cursor-agent-card__branch"><span aria-hidden="true" data-color={icon.color} data-icon-name={icon.name} data-size="sm" /> <span className="sand-cursor-agent-card__branch-name">{info.branchName}</span>{info.prNumber == null ? null : <span className="sand-cursor-agent-card__pr-number">PR #{info.prNumber}</span>}</span>; })() : info.prNumber == null ? null : <span className="sand-cursor-agent-card__pr-number">PR #{info.prNumber}</span>}
       {(info.filesChanged ?? 0) > 0 ? <div className="sand-cursor-agent-card__stats"><span className="sand-cursor-agent-card__stats-files"><span aria-hidden="true" data-icon-name="plus-minus" />{filesChangedLabel(info.filesChanged ?? 0)}</span><span className="sand-cursor-agent-card__stat-numbers">{(info.linesAdded ?? 0) > 0 ? <span className="sand-1w5rjie">+{info.linesAdded}</span> : null}{(info.linesRemoved ?? 0) > 0 ? <span className="sand-1jh5svw">-{info.linesRemoved}</span> : null}</span></div> : null}
-      <div className="sand-cursor-agent-card__footer"><>{hasPr && onOpenPr != null ? <button className="sand-cursor-agent-card__view-pr" disabled={disabled} onClick={() => onOpenPr(info.prUrl as string)} title="Открыть запрос на слияние" type="button">Посмотреть PR <span aria-hidden="true" data-icon-name="arrow-right-up" /></button> : null}</><button className="sand-cursor-agent-card__open" disabled={disabled} onClick={onOpen} title="Открыть этого облачного помощника в Cursor" type="button"><span aria-hidden="true" data-icon-name="cursor-logo" />Открыть в Cursor</button></div>
+      {/* Кнопка «Открыть в Cursor» убрана: она открывала браузер на
+          `cursor.com/agents/<id>`. В DB Bot Lite облачных помощников нет, и
+          кнопка, которая ничего не открывает, только вводит в заблуждение. */}
+      <div className="sand-cursor-agent-card__footer"><>{hasPr && onOpenPr != null ? <button className="sand-cursor-agent-card__view-pr" disabled={disabled} onClick={() => onOpenPr(info.prUrl as string)} title="Открыть запрос на слияние" type="button">Посмотреть PR <span aria-hidden="true" data-icon-name="arrow-right-up" /></button> : null}</></div>
     </div>
   </article>;
 }
@@ -76,7 +79,9 @@ export function CloudAgentTranscriptCard(props: TranscriptCardLeafProps) {
   const info = snapshot?.status === "ready" ? snapshot.value : snapshot?.previous ?? null;
   const isPending = snapshot?.status === "loading" || snapshot?.status === "empty" && info == null;
   const disabled = props.isStale === true || provider == null;
-  return <CloudAgentBody info={isPending ? null : info} disabled={disabled} onOpen={() => { if (!disabled) void provider?.open(bcId); }} onOpenPr={providers?.onOpenPullRequest} />;
+  // `onOpen` (вызов `provider.open`, а за ним `openCloudAgent` главного процесса)
+  // убран вместе с кнопкой: открывать `cursor.com/agents/<id>` нельзя.
+  return <CloudAgentBody info={isPending ? null : info} disabled={disabled} onOpenPr={providers?.onOpenPullRequest} />;
 }
 
 export default CloudAgentTranscriptCard;

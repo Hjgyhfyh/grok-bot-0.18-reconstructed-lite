@@ -203,7 +203,12 @@ export function createMainEdgeHandlers(deps: MainEdgeDeps): HandlerMap {
     setOnboardingSeen: (raw) => { const seen = req(raw).seen; if (typeof seen === "boolean") void Promise.resolve(invoke(deps.onboardingSeen, "apply", seen)); },
 
     openExternal: (raw) => invoke(deps.shell, "openExternalUrl", req(raw).url),
-    openCloudAgent: async (raw) => { const bcId = typeof req(raw).bcId === "string" ? (req(raw).bcId as string).trim() : ""; if (bcId.length === 0) return; const base = process.env.SAND_CURSOR_WEBSITE_URL?.trim() || process.env.CURSOR_WEBSITE_URL?.trim() || "https://cursor.com"; await Promise.resolve(invoke(deps.shell, "openInSystemBrowser", new URL(`/agents/${encodeURIComponent(bcId)}`, base).toString())); },
+    // Облачные агенты в DB Bot Lite не существуют. Прежде открывался браузер на
+    // `cursor.com/agents/<id>`, то есть программа отдавала идентификатор чужому
+    // сайту и показывала пользователю чужую страницу. Метод оставлен в таблице
+    // и в контракте моста, чтобы ничего не сломалось на стороне рендерера, но
+    // наружу он больше ничего не отправляет и браузер не открывает.
+    openCloudAgent: async () => { },
     submitFeedback: (raw) => invoke(deps.shell, "submitFeedback", raw),
     markDeepLinksReady: () => { invoke(deps.shell, "markDeepLinksReady"); },
     getBoxMigrationStatus: () => invoke(deps.boxRecovery, "readBoxMigrationStatus"),

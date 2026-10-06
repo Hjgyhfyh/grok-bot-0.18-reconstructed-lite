@@ -77,7 +77,6 @@ import { createAgentNetworkTrigger } from "../recovered/features/org-chart/works
 import { AccountMenu } from "../recovered/features/account/session/menu";
 import { SandBadge, SandButton, SandIcon, SandIconButton } from "../recovered/ui/sand-kit-primitives";
 import { OverlayDialog } from "../recovered/ui/overlay-primitives";
-import { SignInStatus } from "../recovered/features/account/session/sign-in-status";
 import { isRosterPrivacyBlockFailure, PrivacyBlockedDialog } from "../recovered/features/roster/privacy-blocked";
 import { RosterStatus } from "../recovered/features/roster/status";
 import { projectRosterFailure, selectRosterAccessReadiness } from "../recovered/features/roster/access-readiness";
@@ -110,8 +109,8 @@ import { commandPaletteRootCommands, type CommandPaletteComputerUpdateAction, ty
 import { CoordinatorCallError, createCoordinatorClient, type ProductionCoordinatorClient } from "./coordinator-client";
 import { UI_TEXT } from "./evidence";
 import { movePinnedAgent, partitionSidebarAgents } from "./sidebar-model";
-import { SignOutDialog } from "../recovered/features/account/session/sign-out";
-import { FeedbackDialog, type FeedbackCode } from "../recovered/features/feedback/overlay/view";
+import { shouldRenderComputerFullscreen, shouldRenderComputerInfoPane } from "./computer-surface-gate";
+import { LOCAL_ACCOUNT_DISPLAY_NAME, LOCAL_ACCOUNT_SLOT, LOCAL_ACCOUNT_STATUS, toLocalAccountStatus } from "./local-account";
 import { UpdateRequired } from "../recovered/features/update/required/view";
 import { UpdatePill } from "../recovered/features/update/status/pill";
 import { AboutDialog as RecoveredAboutDialog } from "../recovered/features/about/overlay/view";
@@ -196,8 +195,8 @@ class SettingsOverlayErrorBoundary extends Component<SettingsOverlayErrorBoundar
         <p>{this.state.error.message}</p>
       </div>
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
-        <SandButton onClick={this.retry} size="sm" variant="secondary">Retry</SandButton>
-        <SandButton onClick={this.props.onClose} size="sm">Close</SandButton>
+        <SandButton onClick={this.retry} size="sm" variant="secondary">Повторить</SandButton>
+        <SandButton onClick={this.props.onClose} size="sm">Закрыть</SandButton>
       </div>
     </OverlayDialog>;
   }
@@ -213,7 +212,10 @@ const HiddenChatsDialog = lazy(async () => {
 const ComputerOverlayRouteView = lazy(() => computerEntrypoint.loadView());
 const OrgChartWorkspaceView = lazy(() => import("../recovered/features/org-chart/workspace/view"));
 
-type AuxiliaryOverlay = "hidden-chats" | "settings" | "plugins" | "about" | "feedback" | "confirm-logout" | null;
+// «Отправить отзыв» и «Выйти» убраны: отзыв уходил POST-запросом на
+// `api2.cursor.sh`, то есть текст пользователя покидал его компьютер, а выход
+// вёл к экрану входа в аккаунт Cursor, которого в DB Bot Lite нет.
+type AuxiliaryOverlay = "hidden-chats" | "settings" | "plugins" | "about" | null;
 type WorkspaceRoute = "org-chart" | null;
 type TransportState = "browser" | "connecting" | "connected" | "down";
 
@@ -360,14 +362,9 @@ function RootInfoPaneHeader({ children, onClose, closeLabel = "Закрыть" }
     </span>
   </header>;
 }
-const FEEDBACK_ERRORS: Record<FeedbackCode, string> = {
-  "access-denied": "DB Bot недоступен для этой учётной записи.",
-  "invalid-feedback": "Напишите от 1 до 10 000 знаков.",
-  "not-signed-in": ["Войдите в ", UI_TEXT.title, ", чтобы отправить отзыв."].join(""),
-  "rate-limited": "Вы отправили много отзывов. Повторите через несколько минут.",
-  "subscription-required": "Перейдите на тариф Ultra, чтобы отправить отзыв.",
-  unavailable: "Не удалось отправить отзыв. Попробуйте ещё раз."
-};
+// Таблица ответов формы отзыва удалена вместе с самой формой: отзыв уходил на
+// `api2.cursor.sh`, а «перейдите на тариф Ultra» показывал пользователю
+// платёж, которого в DB Bot Lite нет.
 const UPDATE_REQUIRED_LABELS = {
   descriptionPrefix: "Эта версия DB Bot (",
   descriptionSuffix: ") больше не поддерживается. Обновите программу, чтобы продолжить работу. Помощники всё это время остаются включёнными.",
@@ -458,12 +455,6 @@ function createAutoReviewInstructionsResource(bridge: DesktopBridge): AutoReview
 function listenerConnectUrl(value: unknown): { url: string } {
   if (typeof value === "object" && value != null && !Array.isArray(value) && "url" in value && typeof value.url === "string") return { url: value.url };
   throw new Error("Программа прислала неверный адрес подключения");
-}
-
-function accountName(status: CursorAuthStatus | null): string {
-  if (status?.kind === "logged-in") return status.displayName ?? status.email ?? UI_TEXT.account;
-  if (status?.kind === "logging-in") return UI_TEXT.continueInBrowser;
-  return UI_TEXT.signIn;
 }
 
 function makeClientNonce(): string {
@@ -588,27 +579,6 @@ function useStrictModeSafeDisposal(resource: StrictModeDisposable | null | undef
   const guardRef = useRef<ReturnType<typeof createStrictModeDisposalGuard> | null>(null);
   if (guardRef.current == null) guardRef.current = createStrictModeDisposalGuard();
   useEffect(() => guardRef.current!.attach(resource), [resource]);
-}
-
-function SignInLanding({ account, bridge, onStatus }: { account: CursorAuthStatus; bridge: DesktopBridge; onStatus(status: CursorAuthStatus): void }) {
-  if (account.kind === "logged-in") return null;
-  return (
-    <div aria-label={UI_TEXT.title} className="sand-onboarding" role="main">
-      <section className="sand-onboarding__landing">
-        <h1>{UI_TEXT.title}</h1>
-        <p>{UI_TEXT.signInTagline}</p>
-        <SignInStatus
-          account={account}
-          bridge={bridge}
-          cancelLabel={UI_TEXT.cancel}
-          continueLabel={UI_TEXT.continueInBrowser}
-          onStatus={onStatus}
-          reopenLabel={UI_TEXT.reopenLink}
-          signInLabel={UI_TEXT.signIn}
-        />
-      </section>
-    </div>
-  );
 }
 
 export interface ProductionRendererProps {
@@ -881,7 +851,10 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>("general");
   const [pluginQuery, setPluginQuery] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [account, setAccount] = useState<CursorAuthStatus | null>(null);
+  // Локальная запись, а не аккаунт Cursor: см. `./local-account`. Начальное
+  // значение — тоже локальный слот, поэтому рабочая область появляется сразу,
+  // не дожидаясь ответа главного процесса.
+  const [account, setAccount] = useState<CursorAuthStatus | null>(LOCAL_ACCOUNT_STATUS);
   const [sandAccess, setSandAccess] = useState(SAND_ACCESS_UNKNOWN);
   const [accessFirstBox, setAccessFirstBox] = useState(INITIAL_FIRST_BOX_GATE);
   const [privacyBlocked, setPrivacyBlocked] = useState(false);
@@ -2687,73 +2660,37 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
   useEffect(() => {
     if (bridge == null) return;
     let active = true;
-    const observeAccount = (status: CursorAuthStatus) => {
+    // Ответ главного процесса о входе в Cursor рендереру не нужен: программа
+    // работает в локальном слоте. Ответ читается, чтобы дождаться готовности
+    // окна, но в состояние попадает только как локальная запись.
+    const observeAccount = (reported: CursorAuthStatus) => {
       accountObservationGenerationRef.current += 1;
-      const identity = status.kind === "logged-in" ? `logged-in:${status.authId ?? status.email ?? "account"}` : status.kind;
-      const identityChanged = accountIdentityRef.current != null && accountIdentityRef.current !== identity;
+      const status = toLocalAccountStatus(reported);
+      const identity = status.kind === "logged-in" ? `logged-in:${status.authId ?? status.email ?? LOCAL_ACCOUNT_SLOT}` : status.kind;
       if (accountIdentityRef.current !== identity) {
+        accountIdentityRef.current = identity;
         accountScopeGenerationRef.current += 1;
-        localToolPermissionScopeGate.reset();
-        groupMembersRoot.reset();
-        sharedRoomProvider?.reset();
-        setGroupInfoPaneOpen(false);
-        setManageSharedRoomId(null);
-      }
-      if (accountIdentityRef.current != null && accountIdentityRef.current !== identity) {
-        selectionStore.reset();
-        acknowledgementController.reset();
-        completeRosterAgentIdsRef.current = [];
-        setAgents([]); setHasLoadedAgents(false); setActiveAgentId(""); setEntriesByAgent({});
-        setPrivacyBlocked(false);
-        setRosterLoadFailed(false);
-        setRosterFailure(null);
-        rosterAttemptRef.current += 1;
-        setIsRosterRetrying(false);
-        pinnedStateVersionRef.current += 1; pinnedAgentIdsRef.current = []; setPinnedAgentIds([]);
-        navigationHistoryRef.current = createRootShellNavigationState();
-        setPaletteMessageTarget(null);
-        setRoutinesInfoPaneOpen(false);
-        setRoutinesAutomationId(null);
-        setAgentSettingsOpen(false);
-        setManageSharedRoomId(null);
-        setChannelsInfoPaneOpen(false);
-        setAsyncTasksAgentId(null);
-        asyncTasksReturnFocusRef.current = null;
-        setWorkspaceRoute(null); setCommandPaletteOpen(false);
-        setTransport(client == null ? "browser" : "connecting");
-        openAgentRequestGenerationRef.current += 1;
-      }
-      accountIdentityRef.current = identity;
-      if (status.kind !== "logged-in") {
-        localToolPermissionScopeGate.reset();
-        selectionStore.reset();
-        acknowledgementController.reset();
-        sharedRoomProvider?.reset();
-        setPrivacyBlocked(false);
-        setRosterLoadFailed(false);
-        setRosterFailure(null);
-        rosterAttemptRef.current += 1;
-        setIsRosterRetrying(false);
-        setPaletteMessageTarget(null);
-        setRoutinesInfoPaneOpen(false);
-        setRoutinesAutomationId(null);
-        setAgentSettingsOpen(false);
-        setManageSharedRoomId(null);
-        setChannelsInfoPaneOpen(false);
-        setAsyncTasksAgentId(null);
-        asyncTasksReturnFocusRef.current = null;
       }
       setAccount(status);
-      if (identityChanged) void bridge.onboarding.getSeen().then((seen) => resolveOnboarding(status, seen)).catch(() => {});
     };
     const initialAccountObservationGeneration = accountObservationGenerationRef.current;
-    void Promise.all([bridge.cursorAccount.getStatus(), bridge.onboarding.getSeen(), bridge.getWindowState()]).then(([status, seen, windowState]) => {
+    void Promise.all([bridge.cursorAccount.getStatus(), bridge.onboarding.getSeen(), bridge.getWindowState()]).then(([reported, seen, windowState]) => {
       if (!active || accountObservationGenerationRef.current !== initialAccountObservationGeneration) return;
-      observeAccount(status);
-      void resolveOnboarding(status, seen);
+      observeAccount(reported);
+      void resolveOnboarding(toLocalAccountStatus(reported), seen);
       setWindowFullscreen(windowState.isFullscreen);
       setWindowMaximized(windowState.isMaximized);
-    }).catch((error: unknown) => active && setNotice(error instanceof Error ? error.message : String(error)));
+    }).catch((error: unknown) => {
+      // Ответ о входе прийти не мог — это не отказ программы. Онбординг и
+      // рабочая область открываются по локальному слоту в любом случае.
+      if (!active) return;
+      observeAccount(LOCAL_ACCOUNT_STATUS);
+      void Promise.all([bridge.onboarding.getSeen(), bridge.getWindowState()]).then(([seen, windowState]) => {
+        void resolveOnboarding(LOCAL_ACCOUNT_STATUS, seen);
+        setWindowFullscreen(windowState.isFullscreen);
+        setWindowMaximized(windowState.isMaximized);
+      }).catch((inner: unknown) => active && setNotice(inner instanceof Error ? inner.message : String(inner)));
+    });
     const stopAccount = bridge.cursorAccount.onStatusChanged(observeAccount);
     const themeInstaller = typeof document === "undefined" ? null : createRuntimeThemeInstaller(document as unknown as ThemeDocument, bridge.theme.initial.resolved);
     const stopTheme = bridge.theme.onChanged((theme) => { setThemePreference(theme.preference); setResolvedTheme(theme.resolved); themeInstaller?.update(theme.resolved); applyRootShellTheme(theme.resolved); });
@@ -2772,12 +2709,11 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     });
     const stopOnboarding = bridge.onForceOnboarding(() => setOnboardingOpen(true));
     const stopSkip = bridge.onboarding.onSkip(() => setOnboardingOpen(false));
-    const stopFeedback = bridge.onOpenFeedback(() => setOverlay("feedback"));
     const stopAbout = bridge.onOpenAbout(() => setOverlay("about"));
     setResolvedTheme(bridge.theme.initial.resolved);
     applyRootShellTheme(bridge.theme.initial.resolved);
     void bridge.deepLinksReady().catch((error: unknown) => setNotice(error instanceof Error ? error.message : String(error)));
-    return () => { active = false; stopAccount(); stopTheme(); themeInstaller?.dispose(); stopWindow(); stopFocus(); stopDeepLink(); stopOnboarding(); stopSkip(); stopFeedback(); stopAbout(); };
+    return () => { active = false; stopAccount(); stopTheme(); themeInstaller?.dispose(); stopWindow(); stopFocus(); stopDeepLink(); stopOnboarding(); stopSkip(); stopAbout(); };
   }, [bridge, client, groupMembersRoot, localToolPermissionScopeGate, openAgent, resolveOnboarding, selectionStore, sharedRoomProvider]);
 
   // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L537
@@ -3347,9 +3283,29 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
     return commands;
   }, [activeAgent, agentChannelsController, bridge, computerUpdateAction, hiddenAgents.length, openCommandPaletteInfo, openComputerUpdateConfirm, orgChartIsAvailable, themePreference, updatePaletteCommand]);
 
-  const showSignIn = bridge != null && account != null && account.kind !== "logged-in";
+  // Экран входа в Cursor удалён: у пользователя нет такого аккаунта, программа
+  // работает локально, а прежний `showSignIn` закрывал рабочую область.
   const showRootLoading = bridge != null && account?.kind === "logged-in" && activeAgent == null && transport === "connecting" && !onboardingOpen;
   const showRootEmptyWorkspace = bridge != null && account?.kind === "logged-in" && transport === "connected" && hasLoadedAgents && agents.length === 0 && activeAgent == null && workspaceRoute == null && !onboardingOpen;
+  // Поверхности «компьютера агента» собираются по решению из
+  // `computer-surface-gate`: при обычном запуске обе выключены, и человек
+  // сразу видит диалог с полем ввода.
+  const computerSurfaceContext = useMemo(() => ({
+    isBridgeReady: bridge != null,
+    hasActiveAgent: activeAgent != null,
+    isGroupAgent: activeAgent?.isGroup === true,
+    isInfoPaneOpen: computerInfoOpen,
+    isRoutinesPaneOpen: routinesInfoPaneOpen,
+    isAgentSettingsOpen: agentSettingsOpen,
+    isChannelsPaneOpen: channelsInfoPaneOpen
+  }), [activeAgent?.isGroup, activeAgent != null, agentSettingsOpen, bridge, channelsInfoPaneOpen, computerInfoOpen, routinesInfoPaneOpen]);
+  const computerFullscreenContext = useMemo(() => ({
+    hasActiveAgent: activeAgent != null,
+    isGroupAgent: activeAgent?.isGroup === true,
+    isViewerOpen: computer.isOpen,
+    isViewerRetained: computerViewerRetained,
+    isInfoPaneOpen: computerInfoOpen
+  }), [activeAgent?.isGroup, activeAgent != null, computer.isOpen, computerInfoOpen, computerViewerRetained]);
   const accessCoverComposition = useMemo(() => projectAccessCoverComposition({
     access: sandAccess,
     roster: accessRosterSnapshot,
@@ -3453,23 +3409,13 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
           {/* @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2602084 (s0n Plugins footer button/icon/text composition) */}
           <div className="sand-agents-sidebar__plugins-entry"><SandButton className="sand-agents-sidebar__plugins" leadingIcon="plug" onClick={() => { setPluginQuery(""); setOverlay("plugins"); }} shape="pill" size="md" variant="secondary">{UI_TEXT.plugins}</SandButton></div>
           <AccountMenu
-            account={account}
             accountLabel={UI_TEXT.account}
-            bridge={bridge}
-            displayName={accountName(account)}
-            experimentsSnapshot={bridge.experiments.initialSnapshot}
+            displayName={LOCAL_ACCOUNT_DISPLAY_NAME}
             isOpen={accountMenuOpen}
-            labels={{ about: UI_TEXT.about, changeLimit: "Изменить лимит", helpCenter: UI_TEXT.helpCenter, included: "Входит в тариф", ios: "DB Bot для iPhone", logOut: UI_TEXT.logOut, onDemand: "По требованию", sendFeedback: UI_TEXT.sendFeedback, settings: UI_TEXT.settings, signIn: UI_TEXT.signIn, spendThisCycle: "Расход за месяц", weeklyUsage: "Расход за неделю" }}
-            onError={setNotice}
+            labels={{ about: UI_TEXT.about, settings: UI_TEXT.settings }}
             onOpenAbout={() => setOverlay("about")}
             onOpenChange={setAccountMenuOpen}
-            onOpenFeedback={() => setOverlay("feedback")}
-            onOpenHelp={() => void bridge.openExternal("https://cursor.com/help")}
-            onOpenIos={() => void bridge.openExternal("https://apps.apple.com/us/app/grok-bot/id6794501026")}
             onOpenSettings={() => { setSettingsSection("general"); setManageSharedRoomId(null); setOverlay("settings"); }}
-            onOpenUsage={() => void bridge.openExternal("https://cursor.com/dashboard/spending")}
-            onRequestLogout={() => { setOverlay("confirm-logout"); setAccountMenuOpen(false); }}
-            onStatus={setAccount}
             updatePill={<UpdatePill bridge={bridge} labels={UPDATE_PILL_LABELS} />}
           />
         </div>
@@ -3619,14 +3565,20 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
         provider={sharedRoomProvider}
         roomId={sharedRoomContext.roomId}
       /> : null}
-      {bridge == null || activeAgent == null || activeAgent.isGroup || routinesInfoPaneOpen || agentSettingsOpen || channelsInfoPaneOpen ? null : <ComputerInfoPane bridge={bridge} experience={computer} isOpen={computerInfoOpen} onClose={() => setComputerInfoOpen(false)} subjectLabel={activeAgent.name} teachRecording={teachRecordingComposition.preview} />}
-      {activeAgent == null || activeAgent.isGroup || !(computer.isOpen || computerInfoOpen && computerViewerRetained) ? null : <ComputerFullscreen
+      {/* Панель и полноэкранный зритель «компьютера агента» выходят на экран
+          только по действию человека — правило в `computer-surface-gate`.
+          Раньше у панели не было проверки `computerInfoOpen`, и она собиралась
+          при каждом запуске вместе с предпросмотром «Включаем компьютер» и
+          подписью «Экран «<помощник>»»; полноэкранный зритель — `position:
+          fixed`, и он закрывал окно вместе с полем ввода. */}
+      {shouldRenderComputerInfoPane(computerSurfaceContext) && activeAgent != null ? <ComputerInfoPane bridge={bridge} experience={computer} isOpen={computerInfoOpen} onClose={() => setComputerInfoOpen(false)} subjectLabel={activeAgent.name} teachRecording={teachRecordingComposition.preview} /> : null}
+      {shouldRenderComputerFullscreen(computerFullscreenContext) && activeAgent != null ? <ComputerFullscreen
         bridge={bridge}
         experience={computer}
         onRequestComposerFocus={() => document.querySelector<HTMLElement>(".sand-prompt-form textarea, .sand-prompt-form [contenteditable='true']")?.focus()}
         subjectLabel={activeAgent.name}
         teachRecording={teachRecordingComposition}
-      />}
+      /> : null}
 
       {overlay === "hidden-chats" ? <div style={OVERLAY_FRAME_STYLE}><Suspense fallback={null}><HiddenChatsDialog hiddenAgents={hiddenAgents} isOpen onClose={() => setOverlay(null)} onOpenAgent={(id) => void openAgent(id)} onUnhide={(id) => void unhide(id)} /></Suspense></div> : null}
       {overlay === "settings" && bridge != null ? <div style={OVERLAY_FRAME_STYLE}><Suspense fallback={overlayFallback(UI_TEXT.settings)}><SettingsOverlayErrorBoundary onClose={() => setOverlay(null)}><SettingsDesktopSurface bridge={bridge} computer={settingsComputerMount} coordinatorClient={client} initialSection={settingsSection} isOpen onClose={() => setOverlay(null)} onNotice={publishSettingsNotice} /></SettingsOverlayErrorBoundary></Suspense></div> : null}
@@ -3637,37 +3589,12 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
         onClose={() => setOverlay(null)}
       /></div> : null}
       {deepLinkInfo != null ? <div style={OVERLAY_FRAME_STYLE}><DeepLinkInfoDialog link={deepLinkInfo} onClose={() => setDeepLinkInfo(null)} /></div> : null}
-      {overlay === "feedback" && bridge != null ? <div style={OVERLAY_FRAME_STYLE}><FeedbackDialog
-        bridge={bridge}
-        conversationId={activeAgent?.id ?? null}
-        errorMessages={FEEDBACK_ERRORS}
-        labels={{
-          cancel: UI_TEXT.cancel,
-          done: "Готово",
-          includeConversationId: UI_TEXT.includeConversationId,
-          introduction: UI_TEXT.feedbackIntroduction,
-          placeholder: UI_TEXT.feedbackPlaceholder,
-          send: UI_TEXT.sendFeedback,
-          sending: "Отправляем…",
-          sent: "Отправлено. Спасибо!",
-          title: UI_TEXT.sendFeedback
-        }}
-        onClose={() => setOverlay(null)}
-      /></div> : null}
-      {overlay === "confirm-logout" && bridge != null ? <div style={OVERLAY_FRAME_STYLE}><SignOutDialog
-        bridge={bridge}
-        cancelLabel={UI_TEXT.cancel}
-        confirmLabel={UI_TEXT.signOut}
-        description={UI_TEXT.signOutDescription}
-        onClose={() => setOverlay(null)}
-        onStatus={setAccount}
-        title={UI_TEXT.signOutTitle}
-      /></div> : null}
       {privacyBlocked && bridge != null && account?.kind === "logged-in" ? <div style={OVERLAY_FRAME_STYLE}><PrivacyBlockedDialog
         bridge={bridge}
         onStatus={(status) => {
-          setAccount(status);
-          if (status.kind !== "logged-in") {
+          const local = toLocalAccountStatus(status);
+          setAccount(local);
+          if (local.kind !== "logged-in") {
             setPrivacyBlocked(false);
             setRosterLoadFailed(false);
             setRosterFailure(null);
@@ -3682,7 +3609,6 @@ export function ProductionRenderer({ bridge, coordinatorPort }: ProductionRender
         bridge={bridge}
         isVisible={accessCoverComposition.isVisible}
       /> : null}
-      {showSignIn && bridge != null && account != null ? <SignInLanding account={account} bridge={bridge} onStatus={setAccount} /> : null}
       {onboardingOpen && account?.kind === "logged-in" && bridge != null ? <SignedInOnboarding
         accountSlot={account.authId ?? account.email ?? "account"}
         bridge={bridge}

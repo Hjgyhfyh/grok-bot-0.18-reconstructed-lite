@@ -200,6 +200,80 @@ function cachedPromptTokens(providerMetadata: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
 
+/**
+ * Кортеж, который `zod-to-json-schema` отдаёт в форме черновика-7
+ * (`items: [{…}, {…}]` по позициям), DeepSeek не принимает: провайдер требует
+ * один объект-схему и отвергает весь запрос, а в запросе лежат ВСЕ инструменты
+ * хода. Один такой инструмент — и не отвечает ни один.
+ *
+ * Позиционный `items` переписывается в обычную форму: объект-схема с
+ * свойствами `"0"`, `"1"`, … и точной длиной. Это и есть стандартный способ
+ * выразить кортеж в JSON Schema, и DeepSeek такую форму принимает.
+ */
+function normalizePositionalItems(node: unknown, depth: number): unknown {
+  if (depth > 12 || typeof node !== "object" || node == null || Array.isArray(node)) return node;
+  const record = node as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...record };
+  const properties = record.properties;
+  if (typeof properties === "object" && properties != null && !Array.isArray(properties)) {
+    const rewritten: Record<string, unknown> = {};
+    for (const [name, child] of Object.entries(properties)) rewritten[name] = normalizePositionalItems(child, depth + 1);
+    next.properties = rewritten;
+  }
+  for (const key of ["anyOf", "oneOf", "allOf", "prefixItems"]) {
+    const branch = record[key];
+    if (Array.isArray(branch)) next[key] = branch.map((child) => normalizePositionalItems(child, depth + 1));
+  }
+  for (const key of ["items", "additionalProperties", "$defs", "definitions"]) {
+    const child = record[key];
+    if (Array.isArray(child)) {
+      // Позиционный кортеж: `items` — массив схем по позициям.
+      const positional: Record<string, unknown> = {};
+      const required: string[] = [];
+      child.forEach((entry, index) => {
+        const name = String(index);
+        positional[name] = normalizePositionalItems(entry, depth + 1);
+        required.push(name);
+      });
+      next.items = {
+        type: "object",
+        properties: positional,
+        required,
+        minItems: child.length,
+        maxItems: child.length,
+      };
+      continue;
+    }
+    if (typeof child === "object" && child != null) next[key] = normalizePositionalItems(child, depth + 1);
+  }
+  return next;
+}
+
+/**
+ * Приводит схему инструмента к тому, что DeepSeek понимает: JSON Schema
+ * верхнего уровня с `type: "object"` и без позиционных кортежей.
+ *
+ * Инструменты приносят схему в обёртке StandardSchema — `{ _type, jsonSchema,
+ * validate }`. На провод уходит поле `jsonSchema`, и если передать обёртку
+ * целиком, провайдер видит `type: null`, отвергает ВЕСЬ запрос («Invalid schema
+ * for function 'Task'»), и ход не даёт ответа вообще. Вдобавок модель получила
+ * бы схему, у которой все параметры спрятаны за обёрткой.
+ *
+ * Поэтому обёртка разворачивается, кортежи переписываются, а у схемы без типа
+ * тип дописывается. Всё остальное остаётся как есть, и спуск ограничен глубиной:
+ * значение не может ссылаться на само себя.
+ */
+export function normalizeToolParameters(schema: unknown, depth = 0): unknown {
+  if (depth > 4 || typeof schema !== "object" || schema == null || Array.isArray(schema)) return schema;
+  const record = schema as Record<string, unknown>;
+  const inner = record.jsonSchema;
+  if (typeof inner === "object" && inner != null && !Array.isArray(inner)) {
+    return normalizeToolParameters(inner, depth + 1);
+  }
+  const typed = typeof record.type === "string" ? record : { ...record, type: "object" };
+  return normalizePositionalItems(typed, 0);
+}
+
 function toToolSet(definitions: readonly Loose[] | undefined, executeTool?: DeepSeekToolExecutor): ToolSet | undefined {
   if (definitions == null || definitions.length === 0) return undefined;
   const tools: ToolSet = {};
@@ -209,7 +283,7 @@ function toToolSet(definitions: readonly Loose[] | undefined, executeTool?: Deep
     if (parameters == null) continue;
     const routedTool: any = {
       ...(typeof definition.description === "string" ? { description: definition.description } : {}),
-      parameters: jsonSchema(parameters),
+      parameters: jsonSchema(normalizeToolParameters(parameters)),
     };
     if (executeTool != null) routedTool.execute = async (args: unknown, options: { toolCallId: string }) => await executeTool(definition, args, options.toolCallId);
     tools[definition.name] = tool(routedTool);

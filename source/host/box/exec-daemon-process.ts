@@ -57,6 +57,63 @@ export interface BoxExecDaemonProcessOptions {
   readonly portReleaseTimeoutMs?: number;
   readonly previousHostPid?: number;
   readonly log?: Pick<Console, "log" | "error">;
+  /** Рабочий каталог запуска. Ставится первым в списке кандидатов. */
+  readonly cwd?: string;
+}
+
+/**
+ * Кандидаты рабочего каталога для запуска демона, в порядке предпочтения.
+ *
+ * Раньше каталог был один: `path.dirname(entryPath)`. При сборке из исходников он
+ * настоящий, и всё работало. В упакованной программе точка входа лежит внутри
+ * `app.asar`, и `...\app.asar\dist\box-exec-daemon` каталогом на диске НЕ
+ * является. `spawn` с таким `cwd` падает с ENOENT, у процесса не появляется
+ * pid, и хост умирает со строкой «box exec-daemon child did not receive a
+ * pid» — без единого слова про asar, поэтому отказ выглядел как «хост не
+ * запускается вообще».
+ *
+ * Почему нельзя просто проверить `statSync(...).isDirectory()`: Electron
+ * подменяет `statSync` для путей внутри архива и отвечает `isDirectory: true`
+ * на несуществующий на диске каталог. Проверено на живой упакованной сборке.
+ * Единственный честный признак — попытка запуска, поэтому список отдаётся
+ * наружу, а `startBoxExecDaemonProcess` идёт по нему, пока процесс не появится.
+ *
+ * Каталог точки входа остаётся первым, чтобы сборка из исходников вела себя
+ * как раньше.
+ */
+export function resolveBoxExecDaemonCwdCandidates(options: {
+  readonly entryPath: string;
+  readonly workspaceRoot: string;
+  readonly cwd?: string;
+}): readonly string[] {
+  const candidates = [options.cwd, path.dirname(options.entryPath), options.workspaceRoot];
+  return candidates.filter((candidate): candidate is string => candidate != null && candidate.length > 0);
+}
+
+/** Результат одной попытки запуска: процесс появился или пришёл отказ. */
+type BoxExecDaemonSpawnOutcome =
+  | { readonly ok: true; readonly child: ChildProcess }
+  | { readonly ok: false; readonly error: unknown };
+
+/**
+ * Один `spawn`, доведённый до решения: либо процесс получил pid, либо пришло
+ * событие `error` с причиной.
+ *
+ * Проверка `child.pid === undefined` сразу после `spawn` была гонкой: при
+ * ошибке запуска pid ещё не появился, и настоящая причина отказа терялась —
+ * оставалось только «did not receive a pid».
+ */
+function spawnBoxExecDaemon(
+  entryPath: string,
+  env: NodeJS.ProcessEnv,
+  execPath: string,
+  cwd: string,
+): Promise<BoxExecDaemonSpawnOutcome> {
+  const child = spawn(execPath, [entryPath], { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+  if (child.pid !== undefined) return Promise.resolve({ ok: true, child });
+  return new Promise<BoxExecDaemonSpawnOutcome>(resolve => {
+    child.once("error", error => resolve({ ok: false, error }));
+  });
 }
 
 /** The result of waiting for the port the evicted host was holding. */
@@ -312,18 +369,31 @@ export async function startBoxExecDaemonProcess(options: BoxExecDaemonProcessOpt
   await access(options.entryPath);
   await mkdir(options.workspaceRoot, { recursive: true });
   await mkdir(options.terminalsDirectory, { recursive: true });
-  const child = spawn(options.execPath ?? process.execPath, [options.entryPath], {
-    cwd: path.dirname(options.entryPath),
-    env: {
-      ...(options.env ?? process.env),
-      SAND_BOX_EXEC_DAEMON_PORT: String(port),
-      SAND_BOX_EXEC_DAEMON_AUTH_TOKEN: authToken,
-      SAND_BOX_WORKSPACE_ROOT: options.workspaceRoot,
-      SAND_BOX_TERMINALS_DIRECTORY: options.terminalsDirectory,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (child.pid === undefined) throw new Error("box exec-daemon child did not receive a pid");
+  const childEnv: NodeJS.ProcessEnv = {
+    ...(options.env ?? process.env),
+    SAND_BOX_EXEC_DAEMON_PORT: String(port),
+    SAND_BOX_EXEC_DAEMON_AUTH_TOKEN: authToken,
+    SAND_BOX_WORKSPACE_ROOT: options.workspaceRoot,
+    SAND_BOX_TERMINALS_DIRECTORY: options.terminalsDirectory,
+  };
+  const execPath = options.execPath ?? process.execPath;
+  let spawned: ChildProcess | undefined;
+  let lastFailure: unknown;
+  for (const cwd of resolveBoxExecDaemonCwdCandidates({
+    entryPath: options.entryPath,
+    workspaceRoot: options.workspaceRoot,
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+  })) {
+    const outcome = await spawnBoxExecDaemon(options.entryPath, childEnv, execPath, cwd);
+    if (outcome.ok) { spawned = outcome.child; break; }
+    lastFailure = outcome.error;
+    log.error(`[box-exec-daemon] не удалось запустить из ${cwd}: ${String(outcome.error)}`);
+  }
+  const child = spawned;
+  const startedPid = child?.pid;
+  if (child == null || startedPid === undefined) {
+    throw new Error(`box exec-daemon не запустился (точка входа ${options.entryPath}): ${String(lastFailure)}`);
+  }
   const exited = childExit(child);
   child.stdout?.on("data", chunk => log.log(`[box-exec-daemon] ${String(chunk).trimEnd()}`));
   child.stderr?.on("data", chunk => log.error(`[box-exec-daemon] ${String(chunk).trimEnd()}`));
@@ -351,7 +421,7 @@ export async function startBoxExecDaemonProcess(options: BoxExecDaemonProcessOpt
 
   let closed = false;
   return {
-    pid: child.pid,
+    pid: startedPid,
     entryPath: options.entryPath,
     ready,
     async close() {

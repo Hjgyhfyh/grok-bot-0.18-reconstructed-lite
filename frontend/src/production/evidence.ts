@@ -161,30 +161,22 @@ export const PRODUCTION_RENDERER_GAPS = {
   broadcast: "The shipped command availability explicitly marks broadcast unavailable because it has no current user path."
 } as const;
 
+// Строки про вход и выход из аккаунта Cursor удалены вместе с экранами, которые
+// их показывали: читать их было больше некому, а в упакованной программе они
+// оставались текстом про чужую учётную запись.
 export const UI_TEXT = {
-  account: "Аккаунт",
+  // «Аккаунт» был подписью кнопки входа в Cursor. Теперь под ней локальное имя
+  // программы, и подпись должна называть то, что пользователь видит.
+  account: "DB Bot",
   about: "О программе",
   cancel: "Отмена",
   close: "Закрыть",
-  continueInBrowser: "Продолжить в браузере",
   copied: "Скопировано",
-  copyVersionInfo: "Копировать сведения о версии",
-  copyright: "Авторские права © 2026 SpaceXAI",
-  feedbackIntroduction: "Расскажите команде DB Bot, что случилось или что хотите изменить. Ваше письмо сразу попадёт в команду.",
-  feedbackPlaceholder: "Что случилось? Как должно было быть?",
-  helpCenter: "Центр помощи",
+  copyVersionInfo: "Скопировать сведения о версии",
+  copyright: "DB Bot Lite",
   hiddenBots: "Скрытые помощники",
-  includeConversationId: "Добавить номер текущего диалога",
-  logOut: "Выйти",
   noChatsYet: "Пока нет диалогов",
   plugins: "Расширения",
-  reopenLink: "Открыть ссылку снова",
-  sendFeedback: "Отправить отзыв",
   settings: "Настройки",
-  signIn: "Войти",
-  signInTagline: "Команда помощников, которым можно поручить настоящую работу.",
-  signOut: "Выйти",
-  signOutDescription: "Чтобы работать с учётной записью Cursor в DB Bot, придётся войти снова.",
-  signOutTitle: "Выйти из аккаунта?",
   title: "DB Bot"
 } as const;

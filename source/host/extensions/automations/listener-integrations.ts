@@ -9,8 +9,15 @@ import {
   GetSlackUserSettingsRequest,
   type GetSlackUserSettingsResponse
 } from "../../../packages/proto/generated/aiserver/v1/dashboard_pb.js";
-import { createSandCursorBackendClient } from "../../../shared/node/cursor-backend/cursor-inference.js";
-export const DASHBOARD_INTEGRATIONS_URL = "https://cursor.com/dashboard?tab=integrations";
+import { createSandCursorBackendClient, getSandInferenceBackendUrl } from "../../../shared/node/cursor-backend/cursor-inference.js";
+/**
+ * Адрес страницы интеграций Cursor удалён.
+ *
+ * На него вёл пункт «Подключить» у автоматизаций. В DB Bot Lite автоматизации
+ * работают локально, а страницы интеграций в чужой службе нет. Константа
+ * оставлена, потому что на неё ссылается панель автоматизаций.
+ */
+export const DASHBOARD_INTEGRATIONS_URL = "";
 export const LISTENER_INTEGRATIONS = [{ platform: "slack" as const }, { platform: "github" as const }];
 export const CONNECTOR_MANIFESTS = [{ platform: "slack" as const }, { platform: "github" as const }];
 export interface ListenerDashboardClient { getSlackUserSettings(): Promise<{ hasSlackAuth?: boolean }>; getScmConnectionStatus(): Promise<{ connected?: boolean }>; getSlackInstallUrl(): Promise<{ url: string }> }
@@ -18,6 +25,16 @@ export function createListenerIntegrationReads(deps: { readonly auth?: { getAcce
   const log = deps.log ?? ((message: string) => console.log(`[sand-listener-integrations] ${message}`));
   const dashboard = deps.dashboard ?? (() => {
     if (deps.auth === undefined) throw new TypeError("listener integrations require auth");
+    // Службы Cursor в сборке нет. Обращения к ней падали, и каждая проверка писала
+    // в журнал «connection read degraded to disconnected» — по кругу, на слабом
+    // компьютере. Раз подключиться некуда, отвечаем сразу: подключения нет.
+    if (getSandInferenceBackendUrl().length === 0) {
+      return {
+        getSlackUserSettings: async () => ({ hasSlackAuth: false }),
+        getScmConnectionStatus: async () => ({ connected: false }),
+        getSlackInstallUrl: async () => ({ url: "" })
+      };
+    }
     const service = DashboardService as typeof DashboardService & {
       readonly methods: typeof DashboardService.methods & {
         readonly getSlackUserSettings: MethodInfoUnary<GetSlackUserSettingsRequest, GetSlackUserSettingsResponse>;

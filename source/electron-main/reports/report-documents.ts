@@ -97,17 +97,35 @@ export function htmlEscape(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
-/** Те же блоки, что у файла, — только в HTML. Блоки приходят из пакета, а не разбираются здесь снова. */
+/**
+ * Те же блоки, что у файла, — только в HTML. Блоки приходят из пакета, а не разбираются здесь снова.
+ *
+ * Пакет отдаёт по одному блоку на каждый пункт списка, и в файле это не мешает: там
+ * пункт пишется строкой. В HTML из этого выходило пять `<ul>` по одному пункту, и
+ * между планами печаталось пустое поле — список выглядел разорванным. Поэтому
+ * соседние пункты собираются в один `<ul>`, а `margin` у списка остаётся один.
+ */
 export function reportBlocksToHtml(blocks: readonly ReportBlock[]): string {
   const parts: string[] = [];
+  let bulletsOpen = false;
+  const closeBullets = (): void => {
+    if (!bulletsOpen) return;
+    parts.push("</ul>");
+    bulletsOpen = false;
+  };
   for (const block of blocks) {
+    if (block.kind === "bullet") {
+      if (!bulletsOpen) {
+        parts.push("<ul>");
+        bulletsOpen = true;
+      }
+      parts.push(`<li>${htmlEscape(block.text)}</li>`);
+      continue;
+    }
+    closeBullets();
     if (block.kind === "heading") {
       const level = Math.min(3, Math.max(1, block.level));
       parts.push(`<h${level}>${htmlEscape(stripBoldMarkers(block.text))}</h${level}>`);
-      continue;
-    }
-    if (block.kind === "bullet") {
-      parts.push(`<ul><li>${htmlEscape(block.text)}</li></ul>`);
       continue;
     }
     if (block.kind === "paragraph") {
@@ -120,6 +138,7 @@ export function reportBlocksToHtml(blocks: readonly ReportBlock[]): string {
     const body = rest.map((row) => `<tr>${row.map((cell) => `<td>${htmlEscape(cell)}</td>`).join("")}</tr>`).join("");
     parts.push(`<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`);
   }
+  closeBullets();
   return parts.join("\n");
 }
 
@@ -140,7 +159,17 @@ const REPORT_PRINT_STYLE = [
 ].join("\n");
 
 export function reportPrintHtml(title: string, markdown: string): string {
-  const body = reportBlocksToHtml(reportBlocks(markdown));
+  // Заголовок листа печатается ниже своим `<h1>`, а текст отчёта почти всегда
+  // начинается собственным `# ` — модель так пишет заголовок. Оба раза он
+  // выходил на лист, и читатель видел один заголовок дважды подряд, причём
+  // словами разными («г. Новоуральска» и «города Новоуральска»). Поэтому
+  // ведущий заголовок первого уровня на лист не идёт: на его месте уже стоит
+  // название отчёта, с которым кнопка «Печать» вызывает эту функцию.
+  const blocks = reportBlocks(markdown);
+  const first = blocks[0];
+  const body = reportBlocksToHtml(
+    first !== undefined && first.kind === "heading" && first.level === 1 ? blocks.slice(1) : blocks,
+  );
   return [
     "<!doctype html>",
     '<html lang="ru"><head><meta charset="utf-8">',

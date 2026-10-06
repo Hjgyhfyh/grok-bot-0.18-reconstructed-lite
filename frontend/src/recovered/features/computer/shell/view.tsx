@@ -28,8 +28,8 @@ import "./view.css";
 
 const DETAILS_ID = "sand-conversation-details";
 const COMPUTER_HEADER_LABELS = {
-  active: "DB Bot's Computer, in use",
-  idle: "DB Bot's Computer"
+  active: "Компьютер DB Bot, занят",
+  idle: "Компьютер DB Bot"
 };
 const KIT_BUTTON_BASE = "sand-kit-button sand-3nfvp2 sand-6s0dn4 sand-l56j7k sand-1jnr06f sand-2lah0s sand-9f619 sand-c342km sand-ng3xce sand-jb2p0i sand-uxw1ft sand-1ypdohk sand-tgyt42 sand-s2xxs2 sand-gdialr sand-9lcvmn sand-1k57tk5 sand-784prv sand-1t137rt sand-9v5kkp sand-4sht9k sand-1y3gkto";
 const KIT_BUTTON_SM = `${KIT_BUTTON_BASE} sand-fifm61 sand-1d3mw78 sand-12oo3zp sand-1iorvi4 sand-1ug7bdz sand-jkvuk6 sand-11iknt3 sand-1kogg8i`;
@@ -253,7 +253,7 @@ function StagePlaceholder({ copy, tone, onRetry }: { copy: ComputerStageCopy; to
       </span>
       {copy.progressPercent == null ? null : <span className="sand-4z9k3i sand-d4r4e8 sand-12oo3zp">{Math.round(copy.progressPercent)}%</span>}
     </span> : null}
-    {copy.hasRetry ? <button className={`${RETRY_BUTTON}${cover ? " sand-6r4lm7 sand-y5l4bz sand-j04kma sand-5a26a2" : ""}`} data-sentiment="neutral" data-shape="pill" data-size="sm" data-variant="secondary" onClick={onRetry} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">Retry</span></button> : null}
+    {copy.hasRetry ? <button className={`${RETRY_BUTTON}${cover ? " sand-6r4lm7 sand-y5l4bz sand-j04kma sand-5a26a2" : ""}`} data-sentiment="neutral" data-shape="pill" data-size="sm" data-variant="secondary" onClick={onRetry} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">Повторить</span></button> : null}
   </div>;
 }
 
@@ -292,13 +292,13 @@ function VncPool({ bridge, src, className, maxWarm = VNC_WARM_PREVIEW_LIMIT }: {
       /></div>;
     })}
     {connecting ? <span className="sand-box-vnc-pool__connecting sand-10l6tqk sand-10a8y8t sand-78zum5 sand-6s0dn4 sand-l56j7k sand-47corl"><LoadingSpinner size={20} /></span> : null}
-    {src != null && crashed ? <span className="sand-box-vnc-pool__crashed sand-10l6tqk sand-10a8y8t sand-78zum5 sand-6s0dn4 sand-l56j7k sand-47corl sand-fifm61 sand-1d3mw78 sand-12oo3zp">Screen preview unavailable</span> : null}
+    {src != null && crashed ? <span className="sand-box-vnc-pool__crashed sand-10l6tqk sand-10a8y8t sand-78zum5 sand-6s0dn4 sand-l56j7k sand-47corl sand-fifm61 sand-1d3mw78 sand-12oo3zp">Предпросмотр экрана недоступен</span> : null}
   </div>;
 }
 
 function MonitorThumb({ bridge, monitor, onFocus }: { bridge: DesktopBridge; monitor: ComputerMonitor; onFocus(id: string): void }) {
   const needsAttention = monitor.handoff != null;
-  const label = needsAttention ? `${monitor.title} — needs you` : `Switch to ${monitor.title}`;
+  const label = needsAttention ? `${monitor.title} — нужен вы` : `Переключиться на «${monitor.title}»`;
   const dimensions = vncDimensions(monitor.vncUrl);
   return <button aria-label={label} className="sand-computer-monitor-strip__thumb sand-78zum5 sand-dt5ytf sand-17d4w8g sand-ykynuu sand-s83m0k sand-euugli sand-18qnofl sand-1717udv sand-1ghz6dp sand-ng3xce sand-jbqb8w sand-jyslct sand-1lugfcp sand-jb2p0i sand-1ypdohk sand-1t137rt sand-9v5kkp sand-1k57tk5 sand-784prv sand-1uczgqu sand-1725o6r sand-1wfwxd8 sand-7s97pk" onClick={() => onFocus(monitor.subagentId)} title={label} type="button">
     <span className="sand-1n2onr6 sand-h8yej3 sand-ur7f20 sand-b3r6kr sand-1ua6jya sand-78zum5 sand-6s0dn4 sand-l56j7k sand-4b2ntj sand-j04kma" style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}>
@@ -345,19 +345,19 @@ function MonitorStrip({ bridge, monitors, onFocus }: { bridge: DesktopBridge; mo
       <button
         aria-expanded={moreOpen}
         aria-haspopup="menu"
-        aria-label={`Show ${overflow.length} more screens`}
+        aria-label={`Показать ещё ${overflow.length} экранов`}
         className="sand-computer-monitor-strip__more sand-78zum5 sand-dt5ytf sand-17d4w8g sand-ykynuu sand-s83m0k sand-euugli sand-18qnofl sand-1717udv sand-1ghz6dp sand-ng3xce sand-jbqb8w sand-jyslct sand-1lugfcp sand-jb2p0i sand-1ypdohk sand-1t137rt sand-9v5kkp sand-1k57tk5 sand-784prv sand-1uczgqu sand-1725o6r sand-1wfwxd8 sand-7s97pk"
         onClick={() => setMoreOpen((open) => !open)}
         onKeyDown={(event) => { if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setMoreOpen(true); } }}
         ref={trigger}
-        title={`${overflow.length} more screens`}
+        title={`Ещё ${overflow.length} экранов`}
         type="button"
       >
         <span className="sand-1n2onr6 sand-h8yej3 sand-ur7f20 sand-b3r6kr sand-78zum5 sand-6s0dn4 sand-l56j7k sand-j04kma sand-6r4lm7 sand-p7q3dj"><DeviceDesktopIcon size="xl" /></span>
-        <span className="sand-78zum5 sand-6s0dn4 sand-l56j7k sand-1jnr06f sand-h8yej3 sand-euugli">{overflow.some((monitor) => monitor.handoff != null) ? <span aria-hidden="true" className="sand-2lah0s sand-1v4s8kt sand-ols6we sand-149ho13 sand-10j2od" /> : null}<span className="sand-fifm61 sand-1d3mw78 sand-12oo3zp sand-euugli sand-b3r6kr sand-lyipyv sand-uxw1ft sand-2b8uid sand-102cea3">and {overflow.length} more</span></span>
+        <span className="sand-78zum5 sand-6s0dn4 sand-l56j7k sand-1jnr06f sand-h8yej3 sand-euugli">{overflow.some((monitor) => monitor.handoff != null) ? <span aria-hidden="true" className="sand-2lah0s sand-1v4s8kt sand-ols6we sand-149ho13 sand-10j2od" /> : null}<span className="sand-fifm61 sand-1d3mw78 sand-12oo3zp sand-euugli sand-b3r6kr sand-lyipyv sand-uxw1ft sand-2b8uid sand-102cea3">и ещё {overflow.length}</span></span>
       </button>
       {/* @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=4816770 (shipped popup bounds) */}
-      {moreOpen ? <div aria-label="More screens" className="sand-9f619 sand-78zum5 sand-dt5ytf sand-1cvmir6 sand-1usz39j sand-vvtkfd sand-4hv7ue sand-1y0btm7 sand-fnq37j sand-4pepcl sand-yb0u61 sand-b3r6kr" onKeyDown={onMenuKeyDown} role="menu" style={{ maxHeight: 320, minWidth: 240 }}>
+      {moreOpen ? <div aria-label="Ещё экраны" className="sand-9f619 sand-78zum5 sand-dt5ytf sand-1cvmir6 sand-1usz39j sand-vvtkfd sand-4hv7ue sand-1y0btm7 sand-fnq37j sand-4pepcl sand-yb0u61 sand-b3r6kr" onKeyDown={onMenuKeyDown} role="menu" style={{ maxHeight: 320, minWidth: 240 }}>
         {overflow.map((monitor, index) => <button className="sand-mention-menu-item sand-9f619 sand-78zum5 sand-6s0dn4 sand-17d4w8g sand-h8yej3 sand-1fgtraw sand-1yrsyyn sand-y13l1i sand-10b6aqq sand-163pfp sand-ng3xce sand-1kogg8i sand-jbqb8w sand-tyxrsu sand-jb2p0i sand-dpxx8g sand-1ypdohk sand-euugli sand-1t137rt" key={monitor.subagentId} onClick={() => { onFocus(monitor.subagentId); setMoreOpen(false); }} ref={(element) => { itemRefs.current[index] = element; }} role="menuitem" type="button">{monitor.title}{monitor.handoff == null ? null : <span aria-hidden="true" className="sand-3nfvp2 sand-6s0dn4 sand-2lah0s sand-1v4s8kt sand-ols6we sand-149ho13 sand-10j2od" />}</button>)}
       </div> : null}
     </span>}
@@ -367,8 +367,8 @@ function MonitorStrip({ bridge, monitors, onFocus }: { bridge: DesktopBridge; mo
 function HandoffBanner({ handoff, subjectLabel, onDismiss, onHandBack }: { handoff: ComputerHandoff; subjectLabel: string; onDismiss(): void; onHandBack(): void }) {
   const instruction = handoff.instruction.trim();
   return <div className="sand-computer-banner sand-9f619 sand-78zum5 sand-6s0dn4 sand-ou54vl sand-2lah0s sand-h8yej3 sand-1e56ztr sand-889kno sand-cicffo sand-1a8lsjc sand-f18ygs sand-1q4ynmn sand-v1id1i">
-    <span className="sand-computer-banner__body sand-4z9k3i sand-d4r4e8 sand-12oo3zp sand-1iyjqo2 sand-s83m0k sand-euugli sand-104kibb sand-1ua5tub sand-1h7i4cw sand-j0a0fe sand-10wlt62 sand-n0e0ga" title={handoff.instruction}>{instruction.length > 0 ? instruction : `${subjectLabel} needs you`}</span>
-    <span className="sand-78zum5 sand-6s0dn4 sand-167g77z sand-2lah0s"><button className={BANNER_BUTTON_SECONDARY} data-sentiment="neutral" data-shape="rectangular" data-size="sm" data-variant="secondary" onClick={onDismiss} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">Skip this step</span></button><button className={BANNER_BUTTON_PRIMARY} data-sentiment="neutral" data-shape="rectangular" data-size="sm" data-variant="primary" onClick={onHandBack} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">I'm done, continue</span></button></span>
+    <span className="sand-computer-banner__body sand-4z9k3i sand-d4r4e8 sand-12oo3zp sand-1iyjqo2 sand-s83m0k sand-euugli sand-104kibb sand-1ua5tub sand-1h7i4cw sand-j0a0fe sand-10wlt62 sand-n0e0ga" title={handoff.instruction}>{instruction.length > 0 ? instruction : `${subjectLabel} ждёт вас`}</span>
+    <span className="sand-78zum5 sand-6s0dn4 sand-167g77z sand-2lah0s"><button className={BANNER_BUTTON_SECONDARY} data-sentiment="neutral" data-shape="rectangular" data-size="sm" data-variant="secondary" onClick={onDismiss} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">Пропустить этот шаг</span></button><button className={BANNER_BUTTON_PRIMARY} data-sentiment="neutral" data-shape="rectangular" data-size="sm" data-variant="primary" onClick={onHandBack} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">Готово, продолжить</span></button></span>
   </div>;
 }
 
@@ -422,7 +422,7 @@ export function ComputerFullscreen({ bridge, experience, subjectLabel, onRequest
     isScreenLoading: !hasMonitors && !view.isStatusKnown && !view.isStatusUnavailable,
     isScreenUnavailable: !hasMonitors && view.isStatusUnavailable,
     subjectLabel,
-    ...(view.phase === "local" ? { emptyMessage: "This agent runs on your machine. There's no separate desktop to stream." } : {}),
+    ...(view.phase === "local" ? { emptyMessage: "Этот помощник работает на вашем компьютере. Отдельного рабочего стола нет." } : {}),
     isEmptyLoading: view.phase !== "local",
     pullPercent: hasMonitors ? null : view.pullPercent
   });
@@ -469,12 +469,12 @@ export function ComputerFullscreen({ bridge, experience, subjectLabel, onRequest
     void experience.handBack(id, trigger);
     close();
   };
-  return <div aria-label={`${subjectLabel}'s screen`} className={isOpen
+  return <div aria-label={`Экран «${subjectLabel}»`} className={isOpen
     ? "sand-computer-fullscreen sand-ixxii4 sand-10a8y8t sand-f5e64p sand-78zum5 sand-dt5ytf sand-14gmceu sand-1t137rt"
     : "sand-computer-fullscreen sand-ixxii4 sand-10a8y8t sand-f5e64p sand-78zum5 sand-dt5ytf sand-14gmceu sand-1t137rt sand-lshs6z sand-47corl"} ref={regionRef} role="region" tabIndex={-1}>
     {teachRecording == null ? <div className="sand-computer-top-bar sand-1n2onr6 sand-9f619 sand-78zum5 sand-6s0dn4 sand-167g77z sand-2lah0s sand-h8yej3 sand-n3w4p2 sand-163pfp sand-lkep63 sand-8qq8ib">
       <span aria-hidden="true" className="sand-1iyjqo2 sand-s83m0k sand-kh2ocl sand-euugli sand-avu8j0 sand-1wfn6di" />
-      <div className="sand-computer-top-bar__actions sand-78zum5 sand-6s0dn4 sand-167g77z sand-2lah0s sand-lvsv26 sand-482pwi"><button aria-label="Exit fullscreen" className={ICON_BUTTON_SM} data-size="sm" data-variant="ghost" onClick={close} title="Exit fullscreen" type="button"><ContractIcon /></button></div>
+      <div className="sand-computer-top-bar__actions sand-78zum5 sand-6s0dn4 sand-167g77z sand-2lah0s sand-lvsv26 sand-482pwi"><button aria-label="Выйти из полноэкранного режима" className={ICON_BUTTON_SM} data-size="sm" data-variant="ghost" onClick={close} title="Выйти из полноэкранного режима" type="button"><ContractIcon /></button></div>
     </div> : <TeachRecordingTopBar {...teachRecording.topBar} />}
     <div className="sand-computer-body sand-9f619 sand-78zum5 sand-dt5ytf sand-6s0dn4 sand-l56j7k sand-1iyjqo2 sand-s83m0k sand-2lwn1j sand-h8yej3 sand-e8ttls">
       {handoff == null ? null : <HandoffBanner handoff={handoff} onDismiss={() => handBack("dismissed")} onHandBack={() => handBack("button")} subjectLabel={subjectLabel} />}
@@ -503,22 +503,22 @@ export function ComputerPreview({ bridge, experience, subjectLabel, teachRecordi
   let phase = experience.view.phase;
   if (experience.view.isStatusUnavailable) phase = "off";
   const frameRef = useCallback((element: HTMLDivElement | null) => bindVncPreviewFit(element, dimensions), [dimensions]);
-  return <div aria-busy={busy || undefined} aria-label="Computer preview" className="sand-computer-preview sand-78zum5 sand-dt5ytf sand-pkkfsy" data-phase={experience.view.isStatusUnavailable ? "error" : experience.view.isStatusKnown ? phase : "loading"} role="region">
-    {handoff == null ? null : <div aria-label="Needs your attention" className="sand-computer-preview__attention sand-9f619 sand-78zum5 sand-dt5ytf sand-1dbef6d sand-h8yej3 sand-a0y8cy sand-1pkpdue sand-1xvwvse sand-u624df" role="group">
-      <span className="sand-78zum5 sand-dt5ytf sand-137clkk sand-euugli"><UiText color="yellow" size="md" weight="medium">Needs your attention</UiText><UiText className="sand-1wd3ewq sand-j0a0fe" size="md">{handoff.instruction.trim().length > 0 ? handoff.instruction : `${subjectLabel} needs you`}</UiText></span>
-      <div className="sand-78zum5 sand-6s0dn4 sand-13a6bvl sand-1a02dak sand-11twubx"><button className={KIT_BUTTON_SECONDARY} data-sentiment="neutral" data-shape="rectangular" data-size="sm" data-variant="secondary" onClick={() => void experience.handBack(handoffId, "dismissed")} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">Skip this step</span></button><button className={KIT_BUTTON_PRIMARY} data-sentiment="neutral" data-shape="rectangular" data-size="sm" data-variant="primary" onClick={() => void experience.handBack(handoffId, "button")} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">I'm done, continue</span></button></div>
+  return <div aria-busy={busy || undefined} aria-label="Предпросмотр компьютера" className="sand-computer-preview sand-78zum5 sand-dt5ytf sand-pkkfsy" data-phase={experience.view.isStatusUnavailable ? "error" : experience.view.isStatusKnown ? phase : "loading"} role="region">
+    {handoff == null ? null : <div aria-label="Нужно ваше внимание" className="sand-computer-preview__attention sand-9f619 sand-78zum5 sand-dt5ytf sand-1dbef6d sand-h8yej3 sand-a0y8cy sand-1pkpdue sand-1xvwvse sand-u624df" role="group">
+      <span className="sand-78zum5 sand-dt5ytf sand-137clkk sand-euugli"><UiText color="yellow" size="md" weight="medium">Нужно ваше внимание</UiText><UiText className="sand-1wd3ewq sand-j0a0fe" size="md">{handoff.instruction.trim().length > 0 ? handoff.instruction : `${subjectLabel} ждёт вас`}</UiText></span>
+      <div className="sand-78zum5 sand-6s0dn4 sand-13a6bvl sand-1a02dak sand-11twubx"><button className={KIT_BUTTON_SECONDARY} data-sentiment="neutral" data-shape="rectangular" data-size="sm" data-variant="secondary" onClick={() => void experience.handBack(handoffId, "dismissed")} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">Пропустить этот шаг</span></button><button className={KIT_BUTTON_PRIMARY} data-sentiment="neutral" data-shape="rectangular" data-size="sm" data-variant="primary" onClick={() => void experience.handBack(handoffId, "button")} type="button"><span className="sand-euugli sand-b3r6kr sand-lyipyv">Готово, продолжить</span></button></div>
     </div>}
     <div className="sand-1n2onr6">
       <div className="sand-computer-preview__frame sand-1n2onr6 sand-78zum5 sand-6s0dn4 sand-l56j7k sand-h8yej3 sand-9f619 sand-t9pb60 sand-b3r6kr sand-i07v4r sand-4b2ntj sand-1ahgo13" ref={frameRef} style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}>
         <VncPool bridge={bridge} className="sand-47corl" src={src} />
         {src == null && !hasPlaceholder ? <DeviceDesktopIcon size="base" /> : null}
-        <button aria-label={monitor?.title ?? "Open computer"} className="sand-computer-preview__open sand-10l6tqk sand-10a8y8t sand-htitgo sand-78zum5 sand-6s0dn4 sand-l56j7k sand-dj266r sand-1yf7rl7 sand-at24cr sand-j3b58b sand-1717udv sand-c342km sand-ng3xce sand-t9pb60 sand-jbqb8w sand-jyslct sand-1lugfcp sand-1ypdohk" onClick={() => experience.open(monitor?.subagentId, "preview")} title={monitor?.title} type="button">{src == null ? null : <span className="sand-3nfvp2 sand-6s0dn4 sand-pkkfsy sand-1i4c3av sand-12ffz05 sand-w3enoh sand-1846v19 sand-18ti0zn sand-47corl sand-1i4knns sand-19991ni sand-gdialr sand-9lcvmn"><ExpandIcon />Open</span>}</button>
+        <button aria-label={monitor?.title ?? "Открыть компьютер"} className="sand-computer-preview__open sand-10l6tqk sand-10a8y8t sand-htitgo sand-78zum5 sand-6s0dn4 sand-l56j7k sand-dj266r sand-1yf7rl7 sand-at24cr sand-j3b58b sand-1717udv sand-c342km sand-ng3xce sand-t9pb60 sand-jbqb8w sand-jyslct sand-1lugfcp sand-1ypdohk" onClick={() => experience.open(monitor?.subagentId, "preview")} title={monitor?.title} type="button">{src == null ? null : <span className="sand-3nfvp2 sand-6s0dn4 sand-pkkfsy sand-1i4c3av sand-12ffz05 sand-w3enoh sand-1846v19 sand-18ti0zn sand-47corl sand-1i4knns sand-19991ni sand-gdialr sand-9lcvmn"><ExpandIcon />Открыть</span>}</button>
         {src == null && hasPlaceholder ? <span className="sand-10l6tqk sand-10a8y8t sand-zkaem6 sand-78zum5 sand-6s0dn4 sand-l56j7k sand-47corl"><StagePlaceholder copy={copy} onRetry={experience.refresh} tone="pane" /></span> : null}
         {src == null ? null : <ComputerCursorOverlay cursor={experience.cursorFor(monitor?.subagentId ?? null)} framebuffer={dimensions} />}
         {teachRecording == null ? null : <TeachRecordingPreviewFrame actions={teachRecording.actions} projection={teachRecording.projection} />}
       </div>
       {teachRecording == null ? null : <TeachRecordingPreviewPeerRow actions={teachRecording.actions} projection={teachRecording.projection} />}
-      <span className="sand-1lliihq sand-2b8uid"><UiText color="tertiary" size="sm">{subjectLabel}'s screen</UiText></span>
+      <span className="sand-1lliihq sand-2b8uid"><UiText color="tertiary" size="sm">Экран «{subjectLabel}»</UiText></span>
     </div>
   </div>;
 }
@@ -526,14 +526,19 @@ export function ComputerPreview({ bridge, experience, subjectLabel, teachRecordi
 export function ComputerInfoPane({ bridge, experience, isOpen, onClose, subjectLabel, teachRecording }: { bridge: DesktopBridge; experience: ComputerExperience; isOpen: boolean; onClose(): void; subjectLabel: string; teachRecording?: TeachRecordingComputerInjection["preview"] }) {
   const onResizePointerDown = useInfoPaneResize(bridge, onClose);
   const hidden = useInfoPaneCloseLinger(isOpen);
-  return <aside aria-hidden={!isOpen || undefined} aria-label="Conversation details" className={`sand-info-pane sand--default-marker sand-1n2onr6 sand-1k3v4rp sand-1ms6mhf sand-5yr21d sand-2lwn1j sand-b3r6kr sand-lvsv26 sand-qwupev sand-9kvfbb${isOpen ? " sand-9c3od3 sand-1uxagwj" : " sand-nalus7"}`} data-open={isOpen || undefined} id={DETAILS_ID}>
+  return <aside aria-hidden={!isOpen || undefined} aria-label="Подробности диалога" className={`sand-info-pane sand--default-marker sand-1n2onr6 sand-1k3v4rp sand-1ms6mhf sand-5yr21d sand-2lwn1j sand-b3r6kr sand-lvsv26 sand-qwupev sand-9kvfbb${isOpen ? " sand-9c3od3 sand-1uxagwj" : " sand-nalus7"}`} data-open={isOpen || undefined} id={DETAILS_ID}>
     <div className={`sand-info-pane__inner sand-78zum5 sand-dt5ytf sand-9c3od3 sand-1uxagwj sand-5yr21d sand-2lwn1j sand-1ua6jya sand-qwldcu sand-9kvfbb ${isOpen ? "sand-1hc1fzr" : "sand-g01cxk"}`} hidden={hidden} inert={!isOpen}>
       <div className="sand-info-pane__nav-root sand-78zum5 sand-dt5ytf sand-1iyjqo2 sand-s83m0k sand-dl72j9 sand-2lwn1j">
-        <header className={INFO_PANE_TOP}><span aria-hidden="true" /><span className={INFO_PANE_ACTIONS}><button aria-label="Close details" className={ICON_BUTTON_MD} data-size="md" data-variant="ghost" onClick={onClose} title="Close details" type="button"><MediumKitIcon codePoint={0xf31d} /></button></span></header>
-        <div className="sand-info-pane__section-content sand-78zum5 sand-dt5ytf sand-1iyjqo2 sand-s83m0k sand-dl72j9 sand-2lwn1j">{experience.isOpen ? null : <ComputerPreview bridge={bridge} experience={experience} subjectLabel={subjectLabel} teachRecording={teachRecording} />}</div>
+        <header className={INFO_PANE_TOP}><span aria-hidden="true" /><span className={INFO_PANE_ACTIONS}><button aria-label="Закрыть подробности" className={ICON_BUTTON_MD} data-size="md" data-variant="ghost" onClick={onClose} title="Закрыть подробности" type="button"><MediumKitIcon codePoint={0xf31d} /></button></span></header>
+        {/* Предпросмотр компьютера монтируется только в открытой панели. Раньше он
+            жил в DOM всегда: закрытая панель пряталась шириной `0` и `overflow:hidden`,
+            а атрибут `hidden` на внутреннем блоке перебивался классом с
+            `display:flex`. Из-за этого текст закрытого экрана компьютера оставался в
+            `document.body.innerText` при каждом запуске, хотя на экране его не было. */}
+        <div className="sand-info-pane__section-content sand-78zum5 sand-dt5ytf sand-1iyjqo2 sand-s83m0k sand-dl72j9 sand-2lwn1j">{isOpen && !experience.isOpen ? <ComputerPreview bridge={bridge} experience={experience} subjectLabel={subjectLabel} teachRecording={teachRecording} /> : null}</div>
       </div>
     </div>
-    {isOpen ? <div aria-label="Resize details" aria-orientation="vertical" className="sand-info-pane__resize-handle sand--default-marker sand-10l6tqk sand-13vifvy sand-1ey2m1c sand-u96u03 sand-1fsd2vl sand-1u8a7rm sand-icojor sand-5ve5x3 sand-lvsv26" onPointerDown={onResizePointerDown} role="separator"><span aria-hidden="true" className="sand-info-pane__resize-line sand-10l6tqk sand-13vifvy sand-1ey2m1c sand-u96u03 sand-4v8ngr sand-qjr0ry sand-11s1588 sand-omy3lu" /></div> : null}
+    {isOpen ? <div aria-label="Изменить размер панели" aria-orientation="vertical" className="sand-info-pane__resize-handle sand--default-marker sand-10l6tqk sand-13vifvy sand-1ey2m1c sand-u96u03 sand-1fsd2vl sand-1u8a7rm sand-icojor sand-5ve5x3 sand-lvsv26" onPointerDown={onResizePointerDown} role="separator"><span aria-hidden="true" className="sand-info-pane__resize-line sand-10l6tqk sand-13vifvy sand-1ey2m1c sand-u96u03 sand-4v8ngr sand-qjr0ry sand-11s1588 sand-omy3lu" /></div> : null}
   </aside>;
 }
 
@@ -553,11 +558,11 @@ export function ComputerHandoffCard({ card, onOpen, onHandBack, onDismiss }: { c
     : status.muted ? " sand-19aaqeu sand-1ciwos8" : " sand-1w5rjie sand-1buh4up"}`;
   return <article aria-describedby={instructionId} aria-labelledby={titleId} className="sand-box-handoff-card sand-1g0q52m sand-78zum5 sand-dt5ytf sand-1v2ro7d sand-5c4s84 sand-193iq5w sand-c7ga6q sand-gqmno8" data-status={card.status}>
     <div className="sand-box-handoff-card__heading sand-78zum5 sand-dt5ytf sand-1jnr06f sand-h8yej3 sand-euugli">
-      <div className="sand-box-handoff-card__header sand-78zum5 sand-1cy8zhl sand-167g77z sand-h8yej3 sand-euugli"><UiText className="sand-box-handoff-card__title sand-1iyjqo2 sand-s83m0k sand-euugli sand-1wd3ewq" id={titleId} size="lg" weight="medium">Computer</UiText><span className={badgeClass} data-status={card.status} role="status">{waiting ? <UiLoadingIcon /> : <span aria-hidden="true" className={`sand-1v4s8kt sand-ols6we sand-149ho13 sand-2lah0s ${status.muted ? "sand-xa9ouo" : "sand-1h27yg5"}`} />}<UiText size="md" weight="medium">{status.label}</UiText></span></div>
+      <div className="sand-box-handoff-card__header sand-78zum5 sand-1cy8zhl sand-167g77z sand-h8yej3 sand-euugli"><UiText className="sand-box-handoff-card__title sand-1iyjqo2 sand-s83m0k sand-euugli sand-1wd3ewq" id={titleId} size="lg" weight="medium">Компьютер</UiText><span className={badgeClass} data-status={card.status} role="status">{waiting ? <UiLoadingIcon /> : <span aria-hidden="true" className={`sand-1v4s8kt sand-ols6we sand-149ho13 sand-2lah0s ${status.muted ? "sand-xa9ouo" : "sand-1h27yg5"}`} />}<UiText size="md" weight="medium">{status.label}</UiText></span></div>
       <UiText className="sand-box-handoff-card__instruction sand-1wd3ewq sand-j0a0fe" id={instructionId} size="lg">{card.instruction.trim()}</UiText>
     </div>
-    {waiting ? <button aria-label="Take over the computer" className="sand-box-handoff-card__frame sand-1n2onr6 sand-h8yej3 sand-d83jor sand-ur7f20 sand-b3r6kr sand-1ua6jya sand-78zum5 sand-6s0dn4 sand-l56j7k sand-4b2ntj sand-1ghz6dp sand-1717udv sand-ng3xce sand-jyslct sand-1lugfcp sand-jb2p0i sand-1ypdohk sand-i5y0ii sand-egtswm sand-js1wst" onClick={onOpen} type="button">{card.snapshotDataUrl == null ? <DeviceDesktopIcon /> : <img alt="" aria-hidden="true" className="sand-box-handoff-card__image sand-h8yej3 sand-5yr21d sand-l1xv1r sand-1lliihq" draggable={false} src={card.snapshotDataUrl} />}</button> : null}
-    <div className="sand-box-handoff-card__footer sand-78zum5 sand-6s0dn4 sand-1a02dak sand-167g77z sand-h8yej3 sand-euugli">{waiting ? <><button className={ASK_BUTTON_PRIMARY} data-color="monochrome" data-size="md" data-variant="primary" onClick={onOpen} type="button">Take over</button><button className={ASK_BUTTON_OUTLINE} data-size="md" data-variant="outline" onClick={onHandBack} type="button">I’m done</button><button className={`sand-box-handoff-card__dismiss ${ASK_BUTTON_TEXT}`} data-color="tertiary" data-size="md" data-variant="text" onClick={onDismiss} title="Cancel this request without doing the step; the agent continues without it" type="button">Skip</button></> : <button className={ASK_BUTTON_OUTLINE} data-size="md" data-variant="outline" onClick={onOpen} type="button"><DeviceDesktopIcon />Open computer</button>}</div>
+    {waiting ? <button aria-label="Перехватить компьютер" className="sand-box-handoff-card__frame sand-1n2onr6 sand-h8yej3 sand-d83jor sand-ur7f20 sand-b3r6kr sand-1ua6jya sand-78zum5 sand-6s0dn4 sand-l56j7k sand-4b2ntj sand-1ghz6dp sand-1717udv sand-ng3xce sand-jyslct sand-1lugfcp sand-jb2p0i sand-1ypdohk sand-i5y0ii sand-egtswm sand-js1wst" onClick={onOpen} type="button">{card.snapshotDataUrl == null ? <DeviceDesktopIcon /> : <img alt="" aria-hidden="true" className="sand-box-handoff-card__image sand-h8yej3 sand-5yr21d sand-l1xv1r sand-1lliihq" draggable={false} src={card.snapshotDataUrl} />}</button> : null}
+    <div className="sand-box-handoff-card__footer sand-78zum5 sand-6s0dn4 sand-1a02dak sand-167g77z sand-h8yej3 sand-euugli">{waiting ? <><button className={ASK_BUTTON_PRIMARY} data-color="monochrome" data-size="md" data-variant="primary" onClick={onOpen} type="button">Перехватить</button><button className={ASK_BUTTON_OUTLINE} data-size="md" data-variant="outline" onClick={onHandBack} type="button">Готово</button><button className={`sand-box-handoff-card__dismiss ${ASK_BUTTON_TEXT}`} data-color="tertiary" data-size="md" data-variant="text" onClick={onDismiss} title="Отменить этот запрос, не выполняя шаг: помощник продолжит без него" type="button">Пропустить</button></> : <button className={ASK_BUTTON_OUTLINE} data-size="md" data-variant="outline" onClick={onOpen} type="button"><DeviceDesktopIcon />Открыть компьютер</button>}</div>
   </article>;
 }
 

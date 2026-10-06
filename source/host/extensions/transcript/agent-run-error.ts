@@ -14,7 +14,15 @@ export const SAND_INCLUDED_LIMIT_REASON = "sand_included_limit";
 export const RESETS_AT_ABS_OR_ISO = /It resets at \S+\.?/g;
 export const RESETS_IN_CLAUSE = /It resets in [^.]+/g;
 export const MAX_TRAY_ACTIONS = 3;
-export const CURSOR_WEBSITE_ORIGIN = "https://cursor.com";
+/**
+ * Адрес страницы оплаты Cursor удалён.
+ *
+ * Из него собирались кнопки «Upgrade» и «UpgradeChoice» в отчёте об ошибке. В
+ * DB Bot Lite нет ни платежей, ни аккаунта Cursor: предлагать пользователю
+ * перейти на платный тариф бессмысленно. Константа оставлена, потому что на неё
+ * ссылаются функции ниже; они больше ничего не строят.
+ */
+export const CURSOR_WEBSITE_ORIGIN = "";
 export const SUPPORTED_DASHBOARD_ACTION_VERBS = new Set([
   "requestLimitIncrease",
 ]);
@@ -247,19 +255,19 @@ export type ErrorButton = {
   label?: string;
   action?: { case?: string; value?: any };
 };
+/**
+ * Ссылка на оплату тарифа Cursor. Больше не используется и ничего не строит.
+ *
+ * Оставлена как пустая строка, а не удалена: на неё ссылается
+ * `mapErrorDetailButtons`, который её больше не зовёт. Удаление константы
+ * сломало бы сборку модуля, из которого читают `describeAgentRunError`.
+ */
 export function checkoutDeepControlUrl(action: {
   membershipToUpgradeTo?: string;
   allowTrial?: boolean;
 }): string {
-  const tier = ["pro", "pro_plus", "ultra"].includes(
-    action.membershipToUpgradeTo ?? "",
-  )
-    ? action.membershipToUpgradeTo
-    : "pro";
-  let url = `${CURSOR_WEBSITE_ORIGIN}/api/auth/checkoutDeepControl?tier=${tier}`;
-  if (action.allowTrial === true) url += "&allowTrial=true";
-  else if (action.allowTrial === false) url += "&allowTrial=false";
-  return url;
+  void action;
+  return "";
 }
 
 export function mapErrorDetailButtons(
@@ -286,19 +294,11 @@ export function mapErrorDetailButtons(
             });
         } catch {}
         break;
+      // Кнопки «Upgrade» и «UpgradeChoice» больше не строятся: обе вели на
+      // страницу оплаты Cursor. В DB Bot Lite платежей нет, и кнопка, которая
+      // обещает купить тариф, была бы враньём.
       case "upgrade":
-        actions.push({
-          kind: "open-url",
-          label: label || "Upgrade",
-          url: checkoutDeepControlUrl(value),
-        });
-        break;
       case "upgradeChoice":
-        actions.push({
-          kind: "open-url",
-          label: label || "Upgrade",
-          url: `${CURSOR_WEBSITE_ORIGIN}/pricing`,
-        });
         break;
       case "switchModel":
         if (!hasSwitch) {

@@ -1,5 +1,6 @@
 import { SAND_DEFAULT_MODEL_ID } from "../../../shared/agents/agent-model.js";
 import { createCursorGenerateImageService } from "../../../shared/node/cursor-backend/cursor-generate-image.js";
+import { getSandInferenceBackendUrl } from "../../../shared/node/cursor-backend/cursor-inference.js";
 
 export class SandGenerateImagePersistError extends Error {}
 export interface GenerateImageAuth { readonly getAccessToken: () => Promise<string>; readonly getMachineId: () => Promise<string> }
@@ -9,6 +10,11 @@ export function createSandGenerateImageService<Context>(auth: GenerateImageAuth,
   readonly persistImage: (bytes: Uint8Array, mimeType: string) => Promise<PersistedImage | null>;
   readonly onRequestId?: (id: string) => void;
 }) {
+  // Генерация картинок шла через службу Cursor. Её нет, клиент бросал исключение
+  // при СОЗДАНИИ, и этим исключением умирал `createRunner` — то есть любой ход:
+  // `sendPrompt` проходил, а ответа не было. `generateImageService` у исполнителя
+  // необязателен, поэтому без адреса службы его просто не существует.
+  if (getSandInferenceBackendUrl().length === 0) return undefined;
   const generateImage = createCursorGenerateImageService({
     getAccessToken: auth.getAccessToken,
     getMachineId: auth.getMachineId,

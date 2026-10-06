@@ -475,7 +475,7 @@ test("a turn refused with 401 leaves a note in the agent's own store.db", async 
   );
   assert.match(
     note.text,
-    /API key/i,
+    /ключ/i,
     "a 401 is a credential refusal, and the note has to say so",
   );
   assertNoSecretReachedTheNote(note, "401 note");
@@ -489,12 +489,12 @@ test("a 429 says rate limiting and a 500 says the provider is at fault", async (
   assert.ok(throttleNote != null, "a throttled turn left no note in store.db");
   assert.match(
     throttleNote.text,
-    /rate limit/i,
+    /ограничивает/i,
     "a 429 was reported as an unnamed failure, so the user cannot tell waiting will help",
   );
   assert.match(
     throttleNote.text,
-    /7s/,
+    /7 с/,
     "the provider's Retry-After was dropped, so the user does not know how long to wait",
   );
   assertNoSecretReachedTheNote(throttleNote, "429 note");
@@ -506,7 +506,7 @@ test("a 429 says rate limiting and a 500 says the provider is at fault", async (
   assert.ok(brokenNote != null, "a 500 left no note in store.db");
   assert.match(
     brokenNote.text,
-    /provider failed with a server error/i,
+    /сбой на её стороне/i,
     "a 500 is a provider-side fault and the note has to say which side is at fault",
   );
   assertNoSecretReachedTheNote(brokenNote, "500 note");
@@ -522,7 +522,7 @@ test("a socket cut mid-answer is reported as a broken connection", async () => {
   assert.ok(note != null, "a dropped provider socket left no note in store.db");
   assert.match(
     note.text,
-    /connection to the model provider broke/i,
+    /Связь со службой модели оборвалась/i,
     "a dropped socket was reported as an unnamed failure instead of a connection problem",
   );
   assertNoSecretReachedTheNote(note, "socket-cut note");

@@ -92,19 +92,11 @@ export function buildApplicationMenuTemplate(
   );
   template.push({ label: "View", submenu: viewSubmenu });
   template.push({ role: "windowMenu" });
-  template.push({
-    role: "help",
-    submenu: [
-      {
-        label: "Help Center",
-        click: () => {
-          void electron.openExternal("https://cursor.com/help");
-        },
-      },
-      { type: "separator" },
-      { label: "Send Feedback", click: () => options.emitOpenFeedback() },
-    ],
-  });
+  // Меню «Help Center → cursor.com/help» и «Send Feedback» удалены. Первое
+  // уводило пользователя на чужую службу поддержки, второе отправляло его текст
+  // POST-запросом на `api2.cursor.sh`. Оба пункта были в стандартном меню окна,
+  // то есть на них можно было попасть, не открывая ни одного экрана программы.
+  template.push({ role: "help" });
   return template;
 }
 

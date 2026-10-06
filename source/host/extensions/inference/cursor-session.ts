@@ -6,6 +6,7 @@ import { createMockPromptExecutor } from "../../../packages/chat-inference/mock-
 import {
   createCursorInferencePromptSession,
   createSandAttachedMediaUrlProvider,
+  getSandInferenceBackendUrl,
   resolveSandRunPrivacyMode,
   type RequestLineage,
 } from "../../../shared/node/cursor-backend/cursor-inference.js";
@@ -99,8 +100,12 @@ export interface CursorSandInference {
 export function createCursorSandInference(options: CursorSandInferenceOptions): CursorSandInference {
   let labelingClient: LabelingClient | undefined;
   const auth = { getAccessToken: options.getAccessToken, getMachineId: options.getMachineId };
-  const attachedMedia = createSandAttachedMediaUrlProvider(auth);
-  const getLabelingClient = (): LabelingClient => labelingClient ??= createSandLabelingClient(auth);
+  // Подписанные адреса для вложений выдавала служба Cursor, и её клиент бросал
+  // исключение прямо здесь, из-за чего падал старт всего расширения inference и
+  // вместе с ним весь хост. Пустой адрес службы означает «видеовложений Gemini
+  // нет»: провайдер не создаётся, а запрос подписи не сможет уйти.
+  const attachedMedia = getSandInferenceBackendUrl().length === 0 ? undefined : createSandAttachedMediaUrlProvider(auth);
+  const getLabelingClient = (): LabelingClient | undefined => (labelingClient ??= createSandLabelingClient(auth));
   return {
     resolvePrivacyMode: () => resolveSandRunPrivacyMode(auth),
     getGeminiVideoAttachedMediaUrlProvider: () => options.isGeminiVideoDeveloperApiEnabled?.() === true ? attachedMedia : undefined,
@@ -121,6 +126,6 @@ export function createCursorSandInference(options: CursorSandInferenceOptions): 
         isSummarizationSession: true,
       }) as SummarizationPromptSession;
     },
-    recordPostTurnLabeling: (args) => recordSandPostTurnLabeling(getLabelingClient(), args)
+    recordPostTurnLabeling: (args) => { const client = getLabelingClient(); if (client == null) return; recordSandPostTurnLabeling(client, args); }
   };
 }

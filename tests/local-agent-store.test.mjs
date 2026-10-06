@@ -248,7 +248,7 @@ test("a profile written from partial input is normalised with the product defaul
     const paddedName = await store.createSession({ name: "   " }, "user");
     const described = await store.createSession({ description: "  only a description  " }, "user");
 
-    const defaults = { name: "Grok", description: "", title: "", avatarShape: "", avatarColor: "" };
+    const defaults = { name: "DB Bot", description: "", title: "", avatarShape: "", avatarColor: "" };
     assert.deepEqual(store.getAgentProfileText(blankName.id), defaults, "an agent created with no profile at all must be filled with the product defaults");
     assert.deepEqual(store.getAgentProfileText(paddedName.id), defaults, "a whitespace-only name must fall back to the default name instead of persisting an empty one");
     assert.deepEqual(

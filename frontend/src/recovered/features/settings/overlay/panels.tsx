@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { CursorUsageSummary, CursorUsageUpgradeAction, DesktopTimeZoneState, ThemePreference } from "../../../contracts/desktop-bridge";
 import { egressTunnelStatusDescription, type EgressTunnelStatus, type UpdateStatus, type UpdateTrack } from "./updates";
 // @evidence src/app/dist/renderer/assets/index-BlqerJhg.js#L1
-import { INTERNAL_RELEASE_TRACK_CONFIG_URL, UPDATE_TRACK_LABELS, updateStatusMessage } from "./updates";
+import { UPDATE_TRACK_LABELS, updateStatusMessage } from "./updates";
 import { AutoReviewRulesPanel, type AutoReviewSettings } from "./auto-review";
 import { SettingsComputerPanel } from "./computer-view";
 import type { SettingsComputerMount } from "./computer";
@@ -94,16 +94,12 @@ export function GeneralSettingsPanel({ account, accountPending = false, accountE
   const [emailCopied, setEmailCopied] = useState(false);
   const [themePending, setThemePending] = useState(false);
   const signedIn = account.kind === "logged-in";
-  const isAccountPending = accountPending;
   const visibleAccountError = accountError ?? (account.kind === "logged-out" ? account.errorMessage ?? null : null);
   useEffect(() => {
     if (!emailCopied) return;
     const timeout = window.setTimeout(() => setEmailCopied(false), 2000);
     return () => window.clearTimeout(timeout);
   }, [emailCopied]);
-  const title = signedIn ? account.name : account.kind === "logging-in" ? "Выполняется вход" : "Вход не выполнен";
-  const detail = signedIn ? account.email ?? "Вход выполнен в Cursor" : account.kind === "logging-in" ? "Закончите вход в браузере" : "Подключите аккаунт Cursor к DB Bot";
-  const action = signedIn ? "Выйти" : account.kind === "logging-in" ? "Отмена" : "Войти через Cursor";
   // @evidence recovered/frontend/app/assets/index-BlqerJhg.js#L40-L50
   const copyEmail = async () => {
     if (!signedIn || account.email == null || typeof navigator === "undefined" || navigator.clipboard == null) return;
@@ -114,6 +110,10 @@ export function GeneralSettingsPanel({ account, accountPending = false, accountE
       setEmailCopied(false);
     }
   };
+  const title = signedIn ? account.name : "DB Bot";
+  const detail = signedIn
+    ? account.email ?? "Работает на этом компьютере. Ключ DeepSeek хранится только здесь."
+    : "Работает на этом компьютере";
   const handleThemeChange = (nextTheme: GeneralSettingsPanelProps["theme"]) => {
     if (themePending) return;
     setThemePending(true);
@@ -125,7 +125,12 @@ export function GeneralSettingsPanel({ account, accountPending = false, accountE
 
   return (
     <div className="sand-settings-general">
-      <SettingsGroup title="Аккаунт">
+      {/* Группы «Аккаунт» с кнопками «Войти в Cursor» и «Выйти» здесь больше
+          нет. DB Bot Lite не имеет аккаунта: карточка показывала состояние
+          чужой учётной записи и предлагала нажать кнопку, которая открывала
+          адрес cursor.com. Осталось только то, что действительно важно
+          пользователю, — где программа работает. */}
+      <SettingsGroup title="Программа">
         <div className="sand-account-card" data-state={account.kind}>
           <span aria-hidden="true" className="sand-account-card__avatar">
             {signedIn && account.avatarDataUrl ? <img alt="" src={account.avatarDataUrl} /> : title.slice(0, 1).toLocaleUpperCase()}
@@ -135,7 +140,6 @@ export function GeneralSettingsPanel({ account, accountPending = false, accountE
             <span>{detail}</span>
             {signedIn && account.email ? <SandIconButton aria-label="Скопировать адрес почты" className="sand-account-card__copy-email" icon={emailCopied ? "check" : "copy"} label="Скопировать адрес почты" onClick={() => void copyEmail()} platform={platform} size="sm" title="Скопировать адрес почты" /> : null}
           </span>
-          <SandButton disabled={isAccountPending} onClick={onAccountAction} shape="pill" size="md" variant={signedIn ? "secondary" : "primary"}>{action}</SandButton>
         </div>
         {visibleAccountError ? <p className="sand-account__error">{visibleAccountError}</p> : null}
       </SettingsGroup>
@@ -641,11 +645,9 @@ export function UpdatesSettingsPanel({
   const trackManagedByPolicy = status.isTrackManagedByPolicy ?? false;
   const autoUpdateGateEnabled = status.autoUpdateWhenIdleGateEnabled ?? true;
   const effectiveAutoUpdateWhenIdle = status.autoUpdateWhenIdleOptIn ?? autoUpdateWhenIdle;
-  const trackDescription = trackManagedByPolicy ? (
-    <>
-      Доступ к обновлениям задаёт политика внутреннего канала. <a href={INTERNAL_RELEASE_TRACK_CONFIG_URL} rel="noopener noreferrer" target="_blank">Открыть настройку в Statsig</a>
-    </>
-  ) : "«Обычный» — самый безопасный вариант. Другие каналы выходят чаще и раньше. После переключения проверка обновлений запустится сразу.";
+  const trackDescription = trackManagedByPolicy
+    ? "Канал обновлений задан при установке программы."
+    : "«Обычный» — самый безопасный вариант. Другие каналы выходят чаще и раньше. После переключения проверка обновлений запустится сразу.";
   const egressVisible = egressTunnel?.featureGateEnabled === true || egressTunnel?.enabled === true;
   const egressAvailable = egressTunnel?.available === true;
   const egressDescription = egressTunnel?.enabled === true

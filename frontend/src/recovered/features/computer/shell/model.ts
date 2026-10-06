@@ -136,7 +136,7 @@ export function projectComputerMonitors(subagents: unknown, getStatus: (subagent
     const title = typeof value.title === "string" ? value.title.trim() : "";
     monitors.push({
       subagentId: value.subagentId,
-      title: title.length > 0 ? title : "Subagent",
+      title: title.length > 0 ? title : "Помощник",
       vncUrl: status.vncUrl,
       handoff: null
     });
@@ -156,10 +156,10 @@ export function computerStageCopy(input: {
   isEmptyLoading: boolean;
   pullPercent: number | null;
 }): ComputerStageCopy {
-  if (input.isScreenLoading) return { message: `Switching to ${input.subjectLabel}'s screen…`, progressPercent: null, isBusy: true, hasRetry: false };
-  if (input.isScreenUnavailable) return { message: `Can't reach ${input.subjectLabel}'s screen`, progressPercent: null, isBusy: false, hasRetry: true };
-  if (input.pullPercent != null) return { message: "Setting up the computer", progressPercent: input.pullPercent, isBusy: true, hasRetry: false };
-  return { message: input.emptyMessage ?? "Booting up the computer", progressPercent: null, isBusy: input.isEmptyLoading, hasRetry: false };
+  if (input.isScreenLoading) return { message: `Переключаемся на экран «${input.subjectLabel}»…`, progressPercent: null, isBusy: true, hasRetry: false };
+  if (input.isScreenUnavailable) return { message: `Не удаётся открыть экран «${input.subjectLabel}»`, progressPercent: null, isBusy: false, hasRetry: true };
+  if (input.pullPercent != null) return { message: "Готовим компьютер", progressPercent: input.pullPercent, isBusy: true, hasRetry: false };
+  return { message: input.emptyMessage ?? "Включаем компьютер", progressPercent: null, isBusy: input.isEmptyLoading, hasRetry: false };
 }
 
 export function isSpecialTreatmentVnc(value: string): boolean {
@@ -261,9 +261,9 @@ export function stepSelectedMonitor(monitors: readonly ComputerMonitor[], curren
 }
 
 export function handoffStatusLabel(status: ComputerHandoffResolution): { label: string; muted: boolean } {
-  if (status === "waiting") return { label: "Action needed", muted: false };
-  if (status === "handed_back") return { label: "Done", muted: false };
-  if (status === "replied") return { label: "Answered", muted: false };
-  if (status === "dismissed") return { label: "Skipped", muted: true };
-  return { label: "Status unavailable", muted: true };
+  if (status === "waiting") return { label: "Нужно ваше участие", muted: false };
+  if (status === "handed_back") return { label: "Готово", muted: false };
+  if (status === "replied") return { label: "Отвечено", muted: false };
+  if (status === "dismissed") return { label: "Пропущено", muted: true };
+  return { label: "Статус неизвестен", muted: true };
 }

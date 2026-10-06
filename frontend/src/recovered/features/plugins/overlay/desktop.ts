@@ -238,10 +238,17 @@ export interface PluginPrivateSkillClipboard {
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#byteOffset=21575 (Mac marketplace link projection)
 // @evidence recovered/frontend/app/assets/view-B5Ug8wEm.js#byteOffset=26852 (Windows marketplace link projection)
+/**
+ * Адрес витрины расширений Cursor удалён.
+ *
+ * Кнопка «Копировать ссылку» в списке расширений клала этот адрес в буфер
+ * обмена, то есть пользователь отправлял его дальше сам. В DB Bot Lite витрины
+ * нет. Константа оставлена, потому что на неё ссылается модуль списка
+ * расширений.
+ */
 export function pluginPrivateSkillMarketplaceUrl(pluginId: string): string {
-  const url = new URL("https://cursor.com/marketplace");
-  url.searchParams.set("pluginId", pluginId);
-  return url.toString();
+  void pluginId;
+  return "";
 }
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#byteOffset=75453 (Mac copy-link labels)

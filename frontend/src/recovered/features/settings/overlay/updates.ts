@@ -10,9 +10,16 @@ export const UPDATE_TRACK_LABELS: Readonly<Record<UpdateTrack, string>> = {
   dogfood: "Опытный"
 };
 
-/** Preserved verbatim as configuration evidence from the public 0.18 renderer. */
-export const INTERNAL_RELEASE_TRACK_CONFIG_URL =
-  "https://console.statsig.com/5oWaLs1Xr8U2ei9Hq2R45w/dynamic_configs/sand_internal_release_track_override";
+/**
+ * Канал обновлений, заданный политикой, в DB Bot Lite не существует.
+ *
+ * Прежде здесь стоял адрес `console.statsig.com`, и панель обновлений показывала
+ * пользователю ссылку «Открыть настройку в Statsig». Statsig — это чужой сервис
+ * экспериментов: ни одна кнопка в DB Bot Lite не должна вести на него. Ссылка
+ * убрана вместе с самой возможностью; константа оставлена, потому что на неё
+ * ссылается тип `UpdateTrack` в коде обновлений.
+ */
+export const INTERNAL_RELEASE_TRACK_CONFIG_URL = "" as const;
 
 export type DisabledUpdateReason =
   | "not-packaged"

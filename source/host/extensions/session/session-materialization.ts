@@ -96,7 +96,7 @@ export class SandSessionMaterialization {
     const db = new SandAgentDb(dbPath);
     try {
       db.set("agentId", agentId); db.setAgentOrigin(origin); if (purpose != null) db.setAgentPurpose(purpose);
-      writeSandProfileFile(getSandProfilePath(dirname(dbPath)), { name: profile?.name?.trim() || "Grok", description: profile?.description?.trim() ?? "", title: profile?.title?.trim() ?? "", avatarShape: profile?.avatarShape?.trim() ?? "", avatarColor: profile?.avatarColor?.trim() ?? "" });
+      writeSandProfileFile(getSandProfilePath(dirname(dbPath)), { name: profile?.name?.trim() || "DB Bot", description: profile?.description?.trim() ?? "", title: profile?.title?.trim() ?? "", avatarShape: profile?.avatarShape?.trim() ?? "", avatarColor: profile?.avatarColor?.trim() ?? "" });
       writeSandSettingsFile(getSandSettingsPath(dirname(dbPath)), { notifyOnAgentUpdates: true });
       const session = this.compose(agentId, dbPath, db);
       for (const spec of DEFAULT_AGENT_AUTOMATIONS) session.automations.upsert(spec as never);
@@ -108,7 +108,7 @@ export class SandSessionMaterialization {
     const dbPath = getAgentDbPath(this.host.rootDir, agentId), db = new SandAgentDb(dbPath);
     try {
       const profilePath = getSandProfilePath(dirname(dbPath));
-      try { await stat(profilePath); } catch { writeSandProfileFile(profilePath, { name: db.get("name") || "Grok", description: db.getSandProfile().description, title: "", avatarShape: "", avatarColor: "" }); }
+      try { await stat(profilePath); } catch { writeSandProfileFile(profilePath, { name: db.get("name") || "DB Bot", description: db.getSandProfile().description, title: "", avatarShape: "", avatarColor: "" }); }
       const session = this.compose(agentId, dbPath, db);
       await session.agentStore.resetFromDb?.(this.host.ctx);
       await this.host.runMaintenance?.(session);

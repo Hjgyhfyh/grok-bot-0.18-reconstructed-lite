@@ -3,6 +3,7 @@ import { SandCursorAuthService, type AccessTokenReader, type SandAuthStatus, typ
 import { fetchCursorProfile, fetchLocalToolPermissionCeiling, fetchUserPrivacyMode, updateCursorProfileName } from "./cursor-profile.js";
 import { SandTranscriptionManager, type SandTranscriptionOptions } from "./cursor-transcribe.js";
 import { syncSandSentryAccount } from "../telemetry/sentry.js";
+import { asLocalAccountStatus, LOCAL_ACCOUNT_NO_SIGN_IN_MESSAGE } from "./local-account.js";
 import type { PrivacyMode } from "../../shared/observability/sentry-privacy-mode.js";
 
 export const SUPPORTED_DASHBOARD_ACTIONS = new Set(["requestLimitIncrease"] as const);
@@ -68,7 +69,8 @@ export function createCursorAuthWiring(deps: {
 
   function deliverCursorAuthStatus(service: AuthServicePort, status: SandAuthStatus): void {
     authStatusFreshness += 1;
-    deps.emitAuthStatus({ ...status, freshness: authStatusFreshness });
+    // Рендерер видит локальную запись вместо `logged-out`: см. `local-account.ts`.
+    deps.emitAuthStatus({ ...asLocalAccountStatus(status), freshness: authStatusFreshness });
     if (deps.sentryEnabled) void syncSentryAccount(status, () => readPrivacyMode((options) => service.getValidAccessToken(options)));
     void syncLocalToolPermissionCeiling(service, status);
   }
@@ -156,10 +158,14 @@ export function createCursorAccountEdgePort(deps: {
   return {
     getSandAccess: async () => await (await ensureSandAccessReader()).read(),
     getSandAccessFresh: async () => (await readSandAccessOnce(await sandAccessDeps())).access,
-    getAuthStatus: async () => { const freshness = deps.currentAuthStatusFreshness(); const service = await deps.ensureCursorAuthService(); return { ...await settledStatus(() => service.getStatus()), freshness }; },
-    login: async () => withService(async (service) => { const result = await service.login(); const settled = await deps.getAccountRuntime()?.whenIdle(); await deps.resetMcpManager(); await deps.refreshHostMcp(); return settled ?? result; }),
-    cancelLogin: async () => withService(async (service) => { const result = await service.cancelLogin(); return await deps.getAccountRuntime()?.whenIdle() ?? result; }),
-    logout: async () => withService(async (service) => { const result = await service.logout(); return await deps.getAccountRuntime()?.whenIdle() ?? result; }),
+    getAuthStatus: async () => { const freshness = deps.currentAuthStatusFreshness(); const service = await deps.ensureCursorAuthService(); return { ...asLocalAccountStatus(await settledStatus(() => service.getStatus())), freshness }; },
+    // Вход в Cursor недоступен в DB Bot Lite: адрес, который открывал прежний
+    // `login`, ведёт в чужую службу и в упакованной программе падал с
+    // `Invalid URL`. Вызов остаётся в таблице методов, чтобы ничего не ломалось
+    // на стороне рендерера, но наружу он больше ничего не отправляет.
+    login: async () => { throw new Error(LOCAL_ACCOUNT_NO_SIGN_IN_MESSAGE); },
+    cancelLogin: async () => { throw new Error(LOCAL_ACCOUNT_NO_SIGN_IN_MESSAGE); },
+    logout: async () => { throw new Error(LOCAL_ACCOUNT_NO_SIGN_IN_MESSAGE); },
     updateAccountName: async (name: unknown) => {
       if (typeof name !== "string" || name.length > 200) throw new Error("updateCursorAccountName requires a bounded name string.");
       return await withService(async (service) => { const result = await service.updateDisplayName(name); return await deps.getAccountRuntime()?.whenIdle() ?? result; });

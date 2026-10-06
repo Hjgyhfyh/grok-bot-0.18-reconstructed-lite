@@ -393,13 +393,40 @@ test("a port nobody holds is probed once and costs no waiting", async () => {
   assert.equal(release.waitedMs, 0, "a free port made this host sleep before it started, so the wait is on the path of every launch");
 });
 
+/**
+ * The pid holding a port, read from the running system, with a bounded wait.
+ *
+ * `readPortHolderPids` runs `netstat -ano`, which is a snapshot of the machine,
+ * and the machine is shared: under a full `npm test` run about a hundred and
+ * fifty other processes start and stop while this one polls. The snapshot can be
+ * taken before the holder's socket shows up in it, and `netstat` itself can miss
+ * its own five second timeout when the disk and the scheduler are busy. Either
+ * way the honest answer comes back as "unknown holder", and the test failed on a
+ * stale picture of the machine rather than on the code under test: a full run
+ * reported that the port was held by a foreign pid, and the same test passed in
+ * isolation.
+ *
+ * So the lookup waits for the answer it demands instead of taking one sample.
+ * What is asserted does not soften: the holder's own pid must be the one the
+ * lookup names, and a lookup that never names it still fails.
+ */
+async function readHolderPidsUntil(port, expectedPid, deadlineMs = 5_000) {
+  const deadline = Date.now() + deadlineMs;
+  let pids = [];
+  for (;;) {
+    pids = readPortHolderPids(port, process.platform);
+    if (pids.includes(expectedPid) || Date.now() >= deadline) return pids;
+    await sleep(100);
+  }
+}
+
 test("the pid holding the port is read from the running system, not guessed", async () => {
   const holder = await startPortHolder(30_000);
   try {
-    const pids = readPortHolderPids(holder.port, process.platform);
+    const pids = await readHolderPidsUntil(holder.port, holder.pid);
     assert.ok(
       pids.includes(holder.pid),
-      `the port-holder pid ${holder.pid} was not among ${JSON.stringify(pids)}, so a refusal would name the wrong process or none at all`,
+      `the port-holder pid ${holder.pid} was not among ${JSON.stringify(pids)} after 5 s of polling, so a refusal would name the wrong process or none at all`,
     );
     assert.deepEqual(
       readPortHolderPids(1, process.platform),

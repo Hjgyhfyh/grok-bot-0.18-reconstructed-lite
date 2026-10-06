@@ -11,6 +11,7 @@ import {
 } from "../../../packages/proto/generated/aiserver/v1/dashboard_pb.js";
 import {
   createSandCursorBackendClient,
+  getSandInferenceBackendUrl,
   type SandInferenceOptions,
 } from "../../../shared/node/cursor-backend/cursor-inference.js";
 import {
@@ -22,7 +23,15 @@ export class SandSmartModeClassifierError extends Error {}
 
 export function createSandBackendSmartModeClassifierExecutor(
   options: Omit<SandInferenceOptions, "backendUrl">,
-) {
+): { execute(ctx: Context, args: SmartModeClassifierArgs): Promise<SmartModeClassifierResult> } | undefined {
+  // Службы Cursor в сборке нет. Клиент строился сразу, бросал исключение при
+  // СОЗДАНИИ, а не при вызове, и этим исключением умирал весь ход: команда
+  // `sendPrompt` возвращала «Cursor backend отключён», и ответ модели не
+  // появлялся никогда. Проверка та же, что у остальных расширений
+  // (automations, notifications, skill-publish): без адреса службы исполнителя
+  // не существует. Потребители это понимают — `autoReviewClassifierExecutor`
+  // объявлен необязательным, и ресурс просто не регистрируется.
+  if (getSandInferenceBackendUrl().length === 0) return undefined;
   const service = DashboardService as typeof DashboardService & {
     readonly methods: typeof DashboardService.methods & {
       readonly classifySandAutoReview: MethodInfoUnary<

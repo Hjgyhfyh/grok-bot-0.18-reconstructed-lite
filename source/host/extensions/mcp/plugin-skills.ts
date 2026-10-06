@@ -52,6 +52,13 @@ export interface SharedInstalledPluginsLoaderDeps {
 }
 export function createSharedInstalledPluginsLoader(deps: SharedInstalledPluginsLoaderDeps): () => Promise<LoadedPlugins> {
   const pluginsRoot = getPluginsRootDir(deps.sandRootDir);
+  // Установленные плагины приходили с площадки Cursor. В этой сборке службы
+  // нет, клиент бросал исключение прямо здесь и ронял старт расшишения mcp,
+  // а вместе с ним — весь хост. Локальные навыки лежат в `skills/` и от площадки
+  // не зависят, поэтому при отключённой службе список пуст.
+  if (deps.dashboardForTesting == null && getSandInferenceBackendUrl().length === 0) {
+    return async () => ({ plugins: [], authBlocked: [], listedPluginIds: [], listedCacheKeys: [], publisherFacts: new Map(), currentUserId: null });
+  }
   const dashboard = deps.dashboardForTesting ?? createSandCursorBackendClient(DashboardService, {
     getAccessToken: async () => await deps.auth.getAccessToken({ backendUrl: getSandInferenceBackendUrl() }),
     getMachineId: deps.auth.getMachineId

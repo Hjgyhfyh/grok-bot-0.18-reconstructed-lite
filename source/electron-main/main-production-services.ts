@@ -38,6 +38,7 @@ import { createDesktopMetricsRuntime, type DesktopMetricsRuntime } from "./proce
 import { createBoxVisibilitySink } from "./box/box-visibility-sink.js";
 import { createBoxVisibilityReportHandler, installBoxVisibilityDocumentReset, SandBoxVisibilityTracker } from "./box/box-visibility-telemetry.js";
 import { createDevGatewayOfflineControl } from "./dev/dev-gateway-offline.js";
+import { bootstrapLocalGatewayForDesktop } from "./local-gateway/local-gateway-autostart.js";
 import { createDevRestartExit, maybeDevLoginFromEnv, registerDevWiring, type IpcMainPort } from "./dev/dev-wiring.js";
 import { SandProductAnalytics } from "../shared/node/analytics/product-analytics.js";
 import { registerProductionTelemetryIpc } from "./telemetry/production-telemetry-ipc.js";
@@ -520,6 +521,23 @@ export function createElectronMainProductionComposition(bindings: ElectronMainPr
   const initializeServices = (options?: ElectronMainServicesInitializationOptions): Promise<ElectronMainServices> => initialization ??= (async () => {
     try {
       initializeFoundation();
+      // Локальный шлюз поднимается ПЕРВЫМ, раньше любого потребителя
+      // SAND_HOST_GATEWAY_URL: ниже по этому же блоку переменную читают
+      // createRemoteHostConnector, wrapRemoteHostConnectorWithDevBoxPlane и
+      // createProductionAccountAuthorization, а форк координатора наследует
+      // process.env. Пока переменной нет, вместо локального помощника
+      // выбирается брокер Cursor, и интерфейс вечно пишет «Reconnecting».
+      const localGateway = await bootstrapLocalGatewayForDesktop({
+        moduleDir: bindings.moduleDir,
+        env,
+        isPackaged: bindings.native.app.isPackaged,
+        reportFailure: (leg, error) => bindings.reportFailure("local-gateway", leg, error),
+      });
+      if (localGateway.handle != null) {
+        // В начало списка: `disposeGraph` освобождает его ПОСЛЕДНИМ (список
+        // разворачивается). Пока жив координатор, шлюз нужен ему для ответа.
+        disposables.unshift({ dispose: async () => { await localGateway.handle?.stop(); } });
+      }
       installDesktopChildGoneTelemetry({
         app: bindings.native.app,
         report: desktopLifecycle.reportDesktopRendererLifecycle,
