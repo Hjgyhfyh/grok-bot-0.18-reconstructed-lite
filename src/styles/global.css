@@ -1,17 +1,92 @@
-/* Тёмная тема, один акцентный цвет — фиолетовый. */
+/* ==========================================================================
+   Грок Бот — единый визуал в духе Linear.
+   Тёмная тема — дефолт (:root). Светлая включается через html[data-theme="light"].
+   Акцент — фиолетовый #8b5cf6. Радиусы 12–16px, переходы 150ms.
+   ========================================================================== */
+
 :root {
-  --bg: #14111c;
-  --bg-panel: #1d1929;
-  --bg-elevated: #251f35;
-  --text: #f0edf7;
-  --text-dim: #9a92ad;
+  color-scheme: dark;
+
+  /* Палитра (тёмная) */
+  --bg: #0e0d13;
+  --bg-panel: #15131c;
+  --bg-elevated: #1c1926;
+  --bg-hover: #262134;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --text: #edecf4;
+  --text-dim: #9a94ac;
+  --text-faint: #6e6880;
+
   --accent: #8b5cf6;
-  --accent-hover: #a78bfa;
-  --danger: #f87171;
+  --accent-hover: #9d73f8;
+  --accent-soft: rgba(139, 92, 246, 0.16);
+  --accent-ring: rgba(139, 92, 246, 0.45);
+  --accent-grad-end: #6d4de0; /* низ градиента пузыря user и primary-кнопок */
+  --on-accent: #ffffff;
+
   --ok: #34d399;
-  --radius: 12px;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.12);
+
+  /* Радиусы: 12–16px по ТЗ */
+  --radius-sm: 12px;
+  --radius: 14px;
+  --radius-lg: 16px;
+
+  /* Мягкие тени */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 14px 44px rgba(0, 0, 0, 0.5);
+
+  /* Скорость всех микро-переходов */
   --transition: 150ms ease;
+
+  /* Скроллбар */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.14);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.24);
 }
+
+/* ---- Светлая тема (включается переключателем в Настройках) ---- */
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f6f6f9;
+  --bg-panel: #ffffff;
+  --bg-elevated: #eeedf4;
+  --bg-hover: #e5e3ee;
+  --border: rgba(24, 18, 43, 0.09);
+  --border-strong: rgba(24, 18, 43, 0.18);
+
+  --text: #1b1826;
+  --text-dim: #5f5a70;
+  --text-faint: #8b86a0;
+
+  --accent: #7c4df0;
+  --accent-hover: #6c3ee0;
+  --accent-soft: rgba(124, 77, 240, 0.12);
+  --accent-ring: rgba(124, 77, 240, 0.38);
+  --accent-grad-end: #8b5cf6;
+  --on-accent: #ffffff;
+
+  --ok: #0e9f6e;
+  --warn: #b97d10;
+  --danger: #dc4446;
+  --danger-soft: rgba(220, 68, 70, 0.1);
+
+  --shadow-sm: 0 1px 2px rgba(24, 18, 43, 0.07);
+  --shadow-md: 0 6px 20px rgba(24, 18, 43, 0.1);
+  --shadow-lg: 0 14px 44px rgba(24, 18, 43, 0.16);
+
+  --scrollbar-thumb: rgba(24, 18, 43, 0.18);
+  --scrollbar-thumb-hover: rgba(24, 18, 43, 0.3);
+}
+
+/* ==========================================================================
+   База
+   ========================================================================== */
 
 * {
   box-sizing: border-box;
@@ -27,59 +102,227 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    "Inter",
+    "Segoe UI",
+    -apple-system,
+    sans-serif;
   font-size: 15px;
-  line-height: 1.5;
-}
-
-.app-shell {
-  display: flex;
-  height: 100%;
-}
-
-/* ---- Сайдбар: только иконки, без текста ---- */
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 68px;
-  padding: 12px;
-  background: var(--bg-panel);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.sidebar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius);
-  color: var(--text-dim);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   transition:
     background var(--transition),
     color var(--transition);
 }
 
-.sidebar-btn:hover {
-  background: var(--bg-elevated);
+/* Заголовки плотнее, чем дефолт браузера */
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  font-weight: 650;
   color: var(--text);
 }
 
-.sidebar-btn--active {
-  background: var(--accent);
-  color: #fff;
+::selection {
+  background: var(--accent-soft);
 }
 
+/* Видимое кольцо фокуса везде — навигация с клавиатуры */
+:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---- Кастомный скроллбар ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: content-box;
+  border: 3px solid transparent;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ==========================================================================
+   Каркас приложения
+   ========================================================================== */
+
+.app-shell {
+  display: flex;
+  height: 100%;
+  min-width: 800px;
+  min-height: 600px; /* минимальный размер окна 800x600 */
+  overflow: hidden;
+}
+
+/* ---- Сайдбар: только иконки, подписи в тултипах ---- */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 68px;
+  padding: 14px 12px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition),
+    box-shadow var(--transition);
+}
+
+.sidebar-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.sidebar-btn:active {
+  transform: scale(0.96);
+}
+
+/* Активный раздел: мягкая фиолетовая заливка + полоска слева */
+.sidebar-btn--active {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.sidebar-btn--active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 22px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+
+html[data-theme="light"] .sidebar-btn--active {
+  color: var(--accent);
+}
+
+/* Низ сайдбара: индикатор темы */
+.sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  width: 100%;
+}
+
+.theme-indicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--text-faint);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+/* Тултипы: всплывающая подпись по [data-tip] */
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 14px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--transition),
+    transform var(--transition);
+  z-index: 100;
+}
+
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Основная колонка контента */
 .app-content {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
+  background: var(--bg);
 }
 
-/* ---- Экраны ---- */
+/* ==========================================================================
+   Экраны
+   ========================================================================== */
+
 .screen {
-  padding: 24px 28px;
-  max-width: 860px;
+  padding: 28px 32px;
+  max-width: 880px;
   margin: 0 auto;
 }
 
@@ -88,12 +331,23 @@ body {
   flex-direction: column;
   height: 100%;
   max-width: none;
+  padding: 20px 28px 24px;
 }
 
 .screen-title {
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: -0.02em;
   margin: 0 0 20px;
+}
+
+.screen-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -12px 0 20px;
+  color: var(--text-dim);
+  font-size: 13.5px;
 }
 
 /* ---- Пустые состояния ---- */
@@ -103,34 +357,43 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 48px 24px;
+  padding: 56px 24px;
   text-align: center;
   color: var(--text-dim);
 }
 
 .empty-state-title {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   color: var(--text);
   margin: 8px 0 0;
 }
 
 .empty-state-hint {
-  max-width: 420px;
-  margin: 0 0 12px;
+  max-width: 440px;
+  margin: 0 0 14px;
 }
 
-/* ---- Кнопки: минимум 44px ---- */
+/* ==========================================================================
+   Кнопки: минимум 44px высоты — для чайника и тачпада
+   ========================================================================== */
+
 .btn {
   min-height: 44px;
   padding: 0 20px;
-  border: none;
-  border-radius: var(--radius);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
+  user-select: none;
   transition:
     background var(--transition),
+    color var(--transition),
+    border-color var(--transition),
+    box-shadow var(--transition),
     transform var(--transition);
 }
 
@@ -138,29 +401,75 @@ body {
   transform: scale(0.98);
 }
 
-.btn-primary {
-  background: var(--accent);
-  color: #fff;
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
 }
 
-.btn-primary:hover {
+.btn-primary {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-grad-end) 100%);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
+  box-shadow: 0 4px 14px var(--accent-ring);
 }
 
 .btn-secondary {
   background: var(--bg-elevated);
   color: var(--text);
+  border-color: var(--border);
 }
 
-.btn-secondary:hover {
-  background: #2f2845;
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
 }
 
-/* ---- Чат ---- */
+/* Опасное действие («Да, отменить», «Удалить») */
+.btn-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Квадратная кнопка-иконка 44x44 (микрофон, «глаз» ключа и т.п.) */
+.btn-icon {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.btn-icon:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+/* ==========================================================================
+   Чат
+   ========================================================================== */
+
 .chat-header {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
 }
 
 .chat-status {
@@ -171,41 +480,126 @@ body {
 .chat-history {
   flex: 1;
   overflow-y: auto;
+  padding: 20px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Пузырь сообщения. Базовый — ответ помощника (слева, панельный). */
+.msg {
+  max-width: 78%;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  align-self: flex-start;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.msg-name {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+
+/* Пузырь пользователя: фиолетовый градиент, справа */
+.msg--user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-grad-end) 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+}
+
+/* Подпись «Помощник думает…» с пульсирующей точкой */
+.chat-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+  align-self: flex-start;
+}
+
+.chat-thinking::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .chat-input-row {
   display: flex;
   gap: 10px;
   align-items: flex-end;
-  padding-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
 .chat-input {
   flex: 1;
   min-height: 44px;
+  max-height: 160px;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--bg-panel);
   color: var(--text);
   font: inherit;
   resize: vertical;
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition),
+    background var(--transition);
+}
+
+.chat-input::placeholder {
+  color: var(--text-faint);
+}
+
+.chat-input:hover {
+  border-color: var(--border-strong);
 }
 
 .chat-input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .btn-send {
   width: 44px;
+  min-width: 44px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* ---- Настройки ---- */
+/* ==========================================================================
+   Настройки
+   ========================================================================== */
+
 .settings-form {
   display: flex;
   flex-direction: column;
@@ -222,19 +616,849 @@ body {
 .field-label {
   color: var(--text-dim);
   font-size: 14px;
+  font-weight: 500;
+}
+
+.field-hint {
+  color: var(--text-faint);
+  font-size: 12.5px;
+  margin: 0;
+}
+
+.field-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.field-row .field-input {
+  flex: 1;
 }
 
 .field-input {
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   background: var(--bg-panel);
   color: var(--text);
   font: inherit;
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition),
+    background var(--transition);
+}
+
+.field-input::placeholder {
+  color: var(--text-faint);
+}
+
+.field-input:hover {
+  border-color: var(--border-strong);
 }
 
 .field-input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* Переключатель «Тёмная тема» (checkbox → slider) */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  min-height: 44px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  border-radius: 13px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  flex-shrink: 0;
+  transition:
+    background var(--transition),
+    border-color var(--transition);
+}
+
+.switch-slider::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition:
+    transform var(--transition),
+    background var(--transition);
+}
+
+.switch input:checked + .switch-slider {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.switch input:checked + .switch-slider::after {
+  transform: translateX(20px);
+  background: #fff;
+}
+
+.switch input:focus-visible + .switch-slider {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+/* Плашки результата «Проверить соединение» */
+.notice {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  border: 1px solid transparent;
+}
+
+.notice--ok {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.3);
+  color: var(--ok);
+}
+
+.notice--fail {
+  background: var(--danger-soft);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: var(--danger);
+}
+
+/* ==========================================================================
+   Проекты: карточки
+   ========================================================================== */
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition),
+    background var(--transition);
+}
+
+.project-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.project-card-name {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+.project-card-meta {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin: 0;
+}
+
+.project-card .btn {
+  margin-top: 8px;
+  align-self: flex-start;
+}
+
+/* Статусы проекта — человеческие слова + цвет (см. copy-док) */
+.status {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.status--clean {
+  color: var(--ok);
+}
+
+.status--dirty {
+  color: var(--warn);
+}
+
+.status--stale {
+  color: var(--text-dim);
+}
+
+.status--failed {
+  color: var(--danger);
+}
+
+/* ==========================================================================
+   Чипы-подсказки, карточка ошибки, тосты, подтверждения
+   ========================================================================== */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.chip {
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition),
+    border-color var(--transition);
+}
+
+.chip:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* Карточка ошибки: заголовок → текст → кнопки; код мелким серым */
+.error-card {
+  max-width: 460px;
+  padding: 20px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.error-card-title {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.error-card-body {
+  margin: 0 0 16px;
+  color: var(--text-dim);
+  font-size: 14.5px;
+}
+
+.error-card-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.error-card-code {
+  margin: 14px 0 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* Тосты («Сохранено.», «Изменения записаны.») */
+.toast-stack {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 300;
+}
+
+.toast {
+  padding: 11px 18px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font-size: 14px;
+  animation: toast-in var(--transition);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Подтверждения (поверх затемнения) */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+
+html[data-theme="light"] .overlay {
+  background: rgba(24, 18, 43, 0.35);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 440px;
+  padding: 22px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+}
+
+.dialog-title {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+
+.dialog-body {
+  margin: 0 0 18px;
+  color: var(--text-dim);
+  font-size: 14.5px;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* Алиасы под разметку ProjectsScreen: .modal-* = .overlay + .dialog */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+
+html[data-theme="light"] .modal-overlay {
+  background: rgba(24, 18, 43, 0.35);
+}
+
+.modal {
+  width: 100%;
+  max-width: 440px;
+  padding: 22px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-title--block {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.modal-body {
+  margin: 0 0 18px;
+  color: var(--text-dim);
+  font-size: 14.5px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* Компактная кнопка внутри карточек/панелей (44px-правило не требуется) */
+.btn-small {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13.5px;
+}
+
+/* Кнопки внизу чата (микрофон/отправить) — не сжимать */
+.chat-btn {
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Утилиты
+   ========================================================================== */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================================
+   Адаптивность: минимум 800x600
+   ========================================================================== */
+
+@media (max-width: 880px) {
+  .screen {
+    padding: 20px 18px;
+  }
+
+  .screen--chat {
+    padding: 14px 16px 18px;
+  }
+
+  .screen-title {
+    font-size: 21px;
+  }
+
+  .msg {
+    max-width: 90%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   settings — экран «Настройки»: ошибки полей, глазок пароля, действия
+   ========================================================================== */
+
+/* Подсветка поля с ошибкой валидации */
+.field-input--invalid {
+  border-color: var(--danger);
+}
+
+.field-input--invalid:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+/* Текст ошибки под полем */
+.field-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+/* Поле ключа: input + кнопка-глаз внутри рамки */
+.field-password {
+  position: relative;
+  display: flex;
+}
+
+.field-password .field-input {
+  width: 100%;
+  padding-right: 46px;
+}
+
+.field-eye {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 4px);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+
+.field-eye:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.field-eye:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: -2px;
+}
+
+/* Ряд кнопок «Проверить соединение» / «Сохранить» */
+.settings-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.settings-actions .btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* projects */
+
+/* Строка под заголовком: «Папка: …» (путь обрезается многоточием) */
+.projects-dir {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Шапка карточки: иконка папки + имя */
+.project-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--accent);
+}
+
+.project-card-head .project-card-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Онбординг внутри экрана «Мои проекты» */
+.onboarding {
+  padding-top: 72px;
+}
+
+.onboarding-hint {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-faint);
+}
+
+.onboarding .error-card {
+  margin: 6px 0;
+  text-align: left;
+}
+
+.onboarding-steps {
+  margin: 22px 0 0;
+  font-size: 13px;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+
+/* ==================== chat ==================== */
+
+/* Шапка чата: назад + имя проекта + статус-плашка */
+.chat-header {
+  gap: 14px;
+  align-items: center;
+}
+
+
+/* Пустое состояние чата — по центру истории (flex-колонка) */
+.chat-history .empty-state {
+  margin: auto;
+}
+
+.chat-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+}
+
+.chat-title {
+  margin: 0;
+  font-size: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-applying {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-left: auto;
+}
+
+/* Статус-плашка проекта (цвета как на карточках проектов) */
+.status-pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-pill--clean { color: var(--ok); background: rgba(52, 211, 153, 0.12); }
+.status-pill--dirty { color: var(--warn); background: rgba(251, 191, 36, 0.12); }
+.status-pill--stale { color: var(--text-dim); background: var(--bg-hover); }
+.status-pill--failed { color: var(--danger); background: var(--danger-soft); }
+
+/* Внутренности пузыря (.msg — общий слой выше) */
+.msg-body {
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.msg-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  margin-left: 3px;
+  vertical-align: -2px;
+  background: var(--accent-hover);
+  border-radius: 2px;
+  animation: msg-blink 0.9s steps(1) infinite;
+}
+
+@keyframes msg-blink {
+  50% { opacity: 0; }
+}
+
+/* Мини-markdown в ответах помощника */
+.md-p {
+  margin: 0 0 8px;
+}
+
+.md-p:last-child {
+  margin-bottom: 0;
+}
+
+.md-list {
+  margin: 4px 0 8px;
+  padding-left: 22px;
+}
+
+.md-code {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.md-code code {
+  font-family: "Cascadia Code", Consolas, monospace;
+  white-space: pre;
+}
+
+.md-code-lang {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.md-code-inline {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 13px;
+}
+
+/* Панель изменённых файлов */
+.changes-panel {
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid var(--accent-ring);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+}
+
+.changes-title {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.changes-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.changes-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.changes-icon {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.changes-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl; /* обрезка пути слева — видно имя файла */
+  text-align: left;
+}
+
+.changes-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Карточка ошибки в чате (.error-card-* — общие) */
+.screen--chat .error-card {
+  margin-top: 10px;
+}
+
+.error-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-card-head .error-card-title {
+  margin: 0;
+}
+
+.error-card-icon {
+  color: var(--danger);
+  flex-shrink: 0;
+}
+
+/* Широкая модалка просмотра файла (.overlay/.dialog — общие) */
+.dialog--file {
+  max-width: 720px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.dialog-head .dialog-title {
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+
+.dialog-close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.file-preview {
+  margin: 0;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  overflow: auto;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-cursor {
+    animation: none;
+  }
 }

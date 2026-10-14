@@ -1,28 +1,75 @@
-import { useCallback, useState } from "react";
-import { scanProjects } from "../services/tauri";
+import { useCallback } from "react";
+import { pickFolder, scanProjects } from "../services/tauri";
 import { useAppStore } from "../stores/appStore";
+import { classifyFolderError } from "../stores/stateFns";
 
 /**
- * Загрузка карточек проектов из корневой папки.
- * Волна B: привязать к экрану «Мои проекты» и выбору папки (диалог).
+ * Карточки проектов: refresh() → services scan_projects (внутри — нормализация
+ * через computeStatus из core/scanner) → appStore. Хук только оркестрация.
  */
 export function useProjects() {
-  const { projectsRoot, projects, setProjects } = useAppStore();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const projects = useAppStore((s) => s.projects);
+  const projectsRoot = useAppStore((s) => s.projectsRoot);
+  const projectsScan = useAppStore((s) => s.projectsScan);
+  const projectsError = useAppStore((s) => s.projectsError);
+  const activeProject = useAppStore((s) => s.activeProject);
 
   const refresh = useCallback(async () => {
-    if (!projectsRoot) return;
-    setLoading(true);
-    setError(null);
-    try {
-      setProjects(await scanProjects(projectsRoot));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось загрузить проекты");
-    } finally {
-      setLoading(false);
+    const st = useAppStore.getState();
+    const root = st.projectsRoot;
+    if (!root) {
+      st.setProjectsScan("idle");
+      return;
     }
-  }, [projectsRoot, setProjects]);
+    st.setProjectsScan("scanning");
+    try {
+      const cards = await scanProjects(root);
+      st.setProjects(cards);
+      st.setProjectsScan("done");
+    } catch (e) {
+      st.setProjectsScan("error", classifyFolderError(e));
+    }
+  }, []);
 
-  return { projects, loading, error, refresh };
+  /** Записать выбранную папку (персистит) и пересканировать. */
+  const selectFolder = useCallback(
+    async (path: string) => {
+      useAppStore.getState().setProjectsRoot(path || null);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  /** Нативный диалог → selectFolder. true — папка выбрана. */
+  const pickAndSelect = useCallback(async (): Promise<boolean> => {
+    const dir = await pickFolder();
+    if (!dir) return false;
+    await selectFolder(dir);
+    return true;
+  }, [selectFolder]);
+
+  /** Открыть проект в чате (только store; навигация — у экрана). */
+  const openProject = useCallback((path: string) => {
+    useAppStore.getState().openProject(path);
+  }, []);
+
+  const dismissError = useCallback(() => {
+    const st = useAppStore.getState();
+    if (st.projectsScan === "error") st.setProjectsScan("done", null);
+    else st.setProjectsScan(st.projectsScan, null);
+  }, []);
+
+  return {
+    projects,
+    projectsRoot,
+    activeProject,
+    loading: projectsScan === "scanning",
+    scanState: projectsScan,
+    error: projectsError,
+    refresh,
+    selectFolder,
+    pickAndSelect,
+    openProject,
+    dismissError,
+  };
 }

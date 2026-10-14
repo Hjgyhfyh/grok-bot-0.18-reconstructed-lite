@@ -3,5 +3,15 @@
   "identifier": "default",
   "description": "Разрешения главного окна",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "fs:default",
+    "fs:read-all",
+    "fs:write-all",
+    {
+      "identifier": "fs:scope",
+      "allow": ["**"]
+    }
+  ]
 }
