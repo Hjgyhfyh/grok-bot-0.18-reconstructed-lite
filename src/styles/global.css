@@ -1,0 +1,240 @@
+/* Тёмная тема, один акцентный цвет — фиолетовый. */
+:root {
+  --bg: #14111c;
+  --bg-panel: #1d1929;
+  --bg-elevated: #251f35;
+  --text: #f0edf7;
+  --text-dim: #9a92ad;
+  --accent: #8b5cf6;
+  --accent-hover: #a78bfa;
+  --danger: #f87171;
+  --ok: #34d399;
+  --radius: 12px;
+  --transition: 150ms ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.app-shell {
+  display: flex;
+  height: 100%;
+}
+
+/* ---- Сайдбар: только иконки, без текста ---- */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 68px;
+  padding: 12px;
+  background: var(--bg-panel);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+
+.sidebar-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.sidebar-btn--active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ---- Экраны ---- */
+.screen {
+  padding: 24px 28px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.screen--chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: none;
+}
+
+.screen-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 20px;
+}
+
+/* ---- Пустые состояния ---- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.empty-state-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 8px 0 0;
+}
+
+.empty-state-hint {
+  max-width: 420px;
+  margin: 0 0 12px;
+}
+
+/* ---- Кнопки: минимум 44px ---- */
+.btn {
+  min-height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    transform var(--transition);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.btn-secondary:hover {
+  background: #2f2845;
+}
+
+/* ---- Чат ---- */
+.chat-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.chat-status {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.chat-history {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  padding-top: 12px;
+}
+
+.chat-input {
+  flex: 1;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.chat-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn-send {
+  width: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Настройки ---- */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 480px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.field-input {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.field-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

@@ -1,0 +1,21 @@
+# Зависимости
+node_modules/
+.pnpm-store/
+
+# Сборка фронтенда
+dist/
+dist-ssr/
+
+# Сборка Tauri/Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Секреты — зашитый ключ НЕ коммитим, только пример
+.env
+.env.local
+*.local
+
+# Логи и мусор ОС
+*.log
+.DS_Store
+Thumbs.db

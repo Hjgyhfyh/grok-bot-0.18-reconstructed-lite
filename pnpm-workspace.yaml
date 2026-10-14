@@ -1,0 +1,5 @@
+# Корневой маркер pnpm-проекта. Перекрывает allowBuilds-заглушки
+# из C:\Users\lesab\pnpm-workspace.yaml, которые иначе ломают install
+# (ERR_PNPM_IGNORED_BUILDS для пакетов, которых здесь вообще нет).
+allowBuilds:
+  esbuild: true
