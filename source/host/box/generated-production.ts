@@ -36,7 +36,7 @@ import type {
   ProductionBoxControlClient,
   ProductionBoxGeneratedPorts
 } from "./production.js";
-import type { ShellAccessor } from "./box-windows.js";
+import type { ShellAccessor } from "./box-capabilities.js";
 
 /**
  * Exact package versions visible in the immutable 0.18 host bundle markers.
