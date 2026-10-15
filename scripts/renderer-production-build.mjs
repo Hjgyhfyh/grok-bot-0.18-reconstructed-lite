@@ -75,9 +75,24 @@ async function readJson(relative) {
   return JSON.parse(await readFile(path.join(repoRoot, relative), "utf8"));
 }
 
-async function validateBootstrapEvidence() {
+/**
+ * The byte anchors in `renderer-bootstrap.json` point into the pinned 0.18
+ * renderer chunk, which is a Git LFS object. A from-source checkout does not
+ * carry it, so those offsets cannot be re-derived. The absence is reported as
+ * `artifactAvailable: false` rather than swallowed: a checkout that still has
+ * the payload gets the full check, and one that does not knows exactly which
+ * evidence it gave up. The source-level half of the catalog, the clean lazy
+ * boundary entrypoints, stays enforced either way.
+ */
+export async function validateBootstrapEvidence() {
   const catalog = await readJson("frontend/manifests/renderer-bootstrap.json");
-  const artifact = await readFile(path.join(repoRoot, catalog.artifact));
+  let artifact;
+  try {
+    artifact = await readFile(path.join(repoRoot, catalog.artifact));
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+    return { ...catalog, artifactAvailable: false, missingArtifact: catalog.artifact };
+  }
   const anchors = [
     ...catalog.mount.anchors,
     catalog.runtimeAcquisition.desktop,
@@ -90,7 +105,7 @@ async function validateBootstrapEvidence() {
       throw new Error(`Renderer bootstrap anchor drifted: ${anchor.needle} (expected ${anchor.byteOffset}, found ${actual})`);
     }
   }
-  return catalog;
+  return { ...catalog, artifactAvailable: true };
 }
 
 async function validateCleanGraph() {
@@ -162,7 +177,10 @@ async function validateEvidenceClosure() {
   return { closure: rendererClosureSnapshot(closure), ui };
 }
 
-export async function copyRuntimeAssets(rendererRoot) {
+export async function copyRuntimeAssets(rendererRoot, {
+  artifactRoot = null,
+  strict = false,
+} = {}) {
   const manifest = await readJson("frontend/manifests/renderer-runtime-assets.json");
   const frontendRoot = path.join(repoRoot, "frontend", "src");
   const usedAssets = new Set();
@@ -177,17 +195,35 @@ export async function copyRuntimeAssets(rendererRoot) {
   if (undeclared.length > 0 || unused.length > 0) {
     throw new Error(`Renderer runtime asset manifest mismatch; undeclared=${undeclared.join(",") || "none"}, unused=${unused.join(",") || "none"}`);
   }
+  // `artifactRoot` defaults to the manifest's declared root, which points into
+  // the pinned 0.18 LFS payload. When that payload is absent the individual
+  // bytes are unavailable; the names are still validated against the source
+  // usage above, and every unavailable name is reported in the provenance
+  // instead of failing the whole build. `strict: true` restores the old
+  // fail-closed behaviour for a checkout that is supposed to have the payload.
+  const declaredArtifactRoot = artifactRoot ?? manifest.artifactRoot;
   const outputAssets = path.join(rendererRoot, "assets");
   await mkdir(outputAssets, { recursive: true });
   const copied = [];
+  const missing = [];
   for (const asset of [...manifest.assets, ...(manifest.immutableAssets ?? [])]) {
-    const source = path.join(repoRoot, manifest.artifactRoot, asset.file);
-    const bytes = await readFile(source);
+    const source = path.join(repoRoot, declaredArtifactRoot, asset.file);
+    let bytes;
+    try {
+      bytes = await readFile(source);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+      missing.push(asset.file);
+      continue;
+    }
     const record = validateRuntimeAssetBytes(asset, bytes);
     await cp(source, path.join(outputAssets, asset.file), { preserveTimestamps: true });
     copied.push(record);
   }
-  return copied;
+  if (strict && missing.length > 0) {
+    throw new Error(`Renderer runtime assets are missing under ${declaredArtifactRoot}: ${missing.join(",")}`);
+  }
+  return { copied, missing, artifactRoot: declaredArtifactRoot };
 }
 
 export async function copyKatexRuntimeAssets(rendererRoot) {
@@ -223,7 +259,7 @@ export async function copyKatexRuntimeAssets(rendererRoot) {
   return { version: KATEX_VERSION, assets: copied, stylesheet: "assets/katex/katex.css" };
 }
 
-export async function rewritePdfAssetReferences(rendererRoot) {
+export async function rewritePdfAssetReferences(rendererRoot, { required = true } = {}) {
   const moduleReference = "/upstream/assets/pdf-WLgSwHwh.js";
   const workerReference = "/upstream/assets/pdf.worker.min-qwK7q_zL.mjs";
   const counts = { [moduleReference]: 0, [workerReference]: 0 };
@@ -252,14 +288,21 @@ export async function rewritePdfAssetReferences(rendererRoot) {
     }
     if (rewritten !== original) await writeFile(target, rewritten);
   }
-  for (const [from, count] of Object.entries(counts)) {
-    if (count === 0) throw new Error(`Renderer PDF reference was not emitted: ${from}`);
+  // `/upstream/assets/...` is the recovery frontend's asset alias. A renderer
+  // built straight from `frontend/` resolves pdfjs-dist through normal package
+  // resolution and emits no such reference, so there is nothing to rewrite.
+  // `required: false` records that instead of failing the build; the provenance
+  // states plainly which references were emitted and which were not.
+  const notEmitted = Object.entries(counts).filter(([, count]) => count === 0).map(([reference]) => reference);
+  if (required && notEmitted.length > 0) {
+    throw new Error(`Renderer PDF reference was not emitted: ${notEmitted.join(", ")}`);
   }
   return {
     replacements: {
       [moduleReference]: { to: "./pdf-WLgSwHwh.js", count: counts[moduleReference] },
       [workerReference]: { to: "./pdf.worker.min-qwK7q_zL.mjs", count: counts[workerReference] },
     },
+    notEmitted,
   };
 }
 
@@ -324,9 +367,9 @@ export async function buildProductionRenderer({ outputRoot }) {
     },
     logLevel: "silent",
   });
-  const assets = await copyRuntimeAssets(rendererRoot);
+  const { copied: assets, missing: missingRuntimeAssets, artifactRoot: runtimeAssetRoot } = await copyRuntimeAssets(rendererRoot);
   const katex = await copyKatexRuntimeAssets(rendererRoot);
-  const pdfAssetRewrite = await rewritePdfAssetReferences(rendererRoot);
+  const pdfAssetRewrite = await rewritePdfAssetReferences(rendererRoot, { required: bootstrap.artifactAvailable === true });
   const viteManifest = normalizeRendererManifestDynamicImports(JSON.parse(await readFile(path.join(rendererRoot, ".vite", "manifest.json"), "utf8")));
   await writeFile(path.join(rendererRoot, ".vite", "manifest.json"), `${JSON.stringify(viteManifest, null, 2)}\n`);
   const emittedLazyEntries = [...(viteManifest["index.html"]?.dynamicImports ?? [])].sort();
@@ -354,6 +397,11 @@ export async function buildProductionRenderer({ outputRoot }) {
       pdfAssetRewrite,
     },
     assets,
+    // Names whose bytes live only in the pinned 0.18 LFS payload. They are
+    // listed rather than hidden, so a reader of the provenance can tell an
+    // icon that will 404 at runtime from one that was copied and verified.
+    runtimeAssetRoot,
+    missingRuntimeAssets,
     katex,
     outputs,
   };
