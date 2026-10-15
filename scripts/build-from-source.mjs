@@ -58,22 +58,24 @@ const builtinSet = new Set(builtinModules.flatMap(name => [
  * Префикс, который ставится в начало бандля основного процесса.
  *
  * Раньше здесь стоял `applyReconstructedUpdaterGuard` из `scripts/lib/build-asar.mjs`:
- * он безусловно выставлял `SAND_DISABLE_UPDATES=1`. Для Lite это неверно —
- * пользователь требует, чтобы обновления приезжали сами, а с этим флагом
- * выключался и штатный апдейтер, и новый `source/electron-main/updater/**`.
+ * он безусловно выставлял `SAND_DISABLE_UPDATES=1`. Для Lite это ОБЯЗАТЕЛЬНО:
+ * в коде `DB_BOT_DISABLE_RECONSTRUCTED_UPDATES` ничего не читает — единственный
+ * флаг, который реально гасит сервис обновлений исходного Grok Bot
+ * (`sand-update-service.ts` -> `computeUpdateDisabledReason`), это
+ * `SAND_DISABLE_UPDATES`. Без него упакованное приложение идёт на ленту
+ * api2.cursor.sh, получает «версия ниже минимальной» и ПРИНУДИТЕЛЬНО скачивает
+ * оригинальный Grok Bot поверх нашей сборки (реальная поломка 0.18.0).
+ * Свой апдейтер Lite (`source/electron-main/updater/**`, electron-updater)
+ * этим флагом не затрагивается — он отдельный код и читает `DB_BOT_AUTO_UPDATE`.
  *
- * Что осталось и почему:
  *   * Sentry и телеметрия наружу не уходят никогда (`AGENTS.md` §3). Это
  *     два фоновых таймера в главном процессе, а не только запрет на сеть.
- *   * `DB_BOT_DISABLE_RECONSTRUCTED_UPDATES` выключает сервис обновлений
- *     исходного Grok Bot: он опрашивает чужую ленту `api2.cursor.sh` и
- *     поднимает локальный HTTP-сервер Squirrel. Своего апдейтера Lite он не
- *     касается — тот читает `DB_BOT_AUTO_UPDATE`.
  */
 export const liteServiceGuard = [
   "// DB Bot Lite guard: no external telemetry, no upstream update feed.",
   "process.env.SAND_DISABLE_SENTRY ??= \"1\";",
   "process.env.SAND_DISABLE_TELEMETRY ??= \"1\";",
+  "process.env.SAND_DISABLE_UPDATES ??= \"1\";",
   "process.env.DB_BOT_DISABLE_RECONSTRUCTED_UPDATES ??= \"1\";",
   ""
 ].join("\n");
