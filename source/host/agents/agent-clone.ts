@@ -17,7 +17,10 @@ export function cloneAgentDir(sourceDir: string, targetDir: string, newAgentId: 
   try {
     const store = join(sourceDir, STORE_FILENAME); if (!existsSync(store)) throw new SandAgentCloneError("This agent's data is missing and can't be duplicated."); adapters.checkpointStore(store); copyFileSync(store, join(targetDir, STORE_FILENAME));
     const profile = readSandProfileFile(getSandProfilePath(sourceDir)); writeSandProfileFile(getSandProfilePath(targetDir), { name: cloneName, description: profile?.description ?? "", title: profile?.title ?? "", avatarShape: profile?.avatarShape ?? "", avatarColor: profile?.avatarColor ?? "" });
-    copyIfPresent(getSandSettingsPath(sourceDir), getSandSettingsPath(targetDir)); writeSandSettingsFile(getSandSettingsPath(targetDir), { hiddenFromSidebar: false });
+    // `undeletable` is cleared, not copied: the flag protects the one seeded
+    // record by identity, and a duplicate of it is a new ordinary agent the
+    // user must still be able to remove.
+    copyIfPresent(getSandSettingsPath(sourceDir), getSandSettingsPath(targetDir)); writeSandSettingsFile(getSandSettingsPath(targetDir), { hiddenFromSidebar: false, undeletable: false });
     copyIfPresent(getAgentWorkflowEnablementPath(sourceDir), getAgentWorkflowEnablementPath(targetDir));
     resolveDerivedAvatarFilename(sourceDir, readLegacyProfileAvatarField(getSandProfilePath(sourceDir))); for (const name of listConventionalAvatarFilenames(sourceDir)) copyFileSync(join(sourceDir, name), join(targetDir, name));
     for (const entry of listAgentAutomationConfigFiles(adapters.getAutomationsDir(sourceDir))) { const destination = join(adapters.getAutomationsDir(targetDir), entry.folderName); mkdirSync(destination, { recursive: true }); copyFileSync(entry.configPath, join(destination, AUTOMATION_CONFIG_FILENAME)); }

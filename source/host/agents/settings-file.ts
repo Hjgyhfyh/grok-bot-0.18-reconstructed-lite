@@ -4,8 +4,9 @@ import { dirname, join } from "node:path";
 export const SAND_SETTINGS_FILENAME = "settings.json";
 export const DEFAULT_NOTIFY_ON_AGENT_UPDATES = true;
 export const DEFAULT_HIDDEN_FROM_SIDEBAR = false;
+export const DEFAULT_UNDELETABLE = false;
 
-export interface SandAgentSettings { notifyOnAgentUpdates: boolean; hiddenFromSidebar: boolean }
+export interface SandAgentSettings { notifyOnAgentUpdates: boolean; hiddenFromSidebar: boolean; undeletable: boolean }
 
 export function getSandSettingsPath(agentDir: string): string { return join(agentDir, SAND_SETTINGS_FILENAME); }
 
@@ -34,7 +35,8 @@ export function readSandSettingsFile(path: string): SandAgentSettings {
   const raw = readRawSettings(path);
   return {
     notifyOnAgentUpdates: typeof raw.notifyOnAgentUpdates === "boolean" ? raw.notifyOnAgentUpdates : DEFAULT_NOTIFY_ON_AGENT_UPDATES,
-    hiddenFromSidebar: typeof raw.hiddenFromSidebar === "boolean" ? raw.hiddenFromSidebar : DEFAULT_HIDDEN_FROM_SIDEBAR
+    hiddenFromSidebar: typeof raw.hiddenFromSidebar === "boolean" ? raw.hiddenFromSidebar : DEFAULT_HIDDEN_FROM_SIDEBAR,
+    undeletable: typeof raw.undeletable === "boolean" ? raw.undeletable : DEFAULT_UNDELETABLE
   };
 }
 

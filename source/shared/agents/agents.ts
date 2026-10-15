@@ -1,4 +1,4 @@
-export const SAND_AGENT_PURPOSES = ["disk-saver", "plugin-auth"] as const;
+export const SAND_AGENT_PURPOSES = ["disk-saver", "plugin-auth", "main-agent"] as const;
 export type SandAgentPurpose = (typeof SAND_AGENT_PURPOSES)[number];
 
 export function isSandAgentPurpose(value: unknown): value is SandAgentPurpose {
