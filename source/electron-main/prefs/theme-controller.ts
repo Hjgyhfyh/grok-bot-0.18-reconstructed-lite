@@ -1,25 +1,35 @@
-import type { SandThemePreference } from "../../shared/desktop.js";
+import { SAND_THEME_LABELS, type SandThemePreference } from "../../shared/desktop.js";
 
-export type SandResolvedTheme = "light" | "dark";
+/** Разрешённая тема равна выбранному варианту: тёмных тем нет, системная тема не читается. */
+export type SandResolvedTheme = SandThemePreference;
 export interface SandThemeState { readonly preference: SandThemePreference; readonly resolved: SandResolvedTheme }
 export interface SandThemeSettingsStore {
   getThemePreference(): SandThemePreference;
   setThemePreference(preference: SandThemePreference): void;
 }
+/** Собственный тип Electron: main-процесс всегда просит светлый colorScheme. */
+export type SandNativeThemeSource = "system" | "light" | "dark";
 export interface NativeThemePort {
-  themeSource: SandThemePreference;
+  themeSource: SandNativeThemeSource;
   readonly shouldUseDarkColors: boolean;
   on(event: "updated", listener: () => void): void;
   removeListener(event: "updated", listener: () => void): void;
 }
 
+/** Цвет окна Electron до первого кадра рендерера. Взят из палитры варианта. */
 export const WINDOW_BACKGROUND_BY_THEME: Readonly<Record<SandResolvedTheme, string>> = {
-  light: "#FCFCFC",
-  dark: "#0B0B0B",
+  "light-white": "#FFFFFF",
+  milk: "#FBF7F1",
+  smoke: "#F2F4F6",
+  sky: "#EFF5FD"
 };
 
 export function windowBackgroundColorForResolvedTheme(theme: SandResolvedTheme): string {
   return WINDOW_BACKGROUND_BY_THEME[theme];
+}
+
+export function themeLabel(theme: SandThemePreference): string {
+  return SAND_THEME_LABELS[theme];
 }
 
 export class SandThemeController {
@@ -32,8 +42,8 @@ export class SandThemeController {
     this.#settingsStore = settingsStore;
     this.#broadcastState = broadcastState;
     this.#nativeTheme = nativeTheme;
-    this.#nativeTheme.themeSource = this.#settingsStore.getThemePreference();
-    this.#nativeTheme.on("updated", this.#handleNativeThemeUpdated);
+    // Системная тема не используется: нативные элементы окна всегда светлые.
+    this.#nativeTheme.themeSource = "light";
   }
 
   getState(): SandThemeState {
@@ -41,9 +51,11 @@ export class SandThemeController {
   }
 
   setPreference(preference: SandThemePreference): SandThemeState {
+    if (this.#disposed) throw new Error("Sand theme controller is disposed.");
     this.#settingsStore.setThemePreference(preference);
-    this.#nativeTheme.themeSource = preference;
-    return this.getState();
+    const state = this.getState();
+    this.#broadcastState(state);
+    return state;
   }
 
   getWindowBackgroundColor(): string {
@@ -51,13 +63,8 @@ export class SandThemeController {
   }
 
   dispose(): void {
-    if (this.#disposed) return;
     this.#disposed = true;
-    this.#nativeTheme.removeListener("updated", this.#handleNativeThemeUpdated);
   }
 
-  readonly #handleNativeThemeUpdated = (): void => {
-    if (!this.#disposed) this.#broadcastState(this.getState());
-  };
-  #resolveTheme(): SandResolvedTheme { return this.#nativeTheme.shouldUseDarkColors ? "dark" : "light"; }
+  #resolveTheme(): SandResolvedTheme { return this.#settingsStore.getThemePreference(); }
 }

@@ -8,7 +8,7 @@
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: var(--cursor-font-family-sans);
   font-synthesis: none;
   background: var(--cursor-bg-editor);
