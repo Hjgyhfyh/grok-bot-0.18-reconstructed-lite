@@ -59,28 +59,37 @@ export type ComputerUpdateConfirmationResult =
   | { readonly kind: "cancelled" }
   | { readonly kind: "stale" };
 
-const UPDATE_UNTRACKABLE_COPY = "The computer update started, but Grok Bot can't track its progress. Restart Grok Bot after the computer is available again.";
+const UPDATE_UNTRACKABLE_COPY = "Обновление компьютера запущено, но DB Bot не может показать его ход. Перезапустите DB Bot, когда компьютер снова будет доступен.";
+
+function pluralAgents(count: number): string {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return `${count} помощников`;
+  if (last === 1) return `${count} помощник`;
+  if (last >= 2 && last <= 4) return `${count} помощника`;
+  return `${count} помощников`;
+}
 
 function formatOtherAgents(count: number): string {
-  return `${count} other ${count === 1 ? "agent" : "agents"}`;
+  return `ещё ${pluralAgents(count)}`;
 }
 
 function formatWorkingAgents(names: readonly string[]): string {
   const cleaned = names.map((name) => name.trim()).filter((name) => name.length > 0);
   const [first, second] = cleaned;
-  if (first == null) return `${names.length} agents`;
+  if (first == null) return pluralAgents(names.length);
   const remaining = names.length - (second == null ? 1 : 2);
-  if (second == null) return `${first} and ${formatOtherAgents(remaining)}`;
-  if (remaining === 0) return `${first} and ${second}`;
-  return `${first}, ${second}, and ${formatOtherAgents(remaining)}`;
+  if (second == null) return `${first} и ${formatOtherAgents(remaining)}`;
+  if (remaining === 0) return `${first} и ${second}`;
+  return `${first}, ${second} и ${formatOtherAgents(remaining)}`;
 }
 
 function workingDescription(names: readonly string[]): string {
   if (names.length > 1) {
-    return `${formatWorkingAgents(names)} are working on Grok Bot's computer right now. Updating recreates the computer and interrupts their current turns. Files and logins are kept.`;
+    return `${formatWorkingAgents(names)} сейчас работают на компьютере DB Bot. Обновление пересоздаст компьютер и прервёт их текущую работу. Файлы и логины сохранятся.`;
   }
   const name = (names[0] ?? "").trim();
-  return `${name.length > 0 ? `${name} is` : "An agent is"} working right now. Waiting lets its current turn finish. Updating now recreates the computer and interrupts it. Files and logins are kept either way.`;
+  return `${name.length > 0 ? `${name} сейчас работает` : "Один из помощников сейчас работает"}. Если подождать, текущий шаг завершится. Обновление сейчас пересоздаст компьютер и прервёт его. Файлы и логины сохранятся в любом случае.`;
 }
 
 /** Exact K1t/FAe content projection; null means HOn omits the command. */
@@ -91,25 +100,25 @@ export function projectComputerUpdateConfirmationContent(
   if (action == null) return null;
   if (action === "ready") {
     return {
-      title: "Update Grok Bot's Computer?",
-      description: "This updates the shared computer all your agents run on to the latest version. Their files and logins are kept.",
-      confirmLabel: "Update Grok Bot's Computer",
-      cancelLabel: "Not now",
+      title: "Обновить компьютер DB Bot?",
+      description: "Это обновит общий компьютер, на котором работают все ваши помощники, до последней версии. Файлы и логины сохранятся.",
+      confirmLabel: "Обновить компьютер DB Bot",
+      cancelLabel: "Не сейчас",
       width: "wide"
     };
   }
   return {
     title: namesForWorkingTitle(workingAgentNames),
     description: workingDescription(workingAgentNames),
-    confirmLabel: workingAgentNames.length > 1 ? "Update when agents are done" : "Update when done",
-    secondary: { label: "Update anyway", destructive: true },
-    cancelLabel: "Cancel",
+    confirmLabel: workingAgentNames.length > 1 ? "Обновить, когда помощники закончат" : "Обновить после завершения",
+    secondary: { label: "Обновить всё равно", destructive: true },
+    cancelLabel: "Отмена",
     width: "wide"
   };
 }
 
 function namesForWorkingTitle(names: readonly string[]): string {
-  return names.length > 1 ? "Update while agents are working?" : "An agent is working";
+  return names.length > 1 ? "Обновить, пока помощники работают?" : "Помощник сейчас работает";
 }
 
 function hasBlockedUpdate(context: ComputerUpdateConfirmationContext): boolean {

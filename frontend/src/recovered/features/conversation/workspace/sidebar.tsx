@@ -98,16 +98,16 @@ export interface SidebarSelectionActionsProps {
 
 function relativeTime(updatedAt: number, now: number): string {
   const seconds = Math.max(0, Math.round((now - updatedAt) / 1000));
-  if (seconds < 60) return "now";
+  if (seconds < 60) return "сейчас";
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return `${minutes} мин`;
   const hours = Math.round(minutes / 60);
-  return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+  return hours < 24 ? `${hours} ч` : `${Math.round(hours / 24)} дн`;
 }
 
-function activityLabel(agent: SidebarAgent): "Needs attention" | "Unread activity" | "Working" | null {
+function activityLabel(agent: SidebarAgent): "Нужен ваш ответ" | "Есть новые записи" | "Работает" | null {
   const status = projectSidebarAgentStatus(agent);
-  return status.markerLabel ?? (status.isWorking ? "Working" : null);
+  return status.markerLabel ?? (status.isWorking ? "Работает" : null);
 }
 
 function renderPreviewAvatar(agent: SidebarAgent, avatar: AgentPreviewAvatarProjection): ReactNode {
@@ -127,16 +127,16 @@ export function AgentSidebarHeader({ onBroadcast, onNewChat, onOpenNetwork, onOp
       <header className="sand-agents-sidebar__header">
         <div className={isCollapsed ? "sand-agents-sidebar__rail-new" : "sand-agents-sidebar__new-actions"}>
           {!isCollapsed && hasCollaborationActions ? <>
-            <SandIconButton aria-label="Broadcast to agents" className="sand-agents-sidebar__broadcast" icon="megaphone" label="Broadcast to agents" onClick={onBroadcast} size="sm" />
+            <SandIconButton aria-label="Отправить всем помощникам" className="sand-agents-sidebar__broadcast" icon="megaphone" label="Отправить всем помощникам" onClick={onBroadcast} size="sm" />
             {onOpenNetwork == null ? null : <SandIconButton aria-label={AGENT_NETWORK_TRIGGER.ariaLabel} className={AGENT_NETWORK_TRIGGER.className} icon={AGENT_NETWORK_TRIGGER.icon} label={AGENT_NETWORK_TRIGGER.ariaLabel} onClick={onOpenNetwork} size="sm" />}
           </> : null}
           {/* @evidence src/app/dist/renderer/assets/index-UbX-y3il.js bytes 2358208-2358400 */}
           {/* u0n: exact New chat button aria label, DOM class, native button semantics, and callback seam. */}
-          <SandIconButton aria-label="New" className="sand-agents-sidebar__new" icon="plus" label="New" onClick={onNewChat} size="sm" shape={isCollapsed ? "circle" : "square"} title="New chat" />
+          <SandIconButton aria-label="Новый" className="sand-agents-sidebar__new" icon="plus" label="Новый" onClick={onNewChat} size="sm" shape={isCollapsed ? "circle" : "square"} title="Новый диалог" />
         </div>
       </header>
       {/* @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2605212 (a0n search control; sibling of the header) */}
-      {!isCollapsed && onOpenSearch != null ? <SandButton aria-label="Search" className="sand-agents-sidebar__search" onClick={onOpenSearch.onClick} onKeyDown={onOpenSearch.onKeyDown} size="md" variant="secondary"><SandIcon name="search" size="md" />Search</SandButton> : null}
+      {!isCollapsed && onOpenSearch != null ? <SandButton aria-label="Поиск" className="sand-agents-sidebar__search" onClick={onOpenSearch.onClick} onKeyDown={onOpenSearch.onKeyDown} size="md" variant="secondary"><SandIcon name="search" size="md" />Поиск</SandButton> : null}
     </>
   );
 }
@@ -146,8 +146,8 @@ export function SidebarSelectionActions({ selectedAgentIds, selectedSectionableC
   const selectedCount = selectedAgentIds.length;
   const canMove = selectedSectionableCount > 0 && (onMoveSelectedAgentsToSection != null || onMoveSelectedAgentsToNewSection != null);
   const canMoveToExisting = canMove && sections != null && sections.length > 0 && onMoveSelectedAgentsToSection != null;
-  const moveLabel = selectedCount === 1 ? "Move selected agent to section" : `Move ${selectedCount} selected agents to section`;
-  const deleteLabel = selectedCount === 1 ? "Delete selected agent" : `Delete ${selectedCount} selected agents`;
+  const moveLabel = selectedCount === 1 ? "Переместить помощника в раздел" : `Переместить выбранных (${selectedCount}) в раздел`;
+  const deleteLabel = selectedCount === 1 ? "Удалить помощника" : `Удалить выбранных (${selectedCount})`;
 
   const closeMoveMenu = () => {
     setMoveMenuOpen(false);
@@ -161,14 +161,14 @@ export function SidebarSelectionActions({ selectedAgentIds, selectedSectionableC
 
   return <header className="sand-agents-sidebar__header sand-agents-sidebar__selection-actions">
     {canMove ? <SandMenuRoot closeOnSelect={false} onOpenChange={setMoveMenuOpen} open={moveMenuOpen} placement="bottom-start">
-      <SandMenuTrigger><SandButton aria-label={moveLabel} size="sm" variant="secondary">Move</SandButton></SandMenuTrigger>
-      <SandMenuContent ariaLabel="Move to section">
+      <SandMenuTrigger><SandButton aria-label={moveLabel} size="sm" variant="secondary">Переместить</SandButton></SandMenuTrigger>
+      <SandMenuContent ariaLabel="Переместить в раздел">
         {canMoveToExisting ? sections?.map((section, index) => <SandMenuItem index={index} key={section.id} onSelect={() => { onMoveSelectedAgentsToSection?.(selectedAgentIds, section.id); closeMoveMenu(); }}>{section.name}</SandMenuItem>) : null}
-        {onMoveSelectedAgentsToNewSection == null ? null : <SandMenuItem index={sections?.length ?? 0} onSelect={moveToNewSection}>New section</SandMenuItem>}
+        {onMoveSelectedAgentsToNewSection == null ? null : <SandMenuItem index={sections?.length ?? 0} onSelect={moveToNewSection}>Новый раздел</SandMenuItem>}
       </SandMenuContent>
     </SandMenuRoot> : null}
-    {onDeleteSelectedAgents == null ? null : <SandButton aria-label={deleteLabel} onClick={onDeleteSelectedAgents} sentiment="danger" size="sm">Delete</SandButton>}
-    {onClearAgentSelection == null ? null : <SandButton aria-label="Clear selection" onClick={onClearAgentSelection} size="sm" variant="secondary">Clear</SandButton>}
+    {onDeleteSelectedAgents == null ? null : <SandButton aria-label={deleteLabel} onClick={onDeleteSelectedAgents} sentiment="danger" size="sm">Удалить</SandButton>}
+    {onClearAgentSelection == null ? null : <SandButton aria-label="Снять выделение" onClick={onClearAgentSelection} size="sm" variant="secondary">Снять</SandButton>}
   </header>;
 }
 
@@ -208,9 +208,9 @@ export function AgentSidebarItem({ agent, active, now, isCollapsed = false, isSe
   const rowLayout = agent.isPinned === true ? "pinned" : isCollapsed ? "collapsed" : "expanded";
   const canMoveToSection = !agent.isPinned && sourceSectionId != null && onMoveAgentToSection != null;
   const detail = agent.draftPrompt?.trim()
-      ? <>Draft: {agent.draftPrompt}</>
+      ? <>Черновик: {agent.draftPrompt}</>
       : agent.waitingReason
-        ? <>Waiting for you: {agent.waitingReason}</>
+        ? <>Ждёт вашего ответа: {agent.waitingReason}</>
       : agent.lastMessage ?? null;
   const row = <button
     aria-label={agent.name}
@@ -272,7 +272,7 @@ export function AgentSidebarItem({ agent, active, now, isCollapsed = false, isSe
     {isCollapsed ? null : <>
       <span className="sand-agent-item__body">
         <strong className="sand-agent-item__name">{isRenaming ? <AgentNameEditor initialValue={agent.name} onCommit={(name) => onRename?.(agent.id, name)} onExit={() => setIsRenaming(false)} /> : agent.name}</strong>
-        {status.isWorking || activity === "Working"
+        {status.isWorking || activity === "Работает"
           ? <SidebarAgentActivity preview={agent.lastMessage ?? null} previewTitle={agent.lastMessage ?? undefined} />
           : detail == null ? null : <small className="sand-agent-item__preview">{detail}</small>}
       </span>
@@ -342,7 +342,7 @@ export function SidebarResizeHandle({ onResize, onResizeEnd }: SidebarResizeHand
     target.addEventListener("lostpointercapture", cleanup);
   };
   useEffect(() => () => cleanupRef.current?.(), []);
-  return <div aria-label="Resize sidebar" aria-orientation="vertical" className="sand-sidebar-resize-handle" onPointerDown={onPointerDown} role="separator" />;
+  return <div aria-label="Изменить ширину панели" aria-orientation="vertical" className="sand-sidebar-resize-handle" onPointerDown={onPointerDown} role="separator" />;
 }
 
 function SidebarSectionActions({
@@ -376,17 +376,17 @@ function SidebarSectionActions({
   >{children}</div>;
   return <SandContextMenu
     children={trigger}
-    content={<div aria-label="Section actions">
-      <SandMenuItem disabled={onStartRename == null} index={0} onSelect={onStartRename}>Rename</SandMenuItem>
+    content={<div aria-label="Действия с разделом">
+      <SandMenuItem disabled={onStartRename == null} index={0} onSelect={onStartRename}>Переименовать</SandMenuItem>
       <SandMenuItem disabled={!actionState.canMoveUp || onMove == null || actionState.moveUpTargetId == null} index={1} onSelect={() => {
         const targetId = actionState.moveUpTargetId;
         if (targetId != null && onMove != null) onMove(targetId, "before");
-      }}>Move up</SandMenuItem>
+      }}>Поднять выше</SandMenuItem>
       <SandMenuItem disabled={!actionState.canMoveDown || onMove == null || actionState.moveDownTargetId == null} index={2} onSelect={() => {
         const targetId = actionState.moveDownTargetId;
         if (targetId != null && onMove != null) onMove(targetId, "after");
-      }}>Move down</SandMenuItem>
-      <SandMenuItem disabled={onRequestDelete == null} index={3} onSelect={onRequestDelete}>Delete</SandMenuItem>
+      }}>Опустить ниже</SandMenuItem>
+      <SandMenuItem disabled={onRequestDelete == null} index={3} onSelect={onRequestDelete}>Удалить</SandMenuItem>
     </div>}
     onOpenChange={setMenuPoint}
     open={menuPoint}
@@ -409,7 +409,7 @@ function SidebarSectionNameEditor({ initialValue, onCommit, onExit }: { initialV
     onExit();
   };
   return <input
-    aria-label="Rename section"
+    aria-label="Переименовать раздел"
     autoComplete="off"
     data-initial={initialValue}
     onBlur={(event) => finish(true, event.currentTarget.value)}
@@ -451,12 +451,12 @@ export function ConversationSidebar({ agents, sections, pinnedAgentIds = [], act
     return createdSectionId;
   }} onMoveAgentToSection={onMoveAgentToSection} onOpen={() => onOpenAgent(agent.id)} onOpenProfile={onOpenProfile} onShowAsyncTasks={onShowAsyncTasks} onShowFullConversation={onShowFullConversation} onRangeSelect={onRangeSelectAgent} onReorderPinnedAgents={onReorderPinnedAgents} onRequestDelete={onRequestDeleteAgent} onRename={onRenameAgent} onSetAgentUnread={onSetAgentUnread} onTogglePin={onTogglePin} onToggleSelect={onToggleAgentSelection} isSelected={selectedIds.has(agent.id)} selectionEnabled={selectedAgentIds.length > 0 || onToggleAgentSelection != null || onRangeSelectAgent != null} sections={sections} sourceSectionId={sourceSectionId} />;
   return (
-    <aside aria-label="Agents" className="sand-agents-sidebar" data-sidebar-collapsed={isCollapsed || undefined} style={{ width: sidebarWidth }}>
+    <aside aria-label="Помощники" className="sand-agents-sidebar" data-sidebar-collapsed={isCollapsed || undefined} style={{ width: sidebarWidth }}>
       {selectedAgentIds.length > 0 ? <SidebarSelectionActions onClearAgentSelection={onClearAgentSelection} onCreatedSection={setRenamingSectionId} onDeleteSelectedAgents={onDeleteSelectedAgents} onMoveSelectedAgentsToNewSection={createSectionForSelection} onMoveSelectedAgentsToSection={onMoveSelectedAgentsToSection} sections={sections} selectedAgentIds={selectedAgentIds} selectedSectionableCount={selectedSectionableCount} /> : <AgentSidebarHeader isCollapsed={isCollapsed} onBroadcast={onBroadcast} onNewChat={onNewChat} onOpenNetwork={onOpenNetwork} onOpenSearch={onOpenSearch} />}
       {/* @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2597261 (Wpn scroll-region carrier) */}
-      <nav aria-label="Agent list" className="sand-agents-list" data-sidebar-collapsed={isCollapsed || undefined} role="region" tabIndex={0}>
+      <nav aria-label="Список помощников" className="sand-agents-list" data-sidebar-collapsed={isCollapsed || undefined} role="region" tabIndex={0}>
         {listStatus ?? <>
-          {orderedPinned.length > 0 ? <div aria-label="Pinned agents" className="sand-agents-pinned" role="group">{orderedPinned.map((agent) => renderAgent(agent))}</div> : null}
+          {orderedPinned.length > 0 ? <div aria-label="Закреплённые помощники" className="sand-agents-pinned" role="group">{orderedPinned.map((agent) => renderAgent(agent))}</div> : null}
           {sections == null ? <div className="sand-agents-list__rows">{unpinned.map((agent) => renderAgent(agent))}</div> : sections.map((section) => isCollapsed ? section.agents.map((agent) => renderAgent(agent, section.id)) : <div
             className={dropSectionId === section.id ? "sand-agents-section sand-agents-section__reveal" : "sand-agents-section"}
             data-section-id={section.id}
@@ -497,7 +497,7 @@ export function ConversationSidebar({ agents, sections, pinnedAgentIds = [], act
               />
             </SidebarSectionActions>
               <div className="sand-agents-section__rows">
-              {section.isCollapsed ? null : section.agents.length === 0 ? <span className="sand-agents-section__empty">Drag chats here</span> : section.agents.map((agent) => renderAgent(agent, section.id))}
+              {section.isCollapsed ? null : section.agents.length === 0 ? <span className="sand-agents-section__empty">Перетащите диалоги сюда</span> : section.agents.map((agent) => renderAgent(agent, section.id))}
             </div>
           </div>)}
         </>}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { CursorUsageSummary, CursorUsageUpgradeAction, DesktopTimeZoneState } from "../../../contracts/desktop-bridge";
+import type { CursorUsageSummary, CursorUsageUpgradeAction, DesktopTimeZoneState, ThemePreference } from "../../../contracts/desktop-bridge";
 import { egressTunnelStatusDescription, type EgressTunnelStatus, type UpdateStatus, type UpdateTrack } from "./updates";
 // @evidence src/app/dist/renderer/assets/index-BlqerJhg.js#L1
 import { INTERNAL_RELEASE_TRACK_CONFIG_URL, UPDATE_TRACK_LABELS, updateStatusMessage } from "./updates";
@@ -12,7 +12,7 @@ import type { SandIconPlatform } from "../../../ui/sand-icon-registry";
 import { SandSelect } from "../../../ui/sand-floating-primitives";
 import { SandSwitch } from "../../../ui/sand-form-primitives";
 import { OverlayDialog } from "../../../ui/overlay-primitives";
-import { ROUTER_PROVIDERS, routerProviderById, type RouterProviderId } from "./router";
+import { DEEPSEEK_MODEL_CHOICES, routerProviderById, type RouterProviderId } from "./router";
 
 export type AccountState =
   | { kind: "logged-out"; errorMessage?: string }
@@ -23,9 +23,9 @@ export interface GeneralSettingsPanelProps {
   account: AccountState;
   accountPending?: boolean;
   accountError?: string | null;
-  theme: "system" | "light" | "dark";
+  theme: ThemePreference;
   onAccountAction(): void;
-  onThemeChange(theme: "system" | "light" | "dark"): void | Promise<unknown>;
+  onThemeChange(theme: ThemePreference): void | Promise<unknown>;
   timeZone?: { state: DesktopTimeZoneState; onChange(timeZone: string | null): void | Promise<DesktopTimeZoneState> };
   localToolPermission?: { state: LocalToolPermissionState; onChange(permission: LocalToolPermission): void | Promise<LocalToolPermission> };
   securityKey?: { enabled: boolean; platform: NodeJS.Platform; onChange(enabled: boolean): void | Promise<boolean> };
@@ -35,11 +35,12 @@ export interface GeneralSettingsPanelProps {
 
 export type LocalToolPermission = "always" | "ask" | "never";
 
-export const THEME_PREFERENCE_OPTIONS: readonly { value: GeneralSettingsPanelProps["theme"]; label: string }[] = [
-  // @evidence recovered/frontend/app/assets/index-BlqerJhg.js#byteOffset=37830 (immutable theme option map)
-  { value: "system", label: "Follow System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" }
+/** Четыре светлых варианта. Значение совпадает с data-theme на <html>. */
+export const THEME_PREFERENCE_OPTIONS: readonly { value: ThemePreference; label: string }[] = [
+  { value: "light-white", label: "Белый" },
+  { value: "milk", label: "Молочный" },
+  { value: "smoke", label: "Дымчатый" },
+  { value: "sky", label: "Небо" }
 ];
 
 export interface LocalToolPermissionState {
@@ -59,9 +60,9 @@ export function accountCopyIconCodePoint(copied: boolean): number {
 
 // @evidence recovered/frontend/app/assets/index-UbX-y3il.js#L20087-L20091
 const LOCAL_TOOL_PERMISSION_OPTIONS: readonly { value: LocalToolPermission; label: string }[] = [
-  { value: "always", label: "Always allow" },
-  { value: "ask", label: "Ask every time" },
-  { value: "never", label: "Never allow" }
+  { value: "always", label: "Всегда разрешать" },
+  { value: "ask", label: "Спрашивать каждый раз" },
+  { value: "never", label: "Никогда не разрешать" }
 ];
 
 const LOCAL_TOOL_PERMISSION_RANK: Record<LocalToolPermission, number> = { never: 0, ask: 1, always: 2 };
@@ -78,7 +79,7 @@ export interface ThemePreferencePickerProps {
 
 export function ThemePreferencePicker({ value, disabled = false, onChange }: ThemePreferencePickerProps) {
   return <SandSelect
-    ariaLabel="Theme"
+    ariaLabel="Тема"
     className="ui-select-trigger"
     disabled={disabled}
     menuSize="md"
@@ -100,9 +101,9 @@ export function GeneralSettingsPanel({ account, accountPending = false, accountE
     const timeout = window.setTimeout(() => setEmailCopied(false), 2000);
     return () => window.clearTimeout(timeout);
   }, [emailCopied]);
-  const title = signedIn ? account.name : account.kind === "logging-in" ? "Signing in" : "Not signed in";
-  const detail = signedIn ? account.email ?? "Signed in to Cursor" : account.kind === "logging-in" ? "Finish signing in from your browser" : "Connect your Cursor account to Grok Bot";
-  const action = signedIn ? "Sign Out" : account.kind === "logging-in" ? "Cancel" : "Sign In with Cursor";
+  const title = signedIn ? account.name : account.kind === "logging-in" ? "Выполняется вход" : "Вход не выполнен";
+  const detail = signedIn ? account.email ?? "Вход выполнен в Cursor" : account.kind === "logging-in" ? "Закончите вход в браузере" : "Подключите аккаунт Cursor к DB Bot";
+  const action = signedIn ? "Выйти" : account.kind === "logging-in" ? "Отмена" : "Войти через Cursor";
   // @evidence recovered/frontend/app/assets/index-BlqerJhg.js#L40-L50
   const copyEmail = async () => {
     if (!signedIn || account.email == null || typeof navigator === "undefined" || navigator.clipboard == null) return;
@@ -124,7 +125,7 @@ export function GeneralSettingsPanel({ account, accountPending = false, accountE
 
   return (
     <div className="sand-settings-general">
-      <SettingsGroup title="Account">
+      <SettingsGroup title="Аккаунт">
         <div className="sand-account-card" data-state={account.kind}>
           <span aria-hidden="true" className="sand-account-card__avatar">
             {signedIn && account.avatarDataUrl ? <img alt="" src={account.avatarDataUrl} /> : title.slice(0, 1).toLocaleUpperCase()}
@@ -132,20 +133,20 @@ export function GeneralSettingsPanel({ account, accountPending = false, accountE
           <span className="sand-account-card__body">
             <strong>{title}</strong>
             <span>{detail}</span>
-            {signedIn && account.email ? <SandIconButton aria-label="Copy email address" className="sand-account-card__copy-email" icon={emailCopied ? "check" : "copy"} label="Copy email address" onClick={() => void copyEmail()} platform={platform} size="sm" title="Copy email address" /> : null}
+            {signedIn && account.email ? <SandIconButton aria-label="Скопировать адрес почты" className="sand-account-card__copy-email" icon={emailCopied ? "check" : "copy"} label="Скопировать адрес почты" onClick={() => void copyEmail()} platform={platform} size="sm" title="Скопировать адрес почты" /> : null}
           </span>
           <SandButton disabled={isAccountPending} onClick={onAccountAction} shape="pill" size="md" variant={signedIn ? "secondary" : "primary"}>{action}</SandButton>
         </div>
         {visibleAccountError ? <p className="sand-account__error">{visibleAccountError}</p> : null}
       </SettingsGroup>
 
-      <SettingsGroup title="Appearance">
+      <SettingsGroup title="Оформление">
         <label>
-          <span>Theme</span>
+          <span>Тема</span>
           <ThemePreferencePicker disabled={themePending} onChange={handleThemeChange} value={theme} />
         </label>
       </SettingsGroup>
-      {timeZone || localToolPermission || autoReview ? <SettingsGroup title="Agent">
+      {timeZone || localToolPermission || autoReview ? <SettingsGroup title="Помощник">
         {timeZone ? <TimeZoneSettingsPanel {...timeZone} /> : null}
         {localToolPermission ? <LocalToolPermissionSettingsPanel {...localToolPermission} /> : null}
         {autoReview ? <AutoReviewRulesPanel {...autoReview} /> : null}
@@ -169,20 +170,20 @@ export function SecurityKeySettingsGroup({ enabled, platform, onChange }: Securi
   const isPending = action.isPending;
   const supported = SECURITY_KEY_PLATFORMS.includes(platform);
   const description = supported
-    ? "Allow Grok Bot to use a security key (such as a YubiKey) connected to your computer. You’ll be asked to approve each use."
-    : "Security keys from Grok Bot's computer aren't supported on this platform yet.";
+    ? "Разрешить DB Bot использовать ключ безопасности (например, YubiKey) с вашего компьютера."
+    : "Ключи безопасности на этой системе пока не поддерживаются.";
   const handleChange = () => {
     if (!supported || isPending) return;
     action.dispatch(!enabled);
   };
 
   return (
-    <SettingsGroup title="Security Key">
+    <SettingsGroup title="Ключ безопасности">
       <div className="sand-settings-row">
         <SandSwitch
           checked={supported && enabled}
           disabled={isPending || !supported}
-          label={<span className="sand-settings-copy"><strong>Use hardware security keys</strong><small>{description}</small></span>}
+          label={<span className="sand-settings-copy"><strong>Аппаратный ключ безопасности</strong><small>{description}</small></span>}
           onCheckedChange={handleChange}
         />
       </div>
@@ -205,12 +206,12 @@ export function LocalToolPermissionSettingsPanel({ state, onChange }: LocalToolP
   return (
     <label>
       <span>
-        <strong>Execution on Local Computer</strong>
-        <small>Let the assistant open files and run tasks on your computer. Auto-review still checks everything first.</small>
-        {state.ceiling != null ? <small>Your team&apos;s admin allows at most &quot;{LOCAL_TOOL_PERMISSION_OPTIONS.find((option) => option.value === state.ceiling)?.label}&quot;</small> : null}
+        <strong>Работа на вашем компьютере</strong>
+        <small>Разрешить помощнику открывать файлы и выполнять задачи на вашем компьютере.</small>
+        {state.ceiling != null ? <small>Ваша команда разрешает не больше: «{LOCAL_TOOL_PERMISSION_OPTIONS.find((option) => option.value === state.ceiling)?.label}»</small> : null}
       </span>
       <SandSelect
-        ariaLabel="Execution on Local Computer"
+        ariaLabel="Работа на вашем компьютере"
         className="ui-select-trigger"
         disabled={isPending}
         onValueChange={handleChange}
@@ -242,7 +243,7 @@ function supportedTimeZones(): string[] {
 export function TimeZoneSettingsPanel({ state, onChange }: TimeZoneSettingsPanelProps) {
   const action = useAsyncAction(onChange);
   const isPending = action.isPending;
-  const autoLabel = state.detectedTimeZone == null ? "Auto-detect" : `Auto-detect (${formatTimeZoneName(state.detectedTimeZone)})`;
+  const autoLabel = state.detectedTimeZone == null ? "Определять автоматически" : `Определять автоматически (${formatTimeZoneName(state.detectedTimeZone)})`;
   const options = supportedTimeZones();
   const values = [
     { value: "auto", label: autoLabel },
@@ -257,8 +258,8 @@ export function TimeZoneSettingsPanel({ state, onChange }: TimeZoneSettingsPanel
 
   return (
     <label>
-      <span>Timezone</span>
-      <SandSelect ariaLabel="Timezone" className="ui-select-trigger" disabled={isPending} onValueChange={handleChange} options={values} placement="bottom-end" value={state.overrideTimeZone ?? "auto"} />
+      <span>Часовой пояс</span>
+      <SandSelect ariaLabel="Часовой пояс" className="ui-select-trigger" disabled={isPending} onValueChange={handleChange} options={values} placement="bottom-end" value={state.overrideTimeZone ?? "auto"} />
     </label>
   );
 }
@@ -291,10 +292,10 @@ export interface UsageSettingsPanelProps {
   provider?: RouterProviderId;
 }
 
-const UPGRADE_ERROR = "Couldn’t complete the upgrade action — try again";
-const CANCEL_TRIAL_COPY = "This ends your Grok Bot trial now and removes your remaining trial credits. Your card won’t be charged either way — the trial never turns into a paid plan on its own.";
+const UPGRADE_ERROR = "Не удалось выполнить действие. Попробуйте ещё раз";
+const CANCEL_TRIAL_COPY = "Пробный период закончится сейчас, а оставшиеся пробные запросы сгорели. С карты ничего не спишут: пробный период сам по себе не превращается в платный.";
 
-export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onCancelTrial, onCancelDialogOpen, provider = "cursor" }: UsageSettingsPanelProps) {
+export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onCancelTrial, onCancelDialogOpen, provider = "deepseek" }: UsageSettingsPanelProps) {
   const [upgradePending, setUpgradePending] = useState(false);
   const [upgradeNotice, setUpgradeNotice] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
@@ -310,7 +311,7 @@ export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onC
   const selectedProvider = routerProviderById(provider);
   if (selectedProvider.usageSource === "external") return (
     <div className="sand-usage-section">
-      <SettingsGroup title={`${selectedProvider.label} usage`}>
+      <SettingsGroup title="Расход: DeepSeek">
         <div className="sand-provider-usage-card">
           <strong>{selectedProvider.label}</strong>
           <span>{selectedProvider.usageDescription}</span>
@@ -320,10 +321,10 @@ export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onC
   );
   if (state?.status === "empty" || state?.status === "unavailable") return (
     <div className="sand-usage-section">
-      <SettingsGroup title={`${selectedProvider.label} usage`}>
+      <SettingsGroup title="Расход: DeepSeek">
         <div className="sand-provider-usage-card">
           <strong>{selectedProvider.label}</strong>
-          <span>No usage information is available for this account right now.</span>
+          <span>Сведений о расходе сейчас нет.</span>
         </div>
       </SettingsGroup>
     </div>
@@ -334,10 +335,10 @@ export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onC
   if (state != null && summary == null) {
     return (
       <div className="sand-usage-section">
-        <SettingsGroup title={`${selectedProvider.label} usage`}>
+        <SettingsGroup title="Расход: DeepSeek">
           <div className="sand-usage-state">
-            {failed ? <span style={{ color: "#ef8585" }}>Couldn’t load usage.</span> : <span>Loading usage…</span>}
-            {failed && onRetry ? <SandButton disabled={loading} onClick={onRetry} size="sm" variant="secondary">Retry</SandButton> : null}
+            {failed ? <span style={{ color: "#ef8585" }}>Не удалось показать расход.</span> : <span>Считаем расход…</span>}
+            {failed && onRetry ? <SandButton disabled={loading} onClick={onRetry} size="sm" variant="secondary">Повторить</SandButton> : null}
           </div>
         </SettingsGroup>
       </div>
@@ -348,11 +349,11 @@ export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onC
   const upgrade = summary?.upgradeCta ?? null;
   const upgradeSupportingText = summary == null ? null : upgrade == null ? null
     : !summary.hasNonZeroIncludedLimit && summary.hasAvailableUsage && summary.sandUsagePercent != null && summary.sandUsagePercent < 100
-      ? "Get more Grok Bot usage"
+      ? "Купить больше запросов DB Bot"
       : summary.isSandTrial
-        ? "You’ve used all of your trial usage"
+        ? "Пробные запросы закончились"
         : summary.hasEndedSandTrial
-          ? "Your trial has ended. Upgrade to continue using Grok Bot."
+          ? "Пробный период закончился. Купите доступ, чтобы продолжить работу с DB Bot."
           : null;
   const canCancelTrial = summary?.isSandTrial === true && summary.canCancelSandTrial && onCancelTrial != null;
 
@@ -386,12 +387,12 @@ export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onC
     try {
       const result = await onCancelTrial();
       if (!result.ok) {
-        setCancelNotice(result.message ?? "Couldn’t cancel the trial. Try again.");
+        setCancelNotice(result.message ?? "Не удалось отменить пробный период. Попробуйте ещё раз.");
         return;
       }
       setCancelConfirmOpen(false);
     } catch {
-      setCancelNotice("Couldn’t cancel the trial. Try again.");
+      setCancelNotice("Не удалось отменить пробный период. Попробуйте ещё раз.");
     } finally {
       setCancelPending(false);
     }
@@ -399,8 +400,8 @@ export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onC
 
   return (
     <div className="sand-usage-section">
-      <SettingsGroup title={`${selectedProvider.label} usage`}>
-        {projectedMeters.length === 0 ? <span>No included usage available on your plan right now.</span> : projectedMeters.map((meter) => (
+      <SettingsGroup title="Расход: DeepSeek">
+        {projectedMeters.length === 0 ? <span>В вашем плане сейчас нет включённых запросов.</span> : projectedMeters.map((meter) => (
           <div className="sand-usage-meter" key={meter.title}>
             <div className="sand-usage-meter__header"><strong>{meter.title}</strong>{meter.resetLabel ? <small>{meter.resetLabel}</small> : null}</div>
             {meter.percent != null ? (
@@ -415,22 +416,22 @@ export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onC
           <div className="sand-usage-upgrade">
             <span style={upgradeNotice?.tone === "error" ? { color: "#ef8585" } : undefined}>{upgradeNotice?.text ?? upgradeSupportingText}</span>
             <div className="sand-usage-actions">
-              {canCancelTrial ? <SandButton disabled={cancelPending} onClick={() => setCancelConfirmOpen(true)} size="sm" variant="secondary">{cancelPending ? "Canceling…" : "Cancel Trial"}</SandButton> : null}
+              {canCancelTrial ? <SandButton disabled={cancelPending} onClick={() => setCancelConfirmOpen(true)} size="sm" variant="secondary">{cancelPending ? "Отменяем…" : "Отменить пробный период"}</SandButton> : null}
               <SandButton disabled={upgrade.disabled || upgradePending} onClick={() => void invokeUpgrade()} size="sm" variant="primary">{upgrade.label}</SandButton>
             </div>
           </div>
         ) : canCancelTrial ? (
-          <div className="sand-usage-actions"><SandButton disabled={cancelPending} onClick={() => setCancelConfirmOpen(true)} size="sm" variant="secondary">{cancelPending ? "Canceling…" : "Cancel Trial"}</SandButton></div>
+          <div className="sand-usage-actions"><SandButton disabled={cancelPending} onClick={() => setCancelConfirmOpen(true)} size="sm" variant="secondary">{cancelPending ? "Отменяем…" : "Отменить пробный период"}</SandButton></div>
         ) : null}
         {failed && summary != null && onRetry ? (
           <div className="sand-usage-state" style={{ borderTop: 0, borderRadius: "0 0 9px 9px" }}>
-            <span style={{ color: "#ef8585" }}>Couldn’t refresh usage — showing the last known values.</span>
-            <SandButton disabled={loading} onClick={onRetry} size="sm" variant="secondary">Retry</SandButton>
+            <span style={{ color: "#ef8585" }}>Не удалось обновить расход — показаны последние известные значения.</span>
+            <SandButton disabled={loading} onClick={onRetry} size="sm" variant="secondary">Повторить</SandButton>
           </div>
         ) : null}
       </SettingsGroup>
       <OverlayDialog
-        label="Cancel your trial?"
+        label="Отменить пробный период?"
         onClose={() => {
           if (!cancelPending) setCancelConfirmOpen(false);
         }}
@@ -446,12 +447,12 @@ export function UsageSettingsPanel({ meters = [], state, onRetry, onUpgrade, onC
         }}
         role="alertdialog"
       >
-          <h3>Cancel your trial?</h3>
+          <h3>Отменить пробный период?</h3>
           <p>{CANCEL_TRIAL_COPY}</p>
           {cancelNotice ? <p role="alert" style={{ color: "#ef8585" }}>{cancelNotice}</p> : null}
           <footer style={{ display: "flex", justifyContent: "flex-end", gap: 8, margin: "18px -20px -20px", padding: "12px 16px", borderTop: "1px solid var(--cursor-border-secondary, #383838)" }}>
-              <SandButton disabled={cancelPending} onClick={() => setCancelConfirmOpen(false)} size="sm" variant="secondary">Keep Trial</SandButton>
-              <SandButton disabled={cancelPending} onClick={() => void confirmCancelTrial()} sentiment="danger" size="sm" variant="primary">{cancelPending ? "Canceling…" : "Cancel Trial"}</SandButton>
+              <SandButton disabled={cancelPending} onClick={() => setCancelConfirmOpen(false)} size="sm" variant="secondary">Оставить</SandButton>
+              <SandButton disabled={cancelPending} onClick={() => void confirmCancelTrial()} sentiment="danger" size="sm" variant="primary">{cancelPending ? "Отменяем…" : "Отменить пробный период"}</SandButton>
           </footer>
       </OverlayDialog>
     </div>
@@ -462,31 +463,90 @@ export interface RouterSettingsPanelProps {
   provider: RouterProviderId;
   pending?: boolean;
   onChange(provider: RouterProviderId): void | Promise<unknown>;
+  /** The DeepSeek model this installation uses. `null` while the first read is in flight. */
+  modelId?: string | null;
+  onModelChange?(modelId: string): void | Promise<unknown>;
+  /** True when a key is already stored. The stored value is never sent to the renderer. */
+  apiKeyConfigured?: boolean;
+  /** Что показать, когда ключа нет. Текст приходит из основного процесса. */
+  apiKeyMessage?: string | null;
+  onSaveApiKey?(apiKey: string): void | Promise<unknown>;
 }
 
-export function RouterSettingsPanel({ provider, pending = false, onChange }: RouterSettingsPanelProps) {
+/**
+ * DeepSeek is the only provider, so this panel has no provider choice left: it shows which
+ * model is used, where the key lives, and what to do when the key is missing.
+ */
+export function RouterSettingsPanel({ provider, pending = false, modelId, onModelChange, apiKeyConfigured = false, apiKeyMessage, onSaveApiKey }: RouterSettingsPanelProps) {
   const selectedProvider = routerProviderById(provider);
+  const [apiKeyDraft, setApiKeyDraft] = useState("");
+  const models = DEEPSEEK_MODEL_CHOICES.some((choice) => choice.id === modelId) ? DEEPSEEK_MODEL_CHOICES : DEEPSEEK_MODEL_CHOICES;
+  const selectedModel = models.find((choice) => choice.id === modelId) ?? models[0]!;
   return (
     <div className="sand-router-section">
-      <SettingsGroup title="Provider">
+      <SettingsGroup title="Провайдер">
         <label className="sand-settings-row">
           <span className="sand-settings-copy">
-            <strong>Route agent requests through</strong>
+            <strong>Модели</strong>
             <small>{selectedProvider.description}</small>
           </span>
           <SandSelect
-            ariaLabel="Router provider"
+            ariaLabel="Модель DeepSeek"
             className="ui-select-trigger"
-            disabled={pending}
+            disabled={pending || onModelChange === undefined}
             menuSize="md"
-            onValueChange={(value) => void onChange(value)}
-            options={ROUTER_PROVIDERS.map((option) => ({ value: option.id, label: option.label }))}
+            onValueChange={(value) => void onModelChange?.(value)}
+            options={models.map((choice) => ({ value: choice.id, label: choice.label }))}
             placement="bottom-end"
-            value={provider}
+            value={selectedModel.id}
           />
         </label>
+        <div className="sand-settings-row">
+          <span className="sand-settings-copy">
+            <strong>{selectedModel.label}</strong>
+            <small>{selectedModel.description}</small>
+          </span>
+        </div>
       </SettingsGroup>
-      <SettingsGroup title="Usage">
+      <SettingsGroup title="Ключ DeepSeek API">
+        <div className="sand-settings-row">
+          <span className="sand-settings-copy">
+            <strong>Ключ</strong>
+            <small>
+              {apiKeyConfigured
+                ? "Ключ сохранён в настройках на этом компьютере. Он не попадает в интернет иначе, чем в запросы к api.deepseek.com."
+                : apiKeyMessage ?? "Не задан ключ DeepSeek API. Открой Настройки → DeepSeek и вставь ключ вида sk-…"}
+            </small>
+          </span>
+        </div>
+        {onSaveApiKey === undefined ? null : (
+          <label className="sand-settings-row">
+            <span className="sand-settings-copy">
+              <strong>Вставь ключ</strong>
+              <small>Ключ хранится только на этом компьютере, в файле настроек.</small>
+            </span>
+            <input
+              aria-label="Ключ DeepSeek API"
+              autoComplete="off"
+              disabled={pending}
+              onChange={(event) => setApiKeyDraft(event.currentTarget.value)}
+              placeholder={apiKeyConfigured ? "Ключ уже сохранён — введите новый, чтобы заменить" : "sk-…"}
+              type="password"
+              value={apiKeyDraft}
+            />
+          </label>
+        )}
+        {onSaveApiKey === undefined || apiKeyDraft.trim().length === 0 ? null : (
+          <SandButton
+            disabled={pending}
+            onClick={() => { void Promise.resolve(onSaveApiKey(apiKeyDraft.trim())).then(() => setApiKeyDraft(""), () => setApiKeyDraft("")); }}
+            title="Сохранить ключ"
+          >
+            Сохранить ключ
+          </SandButton>
+        )}
+      </SettingsGroup>
+      <SettingsGroup title="Расход">
         <div className="sand-provider-usage-card">
           <strong>{selectedProvider.label}</strong>
           <span>{selectedProvider.usageDescription}</span>
@@ -499,12 +559,12 @@ export function RouterSettingsPanel({ provider, pending = false, onChange }: Rou
 function usageMetersFromSummary(summary: CursorUsageSummary): UsageMeter[] {
   const meters: UsageMeter[] = [];
   if (summary.sandUsagePercent != null) meters.push({
-    title: summary.isSandTrial ? "Trial usage" : "Weekly usage",
+    title: summary.isSandTrial ? "Пробный период" : "Расход за неделю",
     valueLabel: `${Math.max(0, Math.min(100, Math.round(summary.sandUsagePercent)))}%`,
     percent: Math.max(0, Math.min(100, summary.sandUsagePercent))
   });
   if (summary.onDemand != null) meters.push({
-    title: "On-demand usage",
+    title: "Расход по запросу",
     valueLabel: summary.onDemand.limitCents == null
       ? `$${(summary.onDemand.usedCents / 100).toFixed(2)}`
       : `$${(summary.onDemand.usedCents / 100).toFixed(2)} / $${(summary.onDemand.limitCents / 100).toFixed(2)}`,
@@ -554,10 +614,10 @@ export function UpdatesSettingsPanel({
   if (status == null) {
     return (
       <div className="sand-settings-beta-stack">
-        <SettingsGroup title="Updates">
+        <SettingsGroup title="Обновления">
           <div className="sand-settings-beta__status" role="status">
-            <span>Grok Bot couldn&apos;t load update status. Check again to retry.</span>
-            <SandButton disabled={checkPending} onClick={() => runPendingAction(onCheck, setCheckPending)} size="md" variant="secondary">{checkPending ? "Checking…" : "Check for Updates"}</SandButton>
+            <span>DB Bot не смог получить сведения об обновлении. Нажмите, чтобы повторить.</span>
+            <SandButton disabled={checkPending} onClick={() => runPendingAction(onCheck, setCheckPending)} size="md" variant="secondary">{checkPending ? "Проверяем…" : "Проверить обновления"}</SandButton>
           </div>
         </SettingsGroup>
         {egressTunnel?.featureGateEnabled === true || egressTunnel?.enabled === true ? <EgressTunnelSettingsGroup
@@ -565,8 +625,8 @@ export function UpdatesSettingsPanel({
           description={egressTunnel.enabled
             ? egressTunnelStatusDescription(egressTunnel.status)
             : egressTunnel.available
-              ? "Route web traffic from Grok Bot's computer out through this desktop instead of the cloud. Applies to new connections."
-              : "Grok Bot's computer wasn't provisioned with the egress tunnel — start a new one to use this."}
+              ? "Интернет с компьютера DB Bot пойдёт через этот компьютер, а не через облако. Касается только новых соединений."
+              : "Туннель не настроен для компьютера DB Bot. Начните новый, чтобы включить эту опцию."}
           enabled={egressTunnel.enabled}
           onChange={egressTunnel.onChange}
         /> : null}
@@ -583,37 +643,37 @@ export function UpdatesSettingsPanel({
   const effectiveAutoUpdateWhenIdle = status.autoUpdateWhenIdleOptIn ?? autoUpdateWhenIdle;
   const trackDescription = trackManagedByPolicy ? (
     <>
-      Update access is managed by internal release-track policy. <a href={INTERNAL_RELEASE_TRACK_CONFIG_URL} rel="noopener noreferrer" target="_blank">Open Statsig config</a>
+      Доступ к обновлениям задаёт политика внутреннего канала. <a href={INTERNAL_RELEASE_TRACK_CONFIG_URL} rel="noopener noreferrer" target="_blank">Открыть настройку в Statsig</a>
     </>
-  ) : "Stable is the safe default. Other tracks ship new builds earlier and more often. Switching checks for updates right away.";
+  ) : "«Обычный» — самый безопасный вариант. Другие каналы выходят чаще и раньше. После переключения проверка обновлений запустится сразу.";
   const egressVisible = egressTunnel?.featureGateEnabled === true || egressTunnel?.enabled === true;
   const egressAvailable = egressTunnel?.available === true;
   const egressDescription = egressTunnel?.enabled === true
     ? egressTunnelStatusDescription(egressTunnel.status)
     : egressAvailable
-      ? "Route web traffic from Grok Bot's computer out through this desktop instead of the cloud. Applies to new connections."
-      : "Grok Bot's computer wasn't provisioned with the egress tunnel — start a new one to use this.";
+      ? "Интернет с компьютера DB Bot пойдёт через этот компьютер, а не через облако. Касается только новых соединений."
+      : "Туннель не настроен для компьютера DB Bot. Начните новый, чтобы включить эту опцию.";
   return (
     <div className="sand-settings-beta-stack">
-      <SettingsGroup title="Updates">
+      <SettingsGroup title="Обновления">
         <label className="sand-settings-row">
-          <span className="sand-settings-copy"><strong>Update Track</strong><small>{trackDescription}</small></span>
-          <SandSelect ariaLabel="Update Track" className="ui-select-trigger" disabled={isDisabled || trackPending || trackManagedByPolicy} onValueChange={(track) => runPendingAction(() => onSetTrack(track), setTrackPending)} options={availableTracks.map((track) => ({ value: track, label: UPDATE_TRACK_LABELS[track] }))} placement="bottom-end" value={status.currentTrack} />
+          <span className="sand-settings-copy"><strong>Канал обновлений</strong><small>{trackDescription}</small></span>
+          <SandSelect ariaLabel="Канал обновлений" className="ui-select-trigger" disabled={isDisabled || trackPending || trackManagedByPolicy} onValueChange={(track) => runPendingAction(() => onSetTrack(track), setTrackPending)} options={availableTracks.map((track) => ({ value: track, label: UPDATE_TRACK_LABELS[track] }))} placement="bottom-end" value={status.currentTrack} />
         </label>
         {autoUpdateGateEnabled ? <div className="sand-settings-row">
           <SandSwitch
             checked={effectiveAutoUpdateWhenIdle}
             disabled={isDisabled || autoUpdatePending}
-            label={<span className="sand-settings-copy"><strong>Auto-update when idle</strong><small>Automatically update your client while you&apos;re away.</small></span>}
+            label={<span className="sand-settings-copy"><strong>Обновлять, когда вы не работаете</strong><small>Обновляет программу сама, пока вы отошли от компьютера.</small></span>}
             onCheckedChange={(checked) => runPendingAction(() => onSetAutoUpdateWhenIdle(checked), setAutoUpdatePending)}
           />
         </div> : null}
         <div className="sand-settings-row">
-          <span className="sand-settings-copy"><strong>Grok Bot {status.currentVersion}</strong><small>Updates follow the {UPDATE_TRACK_LABELS[status.currentTrack]} track</small></span>
+          <span className="sand-settings-copy"><strong>DB Bot {status.currentVersion}</strong><small>Обновления приходят по каналу «{UPDATE_TRACK_LABELS[status.currentTrack]}»</small></span>
           {status.state.type === "ready" ? (
-            <SandButton disabled={installPending || onInstall == null} onClick={() => onInstall == null ? undefined : runPendingAction(onInstall, setInstallPending)} size="md" variant="primary">Restart to Update</SandButton>
+            <SandButton disabled={installPending || onInstall == null} onClick={() => onInstall == null ? undefined : runPendingAction(onInstall, setInstallPending)} size="md" variant="primary">Перезапустить и обновить</SandButton>
           ) : (
-            <SandButton disabled={isDisabled || checkPending || isTransitioning} onClick={() => runPendingAction(onCheck, setCheckPending)} size="md" variant="secondary">{checkPending || isChecking ? "Checking…" : "Check for Updates"}</SandButton>
+            <SandButton disabled={isDisabled || checkPending || isTransitioning} onClick={() => runPendingAction(onCheck, setCheckPending)} size="md" variant="secondary">{checkPending || isChecking ? "Проверяем…" : "Проверить обновления"}</SandButton>
           )}
         </div>
         <output aria-live="polite" className="sand-settings-beta__status" data-tone={message.tone}>{message.text}</output>
@@ -637,12 +697,12 @@ function EgressTunnelSettingsGroup({ available, description, enabled, onChange }
     void Promise.resolve(onChange(!enabled)).catch(() => undefined).finally(() => setPending(false));
   };
   return (
-    <SettingsGroup title="Egress">
+    <SettingsGroup title="Интернет-трафик">
       <div className="sand-settings-row">
         <SandSwitch
           checked={enabled}
           disabled={pending || !available && !enabled}
-          label={<span className="sand-settings-copy"><strong>Route egress through this desktop</strong><small>{description}</small></span>}
+          label={<span className="sand-settings-copy"><strong>Пускать интернет через этот компьютер</strong><small>{description}</small></span>}
           onCheckedChange={handleChange}
         />
       </div>

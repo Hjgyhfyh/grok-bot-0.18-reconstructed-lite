@@ -24,12 +24,12 @@ export function ConversationAgentHeader({ agent, isComputerActive, isInfoOpen, o
   const identity = <>
     <span className="sand-chat-header__avatar"><AgentAvatar agentId={agent.id} kind={avatarKind} memberIds={agent.memberIds} dataUrl={agent.avatarDataUrl} color={agent.avatarColor} shape={agent.avatarShape} currentActivity={agent.currentActivity} isComposingMessage={agent.isComposingMessage} isRunning={agent.isRunning} awaitingUserResponse={agent.awaitingUserResponse} size="md" /></span>
     <span id="sand-conversation-heading">{agent.name}</span>
-    {agent.isRunning ? <small>Working</small> : null}
+    {agent.isRunning ? <small>Работает</small> : null}
   </>;
   return <div aria-labelledby="sand-conversation-heading" className="sand-chat-header" role="group">
     {onToggleSettings == null
       ? <div className="sand-chat-header__identity">{identity}</div>
-      : <button aria-controls="sand-conversation-details" aria-expanded={isInfoOpen} aria-label="View agent settings" className="sand-chat-header__identity" data-info-row="settings" onClick={onToggleSettings} type="button">{identity}</button>}
+      : <button aria-controls="sand-conversation-details" aria-expanded={isInfoOpen} aria-label="Настройки помощника" className="sand-chat-header__identity" data-info-row="settings" onClick={onToggleSettings} type="button">{identity}</button>}
     <div className="sand-chat-header__controls">
       {sharedRoomTrigger == null ? null : <SharedRoomHeaderTrigger {...sharedRoomTrigger} />}
       {agent.isGroup ? null : <ComputerHeaderControl active={isComputerActive} isInfoOpen={isInfoOpen} onToggle={onToggleInfo} />}

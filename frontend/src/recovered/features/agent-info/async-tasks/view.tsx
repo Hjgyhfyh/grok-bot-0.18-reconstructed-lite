@@ -35,9 +35,9 @@ function taskKindIcon(kind: AsyncTask["kind"]): string {
 
 function taskKindLabel(kind: AsyncTask["kind"]): string {
   switch (kind) {
-    case "subagent": return "Subagent";
-    case "shell": return "Shell";
-    case "cloud-agent": return "Cloud agent";
+    case "subagent": return "Помощник";
+    case "shell": return "Команда";
+    case "cloud-agent": return "Облачный помощник";
   }
 }
 
@@ -53,9 +53,9 @@ function useClockNow(clock: AsyncTasksClockInput): number {
 }
 
 function AsyncTaskRow({ task, nowMs }: { readonly task: AsyncTask; readonly nowMs: number }) {
-  const started = new Date(task.startedAtMs).toLocaleString();
-  return <div className="sand-async-task sand-78zum5 sand-6s0dn4 sand-167g77z sand-m7lytj sand-y13l1i sand-1ykpatu sand-163pfp sand-ur7f20" data-kind={task.kind} role="listitem" title={`${task.id} — started ${started}`}>
-    <span aria-label="Running" className="sand-async-task__status sand-2lah0s sand-1v4s8kt sand-ols6we sand-149ho13 sand-zqwn8b" role="status" />
+  const started = new Date(task.startedAtMs).toLocaleString("ru-RU");
+  return <div className="sand-async-task sand-78zum5 sand-6s0dn4 sand-167g77z sand-m7lytj sand-y13l1i sand-1ykpatu sand-163pfp sand-ur7f20" data-kind={task.kind} role="listitem" title={`${task.id} — начато ${started}`}>
+    <span aria-label="Выполняется" className="sand-async-task__status sand-2lah0s sand-1v4s8kt sand-ols6we sand-149ho13 sand-zqwn8b" role="status" />
     <span aria-hidden="true" className="sand-async-task__icon sand-2lah0s sand-4b2ntj" data-icon-name={taskKindIcon(task.kind)} />
     <span className="sand-async-task__body sand-78zum5 sand-dt5ytf sand-1iyjqo2 sand-s83m0k sand-dl72j9 sand-euugli sand-12mrbbr">
       <span className="sand-async-task__label sand-b3r6kr sand-lyipyv sand-uxw1ft sand-18hujpe sand-1wd3ewq">{task.label}</span>
@@ -76,20 +76,20 @@ export function AsyncTasksPanel({ agentId, agentName, onClose, provider, clock =
   const snapshot = useSyncExternalStore(handle.subscribe, handle.get, handle.get);
   const nowMs = useClockNow(clock);
   const { attachPanel, onHeaderPointerDown } = useMovablePanel();
-  const name = agentName != null && agentName.length > 0 ? agentName : "Agent";
-  const label = `Async tasks: ${name}`;
+  const name = agentName != null && agentName.length > 0 ? agentName : "Помощник";
+  const label = `Фоновые задачи: ${name}`;
   const tasks = taskList(snapshot);
   return <aside aria-label={label} className="sand-async-tasks-panel sand-ixxii4 sand-1ng4z2i sand-n5hqff sand-8k05lb sand-78zum5 sand-dt5ytf sand-j6ak53 sand-w7nakj sand-1cnf4oa sand-ixl9f9 sand-mkeg23 sand-1y0btm7 sand-qz0629 sand-f1vpex sand-1jn3cnd sand-b3r6kr sand-lvsv26 sand-17ub312 sand-1aquc0h sand-1shwlz sand-a0mk88" ref={attachPanel} role="dialog">
     <header className="sand-async-tasks-panel__header sand-78zum5 sand-6s0dn4 sand-1qughib sand-167g77z sand-889kno sand-cicffo sand-1a8lsjc sand-zjhap9 sand-so031l sand-1q0q8m5 sand-17fyfba sand-1jm3nie sand-87ps6o sand-5ve5x3" onPointerDown={onHeaderPointerDown}>
       <div className="sand-async-tasks-panel__title sand-78zum5 sand-6s0dn4 sand-167g77z sand-euugli sand-1wd3ewq">
         <span aria-hidden="true" className="sand-2lah0s sand-4b2ntj" data-icon-name="clock" />
-        <div className="sand-async-tasks-panel__title-text sand-78zum5 sand-dt5ytf sand-euugli"><strong className="sand-b3r6kr sand-lyipyv sand-uxw1ft">Async tasks</strong><span className="sand-b3r6kr sand-lyipyv sand-uxw1ft">{name}</span></div>
+        <div className="sand-async-tasks-panel__title-text sand-78zum5 sand-dt5ytf sand-euugli"><strong className="sand-b3r6kr sand-lyipyv sand-uxw1ft">Фоновые задачи</strong><span className="sand-b3r6kr sand-lyipyv sand-uxw1ft">{name}</span></div>
       </div>
-      <button aria-label="Close async tasks" data-icon-name="close" onClick={onClose} type="button" />
+      <button aria-label="Закрыть список фоновых задач" data-icon-name="close" onClick={onClose} type="button" />
     </header>
     <div aria-label={label} className="sand-async-tasks-panel__list sand-1iyjqo2 sand-s83m0k sand-dl72j9 sand-2lwn1j sand-9f619 sand-78zum5 sand-dt5ytf sand-195vfkc sand-1ruevkc" role="list">
       {tasks.length === 0
-        ? <div className="sand-async-tasks-empty sand-1p5oq8j sand-nuq7ks sand-wxc41k sand-f18ygs sand-2b8uid">No async tasks in progress.</div>
+        ? <div className="sand-async-tasks-empty sand-1p5oq8j sand-nuq7ks sand-wxc41k sand-f18ygs sand-2b8uid">Фоновых задач нет.</div>
         : tasks.map((task) => <AsyncTaskRow key={`${task.kind}:${task.id}`} nowMs={nowMs} task={task} />)}
     </div>
   </aside>;

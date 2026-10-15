@@ -27,7 +27,7 @@ export interface AgentPreviewStatusProjection {
   readonly isTyping: boolean;
   readonly role: "status" | undefined;
   readonly ariaHidden: boolean;
-  readonly ariaLabel: "Working" | "Needs attention" | "Unread activity" | undefined;
+  readonly ariaLabel: "Работает" | "Нужен ваш ответ" | "Есть новые записи" | undefined;
 }
 
 export interface AgentPreviewHeaderProjection {
@@ -66,7 +66,7 @@ export function projectAgentPreviewHeader(agent: AgentPreviewAgent, isHostReacha
   const isWorking = agent.awaitingUserResponse == null && (agent.isRunning === true || isTyping);
   const marker: AgentPreviewStatusMarker = agent.awaitingUserResponse != null ? "blocked" : agent.hasUnread === true ? "unread" : null;
   const presence = isHostReachable && isWorking ? "working" : null;
-  const statusLabel = presence != null ? "Working" : marker === "blocked" ? "Needs attention" : marker === "unread" ? "Unread activity" : undefined;
+  const statusLabel = presence != null ? "Работает" : marker === "blocked" ? "Нужен ваш ответ" : marker === "unread" ? "Есть новые записи" : undefined;
   const title = agent.isGroup === true || agent.title === undefined ? null : agent.title.trim() || null;
   const kind: AgentPreviewAvatarKind = isSharedRoomAgent(agent) ? "shared-room" : agent.isGroup === true ? "group" : "agent";
   return {
@@ -110,7 +110,7 @@ export interface AgentPreviewPinProps {
  * required slot so this leaf never substitutes a different icon primitive.
  */
 export function AgentPreviewPin({ renderIcon }: AgentPreviewPinProps) {
-  return <span aria-label="Pinned" className="sand-agent-item__pin-marker">{renderIcon()}</span>;
+  return <span aria-label="Закреплён" className="sand-agent-item__pin-marker">{renderIcon()}</span>;
 }
 
 /** Unmounted exact header structure; avatar/status/icon internals remain injected private primitives. */

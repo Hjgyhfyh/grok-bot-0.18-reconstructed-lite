@@ -19,8 +19,8 @@ export interface ErrorBoundarySurfaceProps {
 
 function formatError(error: Error, componentStack: string | null | undefined): string {
   const lines = [`${error.name}: ${error.message}`];
-  if (error.stack?.trim()) lines.push(`Stack trace:\n${error.stack.trim()}`);
-  lines.push(`Component stack:\n${componentStack?.trim() || "(unavailable)"}`);
+  if (error.stack?.trim()) lines.push(`Стек вызовов:\n${error.stack.trim()}`);
+  lines.push(`Стек компонентов:\n${componentStack?.trim() || "(недоступно)"}`);
   return lines.join("\n\n");
 }
 

@@ -49,14 +49,14 @@ export interface CommandPaletteProps {
 }
 
 const TABS: readonly { id: CommandPaletteTab; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "messages", label: "Messages" },
-  { id: "agents", label: "Agents" },
-  { id: "groups", label: "Groups" },
-  { id: "files", label: "Files" },
-  { id: "links", label: "Links" },
-  { id: "routines", label: "Routines" },
-  { id: "actions", label: "Actions" }
+  { id: "all", label: "Все" },
+  { id: "messages", label: "Сообщения" },
+  { id: "agents", label: "Помощники" },
+  { id: "groups", label: "Группы" },
+  { id: "files", label: "Файлы" },
+  { id: "links", label: "Ссылки" },
+  { id: "routines", label: "Расписания" },
+  { id: "actions", label: "Действия" }
 ];
 const PALETTE_MODIFIER_SYMBOL = typeof navigator !== "undefined" && /mac/i.test(navigator.platform) ? "⌘" : "⌃";
 const PALETTE_BACKDROP_STYLE = {
@@ -84,36 +84,36 @@ const PALETTE_BACK_BUTTON_STYLE = {
 const PALETTE_NESTED_INPUT_STYLE = { paddingLeft: 52 } as const;
 
 function emptyLabel(tab: CommandPaletteTab, hasQuery: boolean): string {
-  if (hasQuery) return "No results";
-  if (tab === "messages") return "Search messages";
-  if (tab === "groups") return "No group chats yet";
-  if (tab === "files") return "No files yet";
-  if (tab === "links") return "No links in this chat yet";
-  if (tab === "routines") return "No routines yet";
-  if (tab === "actions") return "No actions";
-  return "No agents yet";
+  if (hasQuery) return "Ничего не найдено";
+  if (tab === "messages") return "Поиск по сообщениям";
+  if (tab === "groups") return "Групповых диалогов пока нет";
+  if (tab === "files") return "Файлов пока нет";
+  if (tab === "links") return "Ссылок в этом диалоге пока нет";
+  if (tab === "routines") return "Расписаний пока нет";
+  if (tab === "actions") return "Действий нет";
+  return "Помощников пока нет";
 }
 
 function emptyHint(tab: CommandPaletteTab, hasQuery: boolean): string | null {
-  return !hasQuery && tab === "messages" ? "Type to find messages across your chats." : null;
+  return !hasQuery && tab === "messages" ? "Введите текст, чтобы найти сообщения во всех диалогах." : null;
 }
 
 function relativePaletteTime(timestampMs: number, nowMs = Date.now()): string {
   if (!Number.isFinite(timestampMs) || timestampMs <= 0) return "";
   const seconds = Math.max(0, Math.floor((nowMs - timestampMs) / 1000));
-  if (seconds < 60) return "now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 30 * 86400) return `${Math.floor(seconds / 86400)}d ago`;
-  if (seconds < 365 * 86400) return `${Math.floor(seconds / (30 * 86400))}mo ago`;
-  return `${Math.floor(seconds / (365 * 86400))}y ago`;
+  if (seconds < 60) return "сейчас";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} мин назад`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} ч назад`;
+  if (seconds < 30 * 86400) return `${Math.floor(seconds / 86400)} дн назад`;
+  if (seconds < 365 * 86400) return `${Math.floor(seconds / (30 * 86400))} мес назад`;
+  return `${Math.floor(seconds / (365 * 86400))} г назад`;
 }
 
 function messagePaletteDetail(message: CommandPaletteMessage, agent: CommandPaletteAgent | undefined): string {
   const name = agent?.name ?? "";
   const speaker = agent?.isGroup === true
-    ? (message.role === "user" ? `You in ${name}` : `In ${name}`)
-    : (message.role === "user" ? `You to ${name}` : `${name} to you`);
+    ? (message.role === "user" ? `Вы в «${name}»` : `В «${name}»`)
+    : (message.role === "user" ? `Вы пишете «${name}»` : `«${name}» пишет вам`);
   const time = relativePaletteTime(message.timestampMs);
   return [speaker, time].filter((value) => value.length > 0).join(" · ");
 }
@@ -276,9 +276,9 @@ export function CommandPalette({ agents, commands, routines, routineStatus, mess
 
   return <>
     <div aria-hidden="true" onMouseDown={(event) => { if (!event.ctrlKey) onClose(); }} style={PALETTE_BACKDROP_STYLE} />
-    <section aria-label="Search" aria-modal="true" className="sand-command-palette" onKeyDown={handlePaletteKeyDown} ref={paletteRef} role="dialog">
+    <section aria-label="Поиск" aria-modal="true" className="sand-command-palette" onKeyDown={handlePaletteKeyDown} ref={paletteRef} role="dialog">
       {isNested ? <button
-        aria-label="Back"
+        aria-label="Назад"
         onClick={goBack}
         onMouseDown={(event) => event.preventDefault()}
         style={PALETTE_BACK_BUTTON_STYLE}
@@ -289,7 +289,7 @@ export function CommandPalette({ agents, commands, routines, routineStatus, mess
         aria-autocomplete="list"
         aria-controls={entries.length === 0 ? undefined : listboxId}
         aria-expanded={entries.length > 0}
-        aria-label="Search"
+        aria-label="Поиск"
         onChange={(event) => { setQuery(event.currentTarget.value); onSearchQueryChange?.(event.currentTarget.value); setHighlight(0); }}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
@@ -334,15 +334,15 @@ export function CommandPalette({ agents, commands, routines, routineStatus, mess
         onKeyUp={(event) => {
           if (event.key === "Meta" || event.key === "Control") setModifierHeld(false);
         }}
-        placeholder="Search"
+        placeholder="Поиск"
         ref={inputRef}
         role="combobox"
         style={isNested ? PALETTE_NESTED_INPUT_STYLE : undefined}
         type="text"
         value={query}
       />
-      {(routineSearchUnavailable || fileSearchUnavailable || messageSearchUnavailable) && entries.length > 0 ? <span aria-live="polite" role="status">Search unavailable</span> : null}
-      {!isNested ? <div aria-label="Filter results" role="tablist">
+      {(routineSearchUnavailable || fileSearchUnavailable || messageSearchUnavailable) && entries.length > 0 ? <span aria-live="polite" role="status">Поиск недоступен</span> : null}
+      {!isNested ? <div aria-label="Фильтр результатов" role="tablist">
         {tabs.map((candidate) => <button
           aria-selected={tab === candidate.id}
           key={candidate.id}
@@ -353,7 +353,7 @@ export function CommandPalette({ agents, commands, routines, routineStatus, mess
           type="button"
         >{candidate.label}</button>)}
       </div> : null}
-      {entries.length === 0 ? routineSearchPending || fileSearchPending || messageSearchPending ? <div aria-busy="true" aria-label="Results" id={listboxId} ref={listboxRef} role="listbox" /> : routineSearchUnavailable || fileSearchUnavailable || messageSearchUnavailable ? <p aria-live="polite" role="status"><span>Search unavailable</span><small>Try again in a moment.</small></p> : <p>{emptyLabel(tab, query.trim().length > 0)}{emptyHint(tab, query.trim().length > 0) == null ? null : <small>{emptyHint(tab, query.trim().length > 0)}</small>}</p> : <div aria-busy={routineSearchPending || fileSearchPending || messageSearchPending || linkMetadataPending ? "true" : undefined} aria-label="Results" id={listboxId} ref={listboxRef} role="listbox">
+      {entries.length === 0 ? routineSearchPending || fileSearchPending || messageSearchPending ? <div aria-busy="true" aria-label="Результаты" id={listboxId} ref={listboxRef} role="listbox" /> : routineSearchUnavailable || fileSearchUnavailable || messageSearchUnavailable ? <p aria-live="polite" role="status"><span>Поиск недоступен</span><small>Повторите через минуту.</small></p> : <p>{emptyLabel(tab, query.trim().length > 0)}{emptyHint(tab, query.trim().length > 0) == null ? null : <small>{emptyHint(tab, query.trim().length > 0)}</small>}</p> : <div aria-busy={routineSearchPending || fileSearchPending || messageSearchPending || linkMetadataPending ? "true" : undefined} aria-label="Результаты" id={listboxId} ref={listboxRef} role="listbox">
         {listWindow.start > 0 ? <div aria-hidden="true" style={{ height: Math.max(0, listWindow.start * PALETTE_ROW_PITCH_PX - PALETTE_ROW_GAP_PX) }} /> : null}
         {entries.slice(listWindow.start, listWindow.end).map((entry, offset) => {
           const index = listWindow.start + offset;
@@ -363,7 +363,7 @@ export function CommandPalette({ agents, commands, routines, routineStatus, mess
           const linkData = entry.kind === "link" ? linkMetadata[entry.link.url] : undefined;
           const linkTitle = entry.kind === "link" ? (linkData?.title?.trim() ?? "") : "";
           const fileDimensions = entry.kind === "file" && entry.file.width != null && entry.file.height != null ? `${entry.file.width}×${entry.file.height}` : null;
-          const detail = entry.kind === "agent" ? (entry.agent.isGroup ? "Group" : "Agent") : entry.kind === "command" ? entry.command.detail : entry.kind === "message" ? messagePaletteDetail(entry.message, messageAgent) : entry.kind === "link" ? (linkTitle.length > 0 ? commandPaletteLinkDisplayUrl(entry.link.url) : undefined) : entry.kind === "file" ? [fileAgent?.name, fileDimensions].filter((value): value is string => value != null && value.length > 0).join(" · ") || undefined : entry.routine.automation.triggerDescription;
+          const detail = entry.kind === "agent" ? (entry.agent.isGroup ? "Группа" : "Помощник") : entry.kind === "command" ? entry.command.detail : entry.kind === "message" ? messagePaletteDetail(entry.message, messageAgent) : entry.kind === "link" ? (linkTitle.length > 0 ? commandPaletteLinkDisplayUrl(entry.link.url) : undefined) : entry.kind === "file" ? [fileAgent?.name, fileDimensions].filter((value): value is string => value != null && value.length > 0).join(" · ") || undefined : entry.routine.automation.triggerDescription;
           const shortcut = paletteShortcutNumber(index, isNested, isModifierHeld);
           return <button
             aria-selected={index === selected}
@@ -373,7 +373,7 @@ export function CommandPalette({ agents, commands, routines, routineStatus, mess
             onMouseMove={() => setHighlight(index)}
             role="option"
             type="button"
-          >{entry.kind === "routine" ? <span aria-hidden="true" data-icon-name="clock" data-size="sm" /> : entry.kind === "message" ? <span aria-hidden="true" data-icon-name={messageAgent == null ? "chat-bubble" : "agent"} data-size="sm" /> : entry.kind === "link" ? linkData?.faviconDataUrl != null ? <img alt="" aria-hidden="true" draggable={false} src={linkData.faviconDataUrl} /> : <span aria-hidden="true" data-icon-name="globe" data-size="sm" /> : entry.kind === "file" ? <span aria-hidden="true" data-icon-name={entry.file.kind} data-size="sm" /> : null}<span>{entry.kind === "link" && linkTitle.length > 0 ? linkTitle : label}</span>{detail == null ? null : <small>{detail}</small>}{entry.kind === "command" && !isNested && tab === "all" ? <small>Action</small> : entry.kind === "message" && tab === "all" ? <small>Message</small> : entry.kind === "file" && tab === "all" ? <small>File</small> : entry.kind === "link" && tab === "all" ? <small>Link</small> : null}{entry.kind === "agent" && entry.isHidden ? <small>Hidden</small> : null}{entry.kind === "command" && entry.command.isActive ? <small aria-label="Current" role="img">✓</small> : null}{entry.kind === "command" && commandPaletteHasChildren(entry.command) ? <span aria-hidden="true" data-icon-name="chevron-right" data-size="sm" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(0xeab6)}</span> : null}{shortcut == null ? null : <small style={{ marginLeft: detail == null ? "auto" : undefined }}>{`${PALETTE_MODIFIER_SYMBOL}${shortcut}`}</small>}</button>;
+          >{entry.kind === "routine" ? <span aria-hidden="true" data-icon-name="clock" data-size="sm" /> : entry.kind === "message" ? <span aria-hidden="true" data-icon-name={messageAgent == null ? "chat-bubble" : "agent"} data-size="sm" /> : entry.kind === "link" ? linkData?.faviconDataUrl != null ? <img alt="" aria-hidden="true" draggable={false} src={linkData.faviconDataUrl} /> : <span aria-hidden="true" data-icon-name="globe" data-size="sm" /> : entry.kind === "file" ? <span aria-hidden="true" data-icon-name={entry.file.kind} data-size="sm" /> : null}<span>{entry.kind === "link" && linkTitle.length > 0 ? linkTitle : label}</span>{detail == null ? null : <small>{detail}</small>}{entry.kind === "command" && !isNested && tab === "all" ? <small>Действие</small> : entry.kind === "message" && tab === "all" ? <small>Сообщение</small> : entry.kind === "file" && tab === "all" ? <small>Файл</small> : entry.kind === "link" && tab === "all" ? <small>Ссылка</small> : null}{entry.kind === "agent" && entry.isHidden ? <small>Скрытый</small> : null}{entry.kind === "command" && entry.command.isActive ? <small aria-label="Текущий" role="img">✓</small> : null}{entry.kind === "command" && commandPaletteHasChildren(entry.command) ? <span aria-hidden="true" data-icon-name="chevron-right" data-size="sm" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(0xeab6)}</span> : null}{shortcut == null ? null : <small style={{ marginLeft: detail == null ? "auto" : undefined }}>{`${PALETTE_MODIFIER_SYMBOL}${shortcut}`}</small>}</button>;
         })}
         {listWindow.end < entries.length ? <div aria-hidden="true" style={{ height: Math.max(0, (entries.length - listWindow.end) * PALETTE_ROW_PITCH_PX - PALETTE_ROW_GAP_PX) }} /> : null}
       </div>}

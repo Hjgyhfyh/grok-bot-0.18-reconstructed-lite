@@ -13,7 +13,7 @@ import { SettingsDesktopPreview } from "../recovered/features/settings/overlay/d
 import { OrgChartGraph, type RenderableOrgChartAgent } from "../recovered/features/org-chart/workspace/graph";
 import { PluginsDialogShell, type PluginsDialogShellProps } from "../recovered/features/plugins/overlay/view";
 import { PluginsDesktopPreview } from "../recovered/features/plugins/overlay/desktop-preview";
-import { hasDesktopBridge } from "../recovered/contracts/desktop-bridge";
+import { hasDesktopBridge, type ThemePreference } from "../recovered/contracts/desktop-bridge";
 import { ConversationWorkspacePreview } from "../recovered/features/conversation/workspace/view";
 
 type BootState = "loading" | "ready" | "failed";
@@ -42,7 +42,7 @@ export function DevShell({ upstreamBoot }: DevShellProps) {
     { id: "research", name: "Research Bot" },
     { id: "release", name: "Release Investigator" }
   ]);
-  const [previewTheme, setPreviewTheme] = useState<"system" | "light" | "dark">("system");
+  const [previewTheme, setPreviewTheme] = useState<ThemePreference>("light-white");
   const [previewTrack, setPreviewTrack] = useState<UpdateTrack>("nightly");
   const [previewAutoUpdate, setPreviewAutoUpdate] = useState(true);
   const [previewAutoReview, setPreviewAutoReview] = useState<AutoReviewSettings>({

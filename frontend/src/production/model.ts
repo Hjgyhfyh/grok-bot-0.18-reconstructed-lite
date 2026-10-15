@@ -115,13 +115,19 @@ export function parseRendererAgentLastEntry(value: unknown): RendererAgentLastEn
   return null;
 }
 
+function russianFileCount(count: number): string {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  const noun = mod100 >= 11 && mod100 <= 14 ? "файлов" : mod10 === 1 ? "файл" : mod10 >= 2 && mod10 <= 4 ? "файла" : "файлов";
+  return `${count} ${noun}`;
+}
+
 function derivedLastMessage(entry: RendererAgentLastEntry | null, fallback: unknown): string | undefined {
   if (entry?.kind === "text") return entry.text;
   if (typeof fallback === "string") return fallback;
-  if (entry?.kind === "link") return `Sent a link · ${entry.url}`;
+  if (entry?.kind === "link") return `Отправлена ссылка · ${entry.url}`;
   if (entry?.kind === "attachment") {
-    const label = entry.count === 1 ? "file" : "files";
-    return `Sent ${entry.count} ${label}`;
+    return `Отправлено: ${russianFileCount(entry.count)}`;
   }
   return undefined;
 }
@@ -130,7 +136,7 @@ export function projectRendererAgent(value: unknown, now = Date.now()): Renderer
   if (!isRecord(value)) return null;
   const id = stringValue(value.id);
   if (id == null) return null;
-  const name = stringValue(value.name) ?? "New chat";
+  const name = stringValue(value.name) ?? "Новый диалог";
   const awaitingUserResponse = value.awaitingUserResponse ?? null;
   const lastEntry = parseRendererAgentLastEntry(value.lastEntry);
   const lastMessagePreview = typeof value.lastMessagePreview === "string" ? value.lastMessagePreview : null;
@@ -185,7 +191,7 @@ function attachmentFromEntry(entry: Record<string, unknown>): DraftAttachment | 
   if (path == null) return null;
   return {
     path,
-    name: stringValue(entry.fileName ?? entry.name) ?? path.split(/[/\\]/).at(-1) ?? "Attachment",
+    name: stringValue(entry.fileName ?? entry.name) ?? path.split(/[/\\]/).at(-1) ?? "Вложение",
     ...(typeof entry.byteSize === "number" ? { size: entry.byteSize } : {}),
     ...(typeof entry.mimeType === "string" ? { mimeType: entry.mimeType } : {})
   };
@@ -420,7 +426,7 @@ export function projectTranscriptEntry(value: unknown, index: number, agentName:
     if (projection == null) return null;
     const attachment = projectUserAttachmentGalleryAttachment(projection);
     return {
-      kind: "message", id, role: "user", author: "You", text: "", timestampMs, attachments: [attachment],
+      kind: "message", id, role: "user", author: "Вы", text: "", timestampMs, attachments: [attachment],
       sourceKind: "user-attachment",
       userAttachment: projection,
       delivery: transcriptDelivery(value) ?? "sent",
@@ -433,7 +439,7 @@ export function projectTranscriptEntry(value: unknown, index: number, agentName:
   const attachment = isAttachmentEntry ? attachmentFromEntry(value) : null;
   if (attachment != null) {
     return {
-      kind: "message", id, role: "user", author: "You", text: "", timestampMs, attachments: [attachment],
+      kind: "message", id, role: "user", author: "Вы", text: "", timestampMs, attachments: [attachment],
       delivery: transcriptDelivery(value) ?? "sent",
       ...(typeof value.clientNonce === "string" ? { clientNonce: value.clientNonce } : {}),
       ...(transcriptReplyToId(value) == null ? {} : { replyToId: transcriptReplyToId(value) }),
@@ -447,7 +453,7 @@ export function projectTranscriptEntry(value: unknown, index: number, agentName:
     kind: "message",
     id,
     role,
-    author: role === "assistant" ? agentName : "You",
+    author: role === "assistant" ? agentName : "Вы",
     text,
     timestampMs,
     ...(transcriptRichText(value) === undefined ? {} : { richText: transcriptRichText(value) }),

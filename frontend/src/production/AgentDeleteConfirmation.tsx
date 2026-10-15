@@ -17,8 +17,8 @@ export interface AgentDeleteConfirmationProps {
 }
 
 function deleteDescription(agent: AgentDeleteTarget): string {
-  if (agent.isGroup === true) return "This permanently deletes the group and its chat history. The Bots in it are not deleted and remain available individually. This can't be undone.";
-  return "This permanently deletes the agent and its chat history. This can't be undone.";
+  if (agent.isGroup === true) return "Группа и её переписка удалятся навсегда. Помощники из неё останутся на месте. Отменить это нельзя.";
+  return "Помощник и его переписка удалятся навсегда. Отменить это нельзя.";
 }
 
 export function AgentDeleteConfirmation({ agent, onClose, onConfirm }: AgentDeleteConfirmationProps) {
@@ -85,19 +85,19 @@ export function AgentDeleteConfirmation({ agent, onClose, onConfirm }: AgentDele
       await onConfirm(agent.id);
       onClose();
     } catch {
-      setFailure("Deleting failed. Check your connection and try again.");
+      setFailure("Не удалось удалить. Проверьте подключение и повторите.");
     } finally {
       setPending(false);
     }
   };
 
-  return <div aria-label={`Delete “${agent.name}”`} aria-modal="true" className="sand-alert-dialog" ref={dialogRef} role="alertdialog" style={{ position: "fixed", inset: "50% auto auto 50%", width: "min(400px, calc(100% - 32px))", padding: 20, color: "var(--cursor-text-primary)", background: "var(--cursor-bg-elevated)", border: "1px solid var(--cursor-border-secondary)", borderRadius: 10, boxShadow: "var(--cursor-box-shadow-xl)", transform: "translate(-50%, -50%)", zIndex: 3200 }}>
-    <h3>{`Delete “${agent.name}”`}</h3>
+  return <div aria-label={`Удалить «${agent.name}»`} aria-modal="true" className="sand-alert-dialog" ref={dialogRef} role="alertdialog" style={{ position: "fixed", inset: "50% auto auto 50%", width: "min(400px, calc(100% - 32px))", padding: 20, color: "var(--cursor-text-primary)", background: "var(--cursor-bg-elevated)", border: "1px solid var(--cursor-border-secondary)", borderRadius: 10, boxShadow: "var(--cursor-box-shadow-xl)", transform: "translate(-50%, -50%)", zIndex: 3200 }}>
+    <h3>{`Удалить «${agent.name}»`}</h3>
     <p>{deleteDescription(agent)}</p>
     {failure == null ? null : <p role="alert">{failure}</p>}
     <footer style={{ display: "flex", justifyContent: "flex-end", gap: 8, margin: "18px -20px -20px", padding: "12px 16px", borderTop: "1px solid var(--cursor-border-secondary)" }}>
-      <SandButton disabled={pending} onClick={onClose} size="sm" variant="secondary">Cancel</SandButton>
-      <SandButton disabled={pending} onClick={() => void confirm()} ref={confirmRef} sentiment="danger" size="sm">{pending ? "Deleting..." : "Delete"}</SandButton>
+      <SandButton disabled={pending} onClick={onClose} size="sm" variant="secondary">Отмена</SandButton>
+      <SandButton disabled={pending} onClick={() => void confirm()} ref={confirmRef} sentiment="danger" size="sm">{pending ? "Удаляем..." : "Удалить"}</SandButton>
     </footer>
   </div>;
 }

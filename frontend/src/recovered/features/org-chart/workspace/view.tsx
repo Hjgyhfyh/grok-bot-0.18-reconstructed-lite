@@ -14,11 +14,20 @@ export interface OrgChartWorkspaceProps {
   renderGraph?: (agents: readonly OrgChartAgent[], edges: readonly OrgChartEdge[]) => React.ReactNode;
 }
 
+function pluralCount(count: number, one: string, few: string, many: string): string {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return `${count} ${many}`;
+  if (last === 1) return `${count} ${one}`;
+  if (last >= 2 && last <= 4) return `${count} ${few}`;
+  return `${count} ${many}`;
+}
+
 export function orgChartSummary(agents: readonly OrgChartAgent[], edges: readonly OrgChartEdge[]): string {
   const groups = agents.filter((agent) => agent.isGroup).length;
   const agentCount = agents.length - groups;
   const links = edges.filter((edge) => edge.kind === "message").length;
-  return `${agentCount} ${agentCount === 1 ? "agent" : "agents"} · ${groups} ${groups === 1 ? "group" : "groups"} · ${links} message ${links === 1 ? "link" : "links"}`;
+  return `${pluralCount(agentCount, "помощник", "помощника", "помощников")} · ${pluralCount(groups, "группа", "группы", "групп")} · ${pluralCount(links, "связь", "связи", "связей")}`;
 }
 
 export default function OrgChartWorkspaceView({ agents = [], onClose, onOpenAgent, renderGraph }: OrgChartWorkspaceProps) {
@@ -32,11 +41,11 @@ export default function OrgChartWorkspaceView({ agents = [], onClose, onOpenAgen
     : <OrgChartGraph agents={renderableAgents as RenderableOrgChartAgent[]} onOpenAgent={onOpenAgent} onSelectAgent={setSelectedAgentId} selectedAgentId={selectedAgentId} />;
   return <div className="sand-org-chart">
     <header className="sand-org-chart__header">
-      <div className="sand-org-chart__heading"><h1>Org chart</h1><small>{orgChartSummary(agents, edges)}</small></div>
+      <div className="sand-org-chart__heading"><h1>Схема помощников</h1><small>{orgChartSummary(agents, edges)}</small></div>
       <span aria-hidden="true" style={{ flexGrow: 1 }} />
-      <button aria-label="Close org chart" className="sand-org-chart__close" onClick={onClose} type="button">×</button>
+      <button aria-label="Закрыть схему" className="sand-org-chart__close" onClick={onClose} type="button">×</button>
     </header>
     <div className="sand-org-chart__stage">{graph}{selectedAgent == null ? null : <OrgChartAgentInspector agent={selectedAgent} byId={byId} onClose={() => setSelectedAgentId(null)} onOpenAgent={onOpenAgent} />}</div>
-    <footer className="sand-org-chart__footer">Solid links are real agent-to-agent message history; dashed links are group membership. A link lights up while both agents are mid-turn. Scroll to zoom, drag to pan, double-click to reset.</footer>
+    <footer className="sand-org-chart__footer">Сплошные линии — это реальная переписка между помощниками, пунктирные — состав группы. Линия загорается, пока оба помощника работают. Колесо мыши меняет размер, перетаскивание двигает схему, двойной щелчок возвращает её как было.</footer>
   </div>;
 }

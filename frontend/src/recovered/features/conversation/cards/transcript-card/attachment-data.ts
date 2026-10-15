@@ -182,7 +182,7 @@ function optionalNonNegativeNumber(value: unknown): number | undefined | null {
 function basename(filePath: string): string {
   const normalized = filePath.replaceAll("\\", "/");
   const leaf = normalized.slice(normalized.lastIndexOf("/") + 1);
-  return leaf.length > 0 ? leaf : "Attachment";
+  return leaf.length > 0 ? leaf : "Вложение";
 }
 
 function projectUserAttachment(value: Record<string, unknown>): UserAttachmentGalleryProjection | null {

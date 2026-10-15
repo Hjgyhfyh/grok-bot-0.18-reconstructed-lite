@@ -1,5 +1,5 @@
 import type { DesktopBridge } from "../../contracts/desktop-bridge";
-import { RUNTIME_THEME_CLASS } from "../runtime-theme-token-installer";
+import { RUNTIME_THEME_CLASS, type RuntimeThemeVariant } from "../runtime-theme-token-installer";
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L132738
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L132917
@@ -33,15 +33,13 @@ export function setWindowChromeVariables(platform: DesktopBridge["platform"], is
   };
 }
 
-export function applyRootShellTheme(resolved: "light" | "dark"): void {
+export function applyRootShellTheme(resolved: RuntimeThemeVariant): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
-  // The shipped bootstrap exposes cursor-light/cursor-dark on the document
-  // root. Keep the shell helper on that same identity so a bridge update
-  // cannot overwrite the installer with the unsupported plain light/dark
-  // values. @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5549435
+  // Переключение варианта идёт через data-theme на <html>: установщик темы уже положил в
+  // документ все четыре светлых набора токенов, правила отфильтрованы по этому атрибуту.
   root.dataset.theme = RUNTIME_THEME_CLASS[resolved];
-  root.style.colorScheme = resolved;
+  root.style.colorScheme = "light";
 }
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L537

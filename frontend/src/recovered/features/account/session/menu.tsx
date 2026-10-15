@@ -50,17 +50,21 @@ function percentLabel(value: number | null): string {
 
 const MINUTES_PER_DAY = 1440;
 
-function countdownLabel(nextResetMs: number | null, nowMs: number, prefix: "Resets" | "Ends"): string | null {
+function countdownLabel(nextResetMs: number | null, nowMs: number, prefix: "end" | "reset"): string | null {
   if (nextResetMs == null || !Number.isFinite(nextResetMs)) return null;
   const days = Math.ceil((nextResetMs - nowMs) / (MINUTES_PER_DAY * 60 * 1000));
-  if (days <= 0) return `${prefix} today`;
-  return `${prefix} in ${days} ${days === 1 ? "day" : "days"}`;
+  const word = prefix === "end" ? "Закончится" : "Обновится";
+  if (days <= 0) return `${word} сегодня`;
+  const dayWord = days % 10 === 1 && days % 100 !== 11 ? "день"
+    : days % 10 >= 2 && days % 10 <= 4 && (days % 100 < 10 || days % 100 >= 20) ? "дня"
+    : "дней";
+  return `${word} через ${days} ${dayWord}`;
 }
 
 export function usageResetLabel(summary: Pick<CursorUsageSummary, "sandUsageResetTimestampMs" | "isSandTrial" | "hasNonZeroIncludedLimit">, nowMs: number): string | null {
-  const prefix = summary.isSandTrial ? "Ends" : "Resets";
+  const prefix = summary.isSandTrial ? "end" : "reset";
   return countdownLabel(summary.sandUsageResetTimestampMs, nowMs, prefix)
-    ?? (!summary.isSandTrial && summary.hasNonZeroIncludedLimit ? "Resets in 7 days" : null);
+    ?? (!summary.isSandTrial && summary.hasNonZeroIncludedLimit ? "Обновится через 7 дней" : null);
 }
 
 export function accountUsageIdentity(account: CursorAuthStatus | null): string | null {
@@ -134,7 +138,7 @@ function AccountNameEditor({ bridge, onError, onStatus }: AccountNameEditorProps
     } catch (reason) {
       if (!mountedRef.current) return;
       setMode("editing");
-      onError(`Couldn’t save your name: ${reason instanceof Error ? reason.message : String(reason)}`);
+      onError(`Не удалось сохранить имя: ${reason instanceof Error ? reason.message : String(reason)}`);
       queueMicrotask(() => inputRef.current?.focus());
     }
   }, [bridge, cancel, onError, onStatus]);
@@ -176,11 +180,11 @@ function AccountNameEditor({ bridge, onError, onStatus }: AccountNameEditorProps
   }, []);
 
   if (mode === "viewing") {
-    return <button aria-label="Enter your name" className="sand-agents-sidebar__account-name" onClick={() => setMode("editing")} type="button">Enter your name</button>;
+    return <button aria-label="Введите ваше имя" className="sand-agents-sidebar__account-name" onClick={() => setMode("editing")} type="button">Введите ваше имя</button>;
   }
 
   return <input
-    aria-label="Your name"
+    aria-label="Ваше имя"
     autoComplete="off"
     className="sand-agents-sidebar__account-name-input"
     data-initial=""
@@ -208,7 +212,7 @@ function AccountNameEditor({ bridge, onError, onStatus }: AccountNameEditorProps
         event.currentTarget.blur();
       }
     }}
-    placeholder="Enter your name"
+    placeholder="Введите ваше имя"
     ref={inputRefCallback}
     spellCheck={false}
     value={draft}
@@ -310,8 +314,8 @@ export function AccountMenu({
               {labels.weeklyUsage}<span>{percentLabel(usageSummary.sandUsagePercent)}</span>
             </SandMenuItem>
             {usageOpen ? <div aria-label={labels.weeklyUsage} role="group">
-              <div><span>{usageSummary.isSandTrial ? "Trial usage" : labels.included}</span><span>{percentLabel(usageSummary.sandUsagePercent)}</span><small>{usageResetLabel(usageSummary, usageNow)}</small></div>
-              {usageSummary.onDemand == null ? null : <div><span>{labels.onDemand}</span><span>{onDemandLabel(usageSummary)}</span><small>{countdownLabel(usageSummary.onDemand.resetTimestampMs, usageNow, "Resets")}</small></div>}
+              <div><span>{usageSummary.isSandTrial ? "Пробный период" : labels.included}</span><span>{percentLabel(usageSummary.sandUsagePercent)}</span><small>{usageResetLabel(usageSummary, usageNow)}</small></div>
+              {usageSummary.onDemand == null ? null : <div><span>{labels.onDemand}</span><span>{onDemandLabel(usageSummary)}</span><small>{countdownLabel(usageSummary.onDemand.resetTimestampMs, usageNow, "reset")}</small></div>}
               <SandMenuItem index={nextMenuIndex()} onSelect={() => closeAnd(onOpenUsage)}>{labels.changeLimit}</SandMenuItem>
             </div> : null}
           </> : null}

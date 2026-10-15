@@ -13,7 +13,7 @@ const SECRET_INPUT_CLASS = "sand-secret-request__field sand-1iyjqo2 sand-s83m0k 
 const SECRET_BUTTON_CLASS = "sand-2lah0s sand-10w6t97 sand-ur7f20 sand-cicffo sand-1lqa7cf sand-fc7y3v sand-1yxxptd sand-1wclgxm sand-1e15362 sand-1gzh0bn sand-xcaa6e sand-7n8uir sand-gd8bvy sand-1fgtraw";
 
 function placeholderForLabel(label: string): string {
-  return /^(?:a|an|the|your|my)\s/i.test(label) ? `Paste ${label}` : `Paste your ${label}`;
+  return `Вставьте ${label}`;
 }
 
 export function SecretRequestTranscriptCard(props: TranscriptCardLeafProps) {
@@ -37,12 +37,12 @@ export function SecretRequestTranscriptCard(props: TranscriptCardLeafProps) {
     setValue("");
     void adapter.submit(entry.id, submitted);
   };
-  if (isProvided) return <section aria-labelledby={titleId} className={SECRET_SAVED_CARD_CLASS} role="region"><span className="sand-78zum5 sand-6s0dn4 sand-euugli sand-1iyjqo2 sand-s83m0k sand-1r8uery"><h2 className="sand-euugli sand-j0a0fe" id={titleId}>{request.label}</h2><span className="sand-euugli sand-j0a0fe">Saved securely and kept private.</span></span><span className="sand-3nfvp2 sand-6s0dn4 sand-2lah0s sand-1jnr06f sand-1yrsyyn sand-nuq7ks sand-10b6aqq sand-f18ygs sand-149ho13 sand-1buh4up sand-1w5rjie" role="status"><span aria-hidden="true" data-icon-name="check" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(0xeab2)}</span>Saved</span></section>;
+  if (isProvided) return <section aria-labelledby={titleId} className={SECRET_SAVED_CARD_CLASS} role="region"><span className="sand-78zum5 sand-6s0dn4 sand-euugli sand-1iyjqo2 sand-s83m0k sand-1r8uery"><h2 className="sand-euugli sand-j0a0fe" id={titleId}>{request.label}</h2><span className="sand-euugli sand-j0a0fe">Данные сохранены и никому не показываются.</span></span><span className="sand-3nfvp2 sand-6s0dn4 sand-2lah0s sand-1jnr06f sand-1yrsyyn sand-nuq7ks sand-10b6aqq sand-f18ygs sand-149ho13 sand-1buh4up sand-1w5rjie" role="status"><span aria-hidden="true" data-icon-name="check" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(0xeab2)}</span>Сохранено</span></section>;
   return <form aria-labelledby={titleId} className={SECRET_CARD_CLASS} onSubmit={submit}>
     <div className="sand-78zum5 sand-dt5ytf sand-euugli"><h2 className="sand-euugli sand-j0a0fe" id={titleId}>{request.label}</h2>{request.description == null ? null : <p className="sand-euugli sand-j0a0fe">{request.description}</p>}</div>
     <input aria-labelledby={titleId} autoComplete="off" className={SECRET_INPUT_CLASS} onChange={(event) => setValue(event.currentTarget.value)} placeholder={placeholderForLabel(request.label)} spellCheck={false} type="password" value={value} />
-    <div className="sand-78zum5 sand-1cy8zhl sand-167g77z sand-h8yej3 sand-euugli"><button className={SECRET_BUTTON_CLASS} disabled={!canSubmit} type="submit">Save securely</button></div>
-    <div className="sand-78zum5 sand-1cy8zhl sand-1jnr06f sand-euugli sand-4b2ntj"><span className="sand-78zum5 sand-2lah0s sand-7r5mf7"><span aria-hidden="true" data-icon-name="shield-check" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(0xebc1)}</span></span><span className="sand-euugli sand-j0a0fe">Stored securely, never shown to your agent.</span></div>
+    <div className="sand-78zum5 sand-1cy8zhl sand-167g77z sand-h8yej3 sand-euugli"><button className={SECRET_BUTTON_CLASS} disabled={!canSubmit} type="submit">Сохранить</button></div>
+    <div className="sand-78zum5 sand-1cy8zhl sand-1jnr06f sand-euugli sand-4b2ntj"><span className="sand-78zum5 sand-2lah0s sand-7r5mf7"><span aria-hidden="true" data-icon-name="shield-check" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(0xebc1)}</span></span><span className="sand-euugli sand-j0a0fe">Данные хранятся в надёжном месте и никогда не показываются помощнику.</span></div>
   </form>;
 }
 

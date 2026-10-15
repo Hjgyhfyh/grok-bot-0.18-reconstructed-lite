@@ -8,13 +8,13 @@ type StatusDotState = "working" | "info" | "offline";
 
 interface StatusBadgeState {
   dot: StatusDotState;
-  label: "Connecting" | "Connected" | "Disconnected";
+  label: "Подключение" | "Подключено" | "Нет связи";
 }
 
 const STATUS_BY_TRANSPORT: Record<Exclude<WindowTransportState, "browser">, StatusBadgeState> = {
-  connecting: { dot: "working", label: "Connecting" },
-  connected: { dot: "info", label: "Connected" },
-  down: { dot: "offline", label: "Disconnected" }
+  connecting: { dot: "working", label: "Подключение" },
+  connected: { dot: "info", label: "Подключено" },
+  down: { dot: "offline", label: "Нет связи" }
 };
 
 export function WindowStatusBadge({ isFullscreen, transport }: { isFullscreen: boolean; transport: WindowTransportState }) {

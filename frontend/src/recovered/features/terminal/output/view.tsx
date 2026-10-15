@@ -1,7 +1,7 @@
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2145870 (terminalBackground theme token)
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=2145913 (terminalForeground theme token)
 import type { CSSProperties } from "react";
-import type { TerminalOutputSnapshot } from "./model";
+import type { TerminalOutputSnapshot, TerminalOutputStatus } from "./model";
 
 const OUTPUT_STYLE: CSSProperties = {
   backgroundColor: "var(--cursor-bg-chrome)",
@@ -21,6 +21,17 @@ export interface TerminalOutputPanelProps {
   snapshot: TerminalOutputSnapshot;
 }
 
+const STATUS_LABEL: Record<TerminalOutputStatus, string> = {
+  idle: "Ожидает",
+  running: "Выполняется",
+  exited: "Завершено",
+  error: "Ошибка"
+};
+
+function statusLabel(status: TerminalOutputStatus): string {
+  return STATUS_LABEL[status] ?? status;
+}
+
 /**
  * Read-only terminal output leaf. The shipped renderer exposes terminal
  * result/metadata contracts, but no terminal coordinator or renderer mount;
@@ -36,7 +47,7 @@ export function TerminalOutputPanel({ ariaLabel, snapshot }: TerminalOutputPanel
     <header>
       <code>{snapshot.command}</code>
       {snapshot.cwd == null ? null : <code data-terminal-cwd>{snapshot.cwd}</code>}
-      <span aria-label={snapshot.status} data-terminal-exit-code={snapshot.exitCode == null ? undefined : snapshot.exitCode}>{snapshot.status}</span>
+      <span aria-label={statusLabel(snapshot.status)} data-terminal-exit-code={snapshot.exitCode == null ? undefined : snapshot.exitCode}>{statusLabel(snapshot.status)}</span>
     </header>
     <pre aria-live={snapshot.status === "running" ? "polite" : "off"} aria-relevant="additions text" role="log" style={OUTPUT_STYLE} tabIndex={0}>{snapshot.output}</pre>
   </section>;

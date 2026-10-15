@@ -31,23 +31,27 @@ const markdownPreviewReplacements: readonly [RegExp, string][] = [
   [/\|/g, " " ]
 ];
 
-const attachmentLabels: Readonly<Record<string, { singular: string; plural: string }>> = {
-  image: { singular: "image", plural: "images" },
-  video: { singular: "video", plural: "videos" },
-  audio: { singular: "audio file", plural: "audio files" },
-  pdf: { singular: "PDF", plural: "PDFs" },
-  markdown: { singular: "Markdown file", plural: "Markdown files" },
-  table: { singular: "spreadsheet", plural: "spreadsheets" },
-  json: { singular: "JSON file", plural: "JSON files" },
-  text: { singular: "text file", plural: "text files" },
-  document: { singular: "document", plural: "documents" },
-  archive: { singular: "archive", plural: "archives" },
-  file: { singular: "file", plural: "files" }
+const attachmentLabels: Readonly<Record<string, { one: string; few: string; many: string }>> = {
+  image: { one: "картинка", few: "картинки", many: "картинок" },
+  video: { one: "видео", few: "видео", many: "видео" },
+  audio: { one: "звуковой файл", few: "звуковых файла", many: "звуковых файлов" },
+  pdf: { one: "PDF", few: "PDF", many: "PDF" },
+  markdown: { one: "файл Markdown", few: "файла Markdown", many: "файлов Markdown" },
+  table: { one: "таблица", few: "таблицы", many: "таблиц" },
+  json: { one: "файл JSON", few: "файла JSON", many: "файлов JSON" },
+  text: { one: "текстовый файл", few: "текстовых файла", many: "текстовых файлов" },
+  document: { one: "документ", few: "документа", many: "документов" },
+  archive: { one: "архив", few: "архива", many: "архивов" },
+  file: { one: "файл", few: "файла", many: "файлов" }
 };
 
 function attachmentLabel(kind: string, count: number): string {
   const label = attachmentLabels[kind] ?? attachmentLabels.file;
-  return `${count} ${count === 1 ? label.singular : label.plural}`;
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (last === 1 && lastTwo !== 11) return `${count} ${label.one}`;
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return `${count} ${label.few}`;
+  return `${count} ${label.many}`;
 }
 
 function previewAttachment(entry: Extract<RendererAgentLastEntry, { kind: "attachment" }>): string {
@@ -55,14 +59,14 @@ function previewAttachment(entry: Extract<RendererAgentLastEntry, { kind: "attac
   const kinds = Object.entries(entry.kinds)
     .filter(([, value]) => value > 0)
     .map(([kind, value]) => ({ kind: attachmentLabels[kind] == null ? "file" : kind, count: value }));
-  if (kinds.length === 0) return `Sent ${attachmentLabel("file", count)}`;
-  if (kinds.length === 1) return `Sent ${attachmentLabel(kinds[0].kind, count)}`;
-  return `Sent ${attachmentLabel("file", count)} · ${kinds.map(({ kind, count: kindCount }) => attachmentLabel(kind, kindCount)).join(", ")}`;
+  if (kinds.length === 0) return `Отправлено: ${attachmentLabel("file", count)}`;
+  if (kinds.length === 1) return `Отправлено: ${attachmentLabel(kinds[0].kind, count)}`;
+  return `Отправлено: ${attachmentLabel("file", count)} · ${kinds.map(({ kind, count: kindCount }) => attachmentLabel(kind, kindCount)).join(", ")}`;
 }
 
 export function previewTextFromLastEntry(entry: RendererAgentLastEntry | null): string {
   if (entry == null) return "";
-  if (entry.kind === "link") return `Sent a link · ${entry.url}`;
+  if (entry.kind === "link") return `Отправлена ссылка · ${entry.url}`;
   if (entry.kind === "attachment") return previewAttachment(entry);
   return markdownPreviewReplacements.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), entry.text).replace(/\s+/g, " ").trim();
 }
@@ -89,28 +93,28 @@ function waitingReason(agent: { readonly awaitingUserResponse?: unknown | null; 
 /** Unmounted content projection; unavailable private avatar/status primitives remain absent. */
 function previewTime(updatedAt: number, now: number): string {
   const seconds = Math.max(0, Math.floor((now - updatedAt) / 1000));
-  if (seconds < 60) return "now";
+  if (seconds < 60) return "сейчас";
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${minutes} мин назад`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours} ч назад`;
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return `${days} дн назад`;
 }
 
 /** The shipped hover-card content leaf, kept separate from its popover owner. */
 export function AgentPreviewContent({ agent, isHostReachable, draftPreview, isPinned, renderAvatar, renderStatus, renderPinnedIcon, announceStatus = false, now = Date.now() }: AgentPreviewContentProps) {
   const reason = waitingReason(agent);
   const preview = reason != null
-    ? `Waiting for you: ${reason}`
+    ? `Ждёт вашего ответа: ${reason}`
     : draftPreview.length > 0
       ? null
-      : previewTextFromLastEntry(agent.lastEntry ?? null) || "No messages yet";
+      : previewTextFromLastEntry(agent.lastEntry ?? null) || "Сообщений пока нет";
   return <div className="sand-agent-hover-card">
     <AgentPreviewHeader agent={agent} isHostReachable={isHostReachable} isPinned={isPinned} renderAvatar={renderAvatar} renderStatus={renderStatus} renderPinnedIcon={renderPinnedIcon} announceStatus={announceStatus} />
     {agent.updatedAt == null ? null : <time className="sand-agent-hover-card__time" dateTime={new Date(agent.updatedAt).toISOString()}>{previewTime(agent.updatedAt, now)}</time>}
     <span className="sand-agent-hover-card__preview">
-      {reason != null ? preview : draftPreview.length > 0 ? <><span className="sand-agent-hover-card__draft-label">Draft:</span> {draftPreview}</> : preview}
+      {reason != null ? preview : draftPreview.length > 0 ? <><span className="sand-agent-hover-card__draft-label">Черновик:</span> {draftPreview}</> : preview}
     </span>
   </div>;
 }
@@ -169,7 +173,7 @@ export function AgentPreviewCompositor({ children, isEnabled = true, ...contentP
   };
 
   return <div
-    aria-label={`${contentProps.agent.name} chat preview`}
+    aria-label={`Предпросмотр диалога: ${contentProps.agent.name}`}
     data-preview-open={isOpen || undefined}
     onBlurCapture={(event) => {
       const next = event.relatedTarget;
@@ -186,7 +190,7 @@ export function AgentPreviewCompositor({ children, isEnabled = true, ...contentP
     style={{ minWidth: 0, position: "relative" }}
   >
     {children}
-    {isEnabled && isOpen ? <div aria-label={`${contentProps.agent.name} chat preview`} className="sand-agent-hover-card" ref={contentRef} role="tooltip" style={{ background: "#20231f", border: "1px solid #3a4036", borderRadius: 10, boxShadow: "0 12px 30px rgb(0 0 0 / 28%)", color: "#dcdfd8", left: "calc(100% + 8px)", padding: 10, position: "absolute", top: 0, width: 260, zIndex: 3100 }}>
+    {isEnabled && isOpen ? <div aria-label={`Предпросмотр диалога: ${contentProps.agent.name}`} className="sand-agent-hover-card" ref={contentRef} role="tooltip" style={{ background: "#20231f", border: "1px solid #3a4036", borderRadius: 10, boxShadow: "0 12px 30px rgb(0 0 0 / 28%)", color: "#dcdfd8", left: "calc(100% + 8px)", padding: 10, position: "absolute", top: 0, width: 260, zIndex: 3100 }}>
       <AgentPreviewContent {...contentProps} now={Date.now()} />
     </div> : null}
   </div>;

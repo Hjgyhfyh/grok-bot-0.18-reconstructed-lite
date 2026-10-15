@@ -23,7 +23,7 @@ export function routineSchedulePickerOptions(): readonly RoutineSchedulePickerOp
     const hour = Math.floor(totalMinutes / 60);
     const minute = totalMinutes % 60;
     return {
-      label: `${hour % 12 === 0 ? 12 : hour % 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`,
+      label: `${hour % 12 === 0 ? 12 : hour % 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "утра" : "вечера"}`,
       cron: (days: string) => `${minute} ${hour} * * ${days}`
     };
   });
@@ -50,7 +50,7 @@ export function RoutineCustomScheduleField({
   return (
     <input
       aria-invalid={isCustomInvalid || undefined}
-      aria-label="Schedule"
+      aria-label="Расписание"
       onBlur={(event) => onCustomScheduleBlur(event.currentTarget.value)}
       onChange={(event) => onCustomScheduleChange(event.currentTarget.value)}
       type="text"
@@ -61,7 +61,7 @@ export function RoutineCustomScheduleField({
 
 export function RoutineSchedulePicker({ days, onSelect }: { readonly days: string; onSelect(schedule: string): void }) {
   return (
-    <select aria-label="Time" onChange={(event) => onSelect(event.currentTarget.value)} defaultValue="">
+    <select aria-label="Время" onChange={(event) => onSelect(event.currentTarget.value)} defaultValue="">
       <option disabled value=""></option>
       {routineSchedulePickerOptions().map((option) => <option key={option.label} value={option.cron(days)}>{option.label}</option>)}
     </select>
@@ -111,13 +111,13 @@ export function RoutineTriggerDraftEditor({ trigger, pending, onCommit }: Routin
   return (
     <div aria-busy={pending || snapshot.pending ? "true" : undefined} className="sand-trigger-card">
       {snapshot.draft.rows.length === 0 ? null : (
-        <ul aria-label="Triggers">
+        <ul aria-label="Расписания">
           {snapshot.draft.rows.map((row, index) => {
             const sentence = describeRoutineTrigger(row);
             return (
               <li key={`${row.platform}-${index}`}>
                 <button className="sand-trigger-card__row" disabled={pending || snapshot.pending} onClick={() => controller.openEditor(index)} ref={(element) => { rowRefs.current[index] = element; }} type="button">{sentence.lead} {sentence.rest}</button>
-                <button aria-label={`Remove trigger: ${sentence.lead} ${sentence.rest}`} disabled={pending || snapshot.pending} onClick={() => { void controller.removeRow(index); }} type="button">Remove</button>
+                <button aria-label={`Убрать расписание: ${sentence.lead} ${sentence.rest}`} disabled={pending || snapshot.pending} onClick={() => { void controller.removeRow(index); }} type="button">Убрать</button>
               </li>
             );
           })}
@@ -125,17 +125,17 @@ export function RoutineTriggerDraftEditor({ trigger, pending, onCommit }: Routin
       )}
       {snapshot.editingRow == null ? (
         <div>
-          <button aria-label={snapshot.draft.rows.length === 0 ? "Add trigger" : "Add another"} disabled={pending || snapshot.pending || snapshot.draft.rows.length >= 8} onClick={() => controller.openMenu()} type="button">{snapshot.draft.rows.length === 0 ? "Add trigger" : "Add another"}</button>
+          <button aria-label={snapshot.draft.rows.length === 0 ? "Добавить расписание" : "Добавить ещё"} disabled={pending || snapshot.pending || snapshot.draft.rows.length >= 8} onClick={() => controller.openMenu()} type="button">{snapshot.draft.rows.length === 0 ? "Добавить расписание" : "Добавить ещё"}</button>
           {snapshot.menuOpen ? (
-            <div aria-label="Trigger source" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); void controller.handleMenuEscape(); } }} role="menu">
-              <button onClick={() => { void controller.addRowAndCommit(HOURLY_FORM).then(() => controller.setMenuOpen(false)); }} type="button">Every hour</button>
-              <button onClick={() => { void controller.addRow({ platform: "schedule", schedule: "" }, true); }} type="button">Advanced…</button>
-              <button onClick={() => { void controller.setMenuOpen(false); }} type="button">Cancel</button>
+            <div aria-label="Откуда взять расписание" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); void controller.handleMenuEscape(); } }} role="menu">
+              <button onClick={() => { void controller.addRowAndCommit(HOURLY_FORM).then(() => controller.setMenuOpen(false)); }} type="button">Каждый час</button>
+              <button onClick={() => { void controller.addRow({ platform: "schedule", schedule: "" }, true); }} type="button">Подробнее…</button>
+              <button onClick={() => { void controller.setMenuOpen(false); }} type="button">Отмена</button>
             </div>
           ) : null}
         </div>
       ) : (
-        <div aria-label="Trigger fields" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); void controller.closeEditor("escape"); } }} role="dialog">
+        <div aria-label="Поля расписания" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); void controller.closeEditor("escape"); } }} role="dialog">
           {editingRow?.platform === "schedule" ? (
             <>
               <RoutineSchedulePicker days="*" onSelect={(schedule) => { void controller.blurCustomSchedule(snapshot.editingRow ?? 0, schedule); }} />
@@ -147,8 +147,8 @@ export function RoutineTriggerDraftEditor({ trigger, pending, onCommit }: Routin
               />
             </>
           ) : null}
-          <button onClick={() => { void controller.closeEditor("cancel"); }} type="button">Cancel</button>
-          <button disabled={pending || snapshot.pending} onClick={() => { if (snapshot.editingRow != null && editingRow?.platform === "schedule") void controller.blurCustomSchedule(snapshot.editingRow, editingRow.schedule); }} type="button">Save</button>
+          <button onClick={() => { void controller.closeEditor("cancel"); }} type="button">Отмена</button>
+          <button disabled={pending || snapshot.pending} onClick={() => { if (snapshot.editingRow != null && editingRow?.platform === "schedule") void controller.blurCustomSchedule(snapshot.editingRow, editingRow.schedule); }} type="button">Сохранить</button>
         </div>
       )}
     </div>

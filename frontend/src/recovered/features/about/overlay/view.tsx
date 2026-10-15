@@ -58,9 +58,9 @@ export function AboutDialog({ bridge, labels, onClose, initialStatus = null }: A
     if (status == null) return;
     try {
       await navigator.clipboard.writeText([
-        `Version: ${status.currentVersion}`,
-        `Release Track: ${status.currentTrack}`,
-        `OS: ${bridge.platform}`
+        `Версия: ${status.currentVersion}`,
+        `Канал обновлений: ${status.currentTrack}`,
+        `ОС: ${bridge.platform}`
       ].join("\n"));
       setCopied(true);
       setCopyGeneration((generation) => generation + 1);
@@ -71,12 +71,12 @@ export function AboutDialog({ bridge, labels, onClose, initialStatus = null }: A
 
   return (
     <section aria-label={labels.title} aria-modal="true" className="sand-about-dialog" role="dialog">
-      <SandIconButton aria-label="Close" icon="close" label="Close" onClick={onClose} size="sm" />
+      <SandIconButton aria-label="Закрыть" icon="close" label="Закрыть" onClick={onClose} size="sm" />
       <div>
         <img alt="" className={ABOUT_ICON_CLASS} draggable={false} height={APP_ICON_SIZE_PX} src={APP_ICON_URL} width={APP_ICON_SIZE_PX} />
         <div className={ABOUT_HEADING_ROW_CLASS}>
           <h2>{labels.title}</h2>
-          {status == null ? null : <p>{`Version ${status.currentVersion} (built by Bennett)`}</p>}
+          {status == null ? null : <p>{`Версия ${status.currentVersion} (собрал Bennett)`}</p>}
         </div>
         <small>{labels.copyright}</small>
       </div>

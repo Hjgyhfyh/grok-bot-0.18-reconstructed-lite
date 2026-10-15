@@ -12,7 +12,11 @@ export interface ThreadAffordanceProps {
 }
 
 export function threadReplyLabel(count: number): string {
-  return count === 1 ? "1 reply" : `${count} replies`;
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (last === 1 && lastTwo !== 11) return "1 ответ";
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return `${count} ответа`;
+  return `${count} ответов`;
 }
 
 export function ThreadAffordance({ summary, onOpen, role, children }: ThreadAffordanceProps) {
@@ -20,13 +24,13 @@ export function ThreadAffordance({ summary, onOpen, role, children }: ThreadAffo
   const countLabel = threadReplyLabel(summary.count);
   return (
     <button
-      aria-label={`View thread, ${countLabel}`}
+      aria-label={`Открыть обсуждение: ${countLabel}`}
       className="sand-thread-affordance"
       data-role={role}
       onClick={() => onOpen(summary.rootId)}
       type="button"
     >
-      {children ?? <span>View thread</span>}
+      {children ?? <span>Открыть обсуждение</span>}
       <span aria-hidden="true" className="sand-thread-affordance__count">{countLabel}</span>
     </button>
   );

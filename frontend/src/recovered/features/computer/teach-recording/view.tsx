@@ -55,7 +55,7 @@ export function projectTeachRecording(input: Pick<TeachRecordingControlsProps, "
       agentId: recordingAgentId,
       elapsedMs: input.nowMs - input.snapshot.startedAtMs,
       isOwn: recordingAgentId === input.agentId,
-      label: recordingAgentId === input.agentId ? `${input.subjectLabel} is watching and learning` : `Recording ${input.recordingAgentName ?? "another agent"}'s computer`
+      label: recordingAgentId === input.agentId ? `${input.subjectLabel} смотрит и учится` : `${input.recordingAgentName ?? "Другой помощник"} записывает экран`
     };
   }
   if (!input.isTeachTaskAvailable || input.agentId == null || input.armed?.agentId !== input.agentId) return { kind: "hidden" };
@@ -84,17 +84,17 @@ function RecordingControls({ projection, isOverlayTone, actions, onStopAndSave }
       ? "sand-9f619 sand-78zum5 sand-6s0dn4 sand-889kno sand-cicffo sand-1a8lsjc sand-f18ygs sand-1n2onr6 sand-h8yej3 sand-193iq5w sand-2lah0s sand-ou54vl sand-p59q4u sand-1g0dm76 sand-2vl965 sand-1q4ynmn sand-1tiofj7 sand-vn2z4z sand-1gnnqk1 sand-1kj7bwx"
       : "sand-9f619 sand-78zum5 sand-6s0dn4 sand-889kno sand-cicffo sand-1a8lsjc sand-f18ygs sand-1n2onr6 sand-h8yej3 sand-193iq5w sand-2lah0s sand-ou54vl sand-p59q4u sand-1g0dm76 sand-2vl965 sand-1q4ynmn sand-1tiofj7 sand-vn2z4z sand-1gnnqk1"}>
       <span className={isOverlayTone ? "sand-1iyjqo2 sand-s83m0k sand-euugli sand-4z9k3i sand-d4r4e8 sand-5a26a2" : "sand-1iyjqo2 sand-s83m0k sand-euugli sand-4z9k3i sand-d4r4e8 sand-tyxrsu"}>{projection.label}</span>
-      <TeachButton aria-label="Stop and save recording" className={`${STOP_RECORDING_STYLE}${isOverlayTone ? ` ${STOP_RECORDING_OVERLAY_STYLE}` : ""}`} leadingIcon="square" onClick={stopAndSave} title="Stop recording">{formatTeachRecordingDuration(projection.elapsedMs)}</TeachButton>
-      <TeachIconButton aria-label="Discard recording" className={isOverlayTone ? DISCARD_RECORDING_OVERLAY_STYLE : DISCARD_RECORDING_STYLE} icon="close" label="Discard recording" onClick={() => void actions.stop(projection.agentId, false)} />
+      <TeachButton aria-label="Остановить и сохранить запись" className={`${STOP_RECORDING_STYLE}${isOverlayTone ? ` ${STOP_RECORDING_OVERLAY_STYLE}` : ""}`} leadingIcon="square" onClick={stopAndSave} title="Остановить запись">{formatTeachRecordingDuration(projection.elapsedMs)}</TeachButton>
+      <TeachIconButton aria-label="Удалить запись" className={isOverlayTone ? DISCARD_RECORDING_OVERLAY_STYLE : DISCARD_RECORDING_STYLE} icon="close" label="Удалить запись" onClick={() => void actions.stop(projection.agentId, false)} />
     </div>
   </div>;
 }
 
 function ArmedControls({ agentId, entryPoint, subjectLabel, actions }: { agentId: string; entryPoint: string; subjectLabel: string; actions: TeachRecordingActions }): ReactNode {
   return <div className="sand-9f619 sand-78zum5 sand-1v2ro7d sand-h8yej3 sand-889kno sand-cicffo sand-1a8lsjc sand-f18ygs sand-1q4ynmn sand-1yx5i47 sand-vn2z4z">
-    <span className="sand-1iyjqo2 sand-s83m0k sand-euugli sand-4z9k3i sand-d4r4e8 sand-5a26a2">Record yourself doing a task. {subjectLabel} learns the steps and can run them again on its own.</span>
-    <TeachButton className={RECORD_PILL_STYLE} onClick={() => { actions.arm(null); void actions.start(agentId, entryPoint ?? "screen_hover"); }} size="sm" variant="primary"><span className="sand-3nfvp2 sand-6s0dn4 sand-1jnr06f"><span className="sand-3nfvp2 sand-6s0dn4 sand-l56j7k sand-2lah0s sand-1xp8n7a sand-mix8c7"><TeachRecordingMark /></span><span>Start recording</span></span></TeachButton>
-    <TeachIconButton className={DISMISS_STYLE} icon="close" label="Dismiss" onClick={() => actions.arm(null)} />
+    <span className="sand-1iyjqo2 sand-s83m0k sand-euugli sand-4z9k3i sand-d4r4e8 sand-5a26a2">Запишите, как вы делаете задачу. {subjectLabel} запомнит шаги и сможет повторить их сам.</span>
+    <TeachButton className={RECORD_PILL_STYLE} onClick={() => { actions.arm(null); void actions.start(agentId, entryPoint ?? "screen_hover"); }} size="sm" variant="primary"><span className="sand-3nfvp2 sand-6s0dn4 sand-1jnr06f"><span className="sand-3nfvp2 sand-6s0dn4 sand-l56j7k sand-2lah0s sand-1xp8n7a sand-mix8c7"><TeachRecordingMark /></span><span>Начать запись</span></span></TeachButton>
+    <TeachIconButton className={DISMISS_STYLE} icon="close" label="Скрыть" onClick={() => actions.arm(null)} />
   </div>;
 }
 
@@ -117,8 +117,8 @@ export function TeachRecordingPreviewFrame({ projection, actions }: { projection
   if (projection == null || !projection.isOwn) return null;
   return <>
     <span aria-hidden="true" className="sand-10l6tqk sand-10a8y8t sand-9f619 sand-2u8bby sand-dh2fpr sand-1y0btm7 sand-jz30o7 sand-47corl sand-zkaem6" data-recording-frame="true" />
-    <span className="sand-10l6tqk sand-fr5jun sand-ncym2f sand-zkaem6 sand-3nfvp2 sand-17d4w8g sand-1kogg8i sand-j8oexa sand-dqyycr sand-1icupl1 sand-104s22n sand-1j6dyjg sand-xzm5a7 sand-ss6m8b sand-47corl">● REC {formatTeachRecordingDuration(projection.elapsedMs)}</span>
-    <span className="sand-10l6tqk sand-1jn9clo sand-1nrll8i sand-uuh30 sand-zkaem6"><TeachButton onClick={() => void actions.stop(projection.agentId, true)} size="sm" variant="primary">Stop &amp; save</TeachButton></span>
+    <span className="sand-10l6tqk sand-fr5jun sand-ncym2f sand-zkaem6 sand-3nfvp2 sand-17d4w8g sand-1kogg8i sand-j8oexa sand-dqyycr sand-1icupl1 sand-104s22n sand-1j6dyjg sand-xzm5a7 sand-ss6m8b sand-47corl">● ЗАПИСЬ {formatTeachRecordingDuration(projection.elapsedMs)}</span>
+    <span className="sand-10l6tqk sand-1jn9clo sand-1nrll8i sand-uuh30 sand-zkaem6"><TeachButton onClick={() => void actions.stop(projection.agentId, true)} size="sm" variant="primary">Остановить и сохранить</TeachButton></span>
   </>;
 }
 
@@ -127,8 +127,8 @@ export function TeachRecordingPreviewPeerRow({ projection, actions }: { projecti
   return <div className="sand-78zum5 sand-6s0dn4 sand-pkkfsy sand-h8yej3">
     <span className="sand-1iyjqo2 sand-s83m0k sand-euugli sand-4z9k3i sand-d4r4e8 sand-tyxrsu">{projection.label}</span>
     <span className="sand-78zum5 sand-6s0dn4 sand-11twubx sand-2lah0s">
-      <TeachButton aria-label="Stop and save recording" onClick={() => void actions.stop(projection.agentId, true)} size="sm" variant="primary">Stop &amp; save</TeachButton>
-      <TeachIconButton aria-label="Discard recording" icon="close" label="Discard recording" onClick={() => void actions.stop(projection.agentId, false)} />
+      <TeachButton aria-label="Остановить и сохранить запись" onClick={() => void actions.stop(projection.agentId, true)} size="sm" variant="primary">Остановить и сохранить</TeachButton>
+      <TeachIconButton aria-label="Удалить запись" icon="close" label="Удалить запись" onClick={() => void actions.stop(projection.agentId, false)} />
     </span>
   </div>;
 }
@@ -147,8 +147,8 @@ export function TeachRecordingTopBar({ isFullscreen, onExitFullscreen, onStartTe
     : "sand-1n2onr6 sand-9f619 sand-78zum5 sand-167g77z sand-2lah0s sand-h8yej3 sand-n3w4p2 sand-lkep63 sand-8qq8ib sand-147cf0h"}>
     <span aria-hidden="true" className="sand-1iyjqo2 sand-s83m0k sand-kh2ocl sand-euugli sand-avu8j0 sand-1wfn6di" />
     <div className="sand-computer-top-bar__actions sand-78zum5 sand-6s0dn4 sand-167g77z sand-2lah0s sand-lvsv26 sand-482pwi">
-      {onStartTeach == null ? null : <TeachButton className="sand-2eai4v sand-4hv7ue sand-1y0btm7 sand-1flfzmt sand-fungia" onClick={onStartTeach} size="sm" variant="secondary"><span className="sand-3nfvp2 sand-6s0dn4 sand-1jnr06f"><span className="sand-3nfvp2 sand-6s0dn4 sand-l56j7k sand-2lah0s sand-1xp8n7a sand-mix8c"><TeachRecordingMark /></span>Teach a task</span></TeachButton>}
-      <TeachIconButton className="sand-99e291 sand-1v0sr2s" icon="arrows-contract-simple" label="Exit fullscreen" onClick={onExitFullscreen} />
+      {onStartTeach == null ? null : <TeachButton className="sand-2eai4v sand-4hv7ue sand-1y0btm7 sand-1flfzmt sand-fungia" onClick={onStartTeach} size="sm" variant="secondary"><span className="sand-3nfvp2 sand-6s0dn4 sand-1jnr06f"><span className="sand-3nfvp2 sand-6s0dn4 sand-l56j7k sand-2lah0s sand-1xp8n7a sand-mix8c"><TeachRecordingMark /></span>Научить задаче</span></TeachButton>}
+      <TeachIconButton className="sand-99e291 sand-1v0sr2s" icon="arrows-contract-simple" label="Выйти из полноэкранного режима" onClick={onExitFullscreen} />
     </div>
   </div>;
 }

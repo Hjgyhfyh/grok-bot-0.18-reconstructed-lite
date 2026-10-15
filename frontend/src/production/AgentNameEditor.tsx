@@ -47,7 +47,7 @@ export function AgentNameEditor({ initialValue, onCommit, onExit }: AgentNameEdi
   };
 
   return <input
-    aria-label="Rename agent"
+    aria-label="Переименовать помощника"
     autoComplete="off"
     className="sand-agent-item__name-input"
     data-initial={initialValue}

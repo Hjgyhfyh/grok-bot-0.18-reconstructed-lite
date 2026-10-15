@@ -13,7 +13,7 @@ export interface SidebarProfileActionActions {
 
 export const SIDEBAR_PROFILE_ACTION = {
   icon: "pencil",
-  label: "Edit Profile",
+  label: "Изменить помощника",
 } as const;
 
 export interface SidebarProfileAction {

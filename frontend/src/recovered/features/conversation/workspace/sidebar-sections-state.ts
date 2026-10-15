@@ -36,8 +36,8 @@ export interface SidebarSectionActionState {
 export interface SidebarSectionDeleteConfirmation {
   readonly title: string;
   readonly description: string;
-  readonly confirmLabel: "Delete";
-  readonly cancelLabel: "Cancel";
+  readonly confirmLabel: "Удалить";
+  readonly cancelLabel: "Отмена";
   readonly destructive: true;
 }
 
@@ -127,10 +127,10 @@ export function assignSidebarAgents(sections: readonly SidebarSection[], agentId
 // A3n: exact section-delete title, description, labels, and destructive confirmation model.
 export function sidebarSectionDeleteConfirmation(name: string): SidebarSectionDeleteConfirmation {
   return {
-    title: `Delete “${name}”`,
-    description: ["Its agents move to ", "Unassigned", ". No agents are deleted."].join(""),
-    confirmLabel: "Delete",
-    cancelLabel: "Cancel",
+    title: `Удалить «${name}»`,
+    description: ["Помощники перейдут в раздел ", "Без раздела", ". Ни один помощник не удалится."].join(""),
+    confirmLabel: "Удалить",
+    cancelLabel: "Отмена",
     destructive: true
   };
 }
@@ -172,7 +172,7 @@ function normalizeSidebarSections(sections: readonly unknown[]): SidebarSection[
     normalized.push({ id, name: candidate.name, agentIds, isCollapsed: false });
   }
   if (normalized.length === 0) return [];
-  normalized.push({ id: "__agents__", name: "Unassigned", agentIds: [], isCollapsed: false });
+  normalized.push({ id: "__agents__", name: "Без раздела", agentIds: [], isCollapsed: false });
   return normalized;
 }
 
@@ -307,7 +307,7 @@ export function createSidebarSectionsStateStore(options: SidebarSectionsStateOpt
       if (disposed || answer == null || current == null) return null;
       idSeed += 1;
       const sectionId = `section-${Date.now().toString(36)}-${idSeed.toString(36)}`;
-      setSections([{ id: sectionId, name: "New section", agentIds: [...agentIds], isCollapsed: false }, ...current]);
+      setSections([{ id: sectionId, name: "Новый раздел", agentIds: [...agentIds], isCollapsed: false }, ...current]);
       return sectionId;
     },
     assignAgents(agentIds, sectionId) {

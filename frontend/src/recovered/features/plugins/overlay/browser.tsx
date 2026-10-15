@@ -204,10 +204,10 @@ export function PluginsBrowser({
   return (
     <div className="sand-plugins">
       <header>
-        <h2 id="sand-plugins-modal-heading">Plugins</h2>
-        <div aria-label="Plugins view" role="tablist">
-          <button aria-selected={tab === "marketplace"} onClick={() => setTab("marketplace")} role="tab" type="button">Marketplace</button>
-          <button aria-selected={tab === "yours"} onClick={() => setTab("yours")} role="tab" type="button">Yours</button>
+        <h2 id="sand-plugins-modal-heading">Плагины</h2>
+        <div aria-label="Вид плагинов" role="tablist">
+          <button aria-selected={tab === "marketplace"} onClick={() => setTab("marketplace")} role="tab" type="button">Каталог</button>
+          <button aria-selected={tab === "yours"} onClick={() => setTab("yours")} role="tab" type="button">Ваши</button>
         </div>
       </header>
 
@@ -215,7 +215,7 @@ export function PluginsBrowser({
         <PluginFilterMenu filter={activeFilter} onChange={setActiveFilter} />
         <label className="sand-plugins__search">
           <span aria-hidden="true">⌕</span>
-          <input aria-label="Search plugins" onChange={(event) => setQuery(event.currentTarget.value)} placeholder="Search plugins" spellCheck={false} type="search" value={query} />
+          <input aria-label="Поиск плагинов" onChange={(event) => setQuery(event.currentTarget.value)} placeholder="Поиск плагинов" spellCheck={false} type="search" value={query} />
         </label>
       </div>
 
@@ -234,9 +234,9 @@ export function PluginsBrowser({
           </button>
         ))}
       </div>
-      {tab === "yours" && (!privateFilterActive || privateSkillsAgentId == null || visiblePrivateSkills.length > 0) ? <section aria-label="Private">
-        <h3>Private</h3>
-        {privateSkillsError != null ? <p role="alert">{privateSkillsError}</p> : privateSkillsAgentId == null ? <p>Open an agent to see its private skills</p> : privateSkillsLoading ? <p role="status" /> : visiblePrivateSkills.length === 0 ? <p>{query.trim().length > 0 ? `No private skills match "${query.trim()}"` : "No private skills yet. Ask your Bot to create one for you."}</p> : <div>
+      {tab === "yours" && (!privateFilterActive || privateSkillsAgentId == null || visiblePrivateSkills.length > 0) ? <section aria-label="Личные">
+        <h3>Личные</h3>
+        {privateSkillsError != null ? <p role="alert">{privateSkillsError}</p> : privateSkillsAgentId == null ? <p>Откройте помощника, чтобы увидеть его личные навыки</p> : privateSkillsLoading ? <p role="status" /> : visiblePrivateSkills.length === 0 ? <p>{query.trim().length > 0 ? `По запросу «${query.trim()}» личных навыков нет` : "Личных навыков пока нет. Попросите помощника создать навык для вас."}</p> : <div>
           {visiblePrivateSkills.map((skill) => <div className="sand-plugins-row" key={`private:${skill.id}`}>
             <span aria-hidden="true">▤</span>
             <button className="sand-plugins-row__open" onClick={() => setSelectedPrivateSkillId(skill.id)} type="button">
@@ -245,12 +245,12 @@ export function PluginsBrowser({
             </button>
             {skill.source === "workflow" && onTogglePrivateSkill != null ? <button
               aria-checked={skill.isEnabledForAgent}
-              aria-label={`Enable ${skill.name}`}
+              aria-label={`Включить навык «${skill.name}»`}
               disabled={privateSkillsTogglePendingId === skill.id}
               onClick={() => { void onTogglePrivateSkill(skill.id, !skill.isEnabledForAgent).catch(() => {}); }}
               role="switch"
               type="button"
-            >{skill.isEnabledForAgent ? "On" : "Off"}</button> : null}
+            >{skill.isEnabledForAgent ? "Вкл." : "Выкл."}</button> : null}
           </div>)}
         </div>}
       </section> : null}
@@ -332,7 +332,7 @@ export function PluginSkillDetail({ skill, onBack, onDelete, onUpdate, onLoadPub
     if (onLoadPublishTargets == null || onPublish == null || publishPending) return;
     setPublishError(null);
     if (skill.description.trim().length === 0) {
-      setPublishError("Add a description first");
+      setPublishError("Сначала добавьте описание");
       return;
     }
     setPublishTargets(null);
@@ -388,51 +388,51 @@ export function PluginSkillDetail({ skill, onBack, onDelete, onUpdate, onLoadPub
     if (skill.source !== "plugin" || skill.pluginId == null) return;
     void copyController.copy(pluginPrivateSkillMarketplaceUrl(skill.pluginId));
   };
-  const copyLabel = copyStatus === "copied" ? "Copied" : copyStatus === "error" ? "Copy failed" : "Copy link";
+  const copyLabel = copyStatus === "copied" ? "Скопировано" : copyStatus === "error" ? "Не удалось скопировать" : "Копировать ссылку";
   return <article className="sand-plugins-skill-detail">
     <header>
-      <button aria-label="Back" onClick={onBack} type="button">←</button>
+      <button aria-label="Назад" onClick={onBack} type="button">←</button>
       <div><h2>{skill.name}</h2><span>{pluginPrivateSkillSourceLabel(skill)}</span></div>
     </header>
     {skill.description.length > 0 ? <p>{skill.description}</p> : null}
-    {onResync != null || onUnpublish != null || skill.source === "plugin" && skill.pluginId != null ? <div>{onResync != null ? <button disabled={savePending || deletePending || publishPending || syncPending || unpublishPending} onClick={() => void sync()} type="button">{syncPending ? "Syncing…" : syncConfirmed ? "Synced" : "Sync"}</button> : null}{skill.source === "plugin" && skill.pluginId != null ? <button onClick={copyLink} type="button">{copyLabel}</button> : null}{onUnpublish != null ? <button disabled={savePending || deletePending || publishPending || syncPending || unpublishPending} onClick={() => void unpublish()} type="button">{unpublishPending ? "Unpublishing…" : "Unpublish"}</button> : null}{syncError != null ? <p role="alert">{syncError}</p> : null}{unpublishError != null ? <p role="alert">{unpublishError}</p> : null}</div> : null}
+    {onResync != null || onUnpublish != null || skill.source === "plugin" && skill.pluginId != null ? <div>{onResync != null ? <button disabled={savePending || deletePending || publishPending || syncPending || unpublishPending} onClick={() => void sync()} type="button">{syncPending ? "Обновляем…" : syncConfirmed ? "Обновлено" : "Обновить"}</button> : null}{skill.source === "plugin" && skill.pluginId != null ? <button onClick={copyLink} type="button">{copyLabel}</button> : null}{onUnpublish != null ? <button disabled={savePending || deletePending || publishPending || syncPending || unpublishPending} onClick={() => void unpublish()} type="button">{unpublishPending ? "Снимаем…" : "Снять с публикации"}</button> : null}{syncError != null ? <p role="alert">{syncError}</p> : null}{unpublishError != null ? <p role="alert">{unpublishError}</p> : null}</div> : null}
     <div>
-      <label>Name<input onChange={(event) => setName(event.currentTarget.value)} readOnly={!editable} spellCheck={false} type="text" value={name} /></label>
-      <label>Description<input onChange={(event) => setDescription(event.currentTarget.value)} placeholder="Use when…" readOnly={!editable} spellCheck={false} type="text" value={description} /></label>
-      <label>Instructions<textarea onChange={(event) => setBody(event.currentTarget.value)} placeholder="Markdown instructions the agent follows when it runs this skill" readOnly={!editable} spellCheck={false} value={body} /></label>
+      <label>Имя<input onChange={(event) => setName(event.currentTarget.value)} readOnly={!editable} spellCheck={false} type="text" value={name} /></label>
+      <label>Описание<input onChange={(event) => setDescription(event.currentTarget.value)} placeholder="Когда применять…" readOnly={!editable} spellCheck={false} type="text" value={description} /></label>
+      <label>Инструкция<textarea onChange={(event) => setBody(event.currentTarget.value)} placeholder="Инструкция в Markdown, по которой помощник выполняет навык" readOnly={!editable} spellCheck={false} value={body} /></label>
     </div>
     {saveError != null ? <p role="alert">{saveError}</p> : null}
-    {editable ? <button disabled={!canSave} onClick={() => void saveSkill()} type="button">Save</button> : null}
+    {editable ? <button disabled={!canSave} onClick={() => void saveSkill()} type="button">Сохранить</button> : null}
     {onPublish != null ? <div>
-      <button disabled={savePending || deletePending || publishPending} onClick={() => void openPublish()} type="button">Publish</button>
-      {publishTargets?.kind === "unavailable" ? <p role="alert">{publishTargets.reason}</p> : publishTargets?.kind === "ready" ? publishTargets.teams.length === 1 ? <div><p>All team members can view</p><button disabled={publishPending} onClick={() => void publish(publishTargets.teams[0].teamId)} type="button">Publish</button></div> : <div><h3>Publish to</h3>{publishTargets.teams.map((team) => <button disabled={publishPending} key={team.teamId} onClick={() => void publish(team.teamId)} type="button">{team.name}</button>)}</div> : publishPending ? <p role="status" /> : null}
+      <button disabled={savePending || deletePending || publishPending} onClick={() => void openPublish()} type="button">Опубликовать</button>
+      {publishTargets?.kind === "unavailable" ? <p role="alert">{publishTargets.reason}</p> : publishTargets?.kind === "ready" ? publishTargets.teams.length === 1 ? <div><p>Видят все участники команды</p><button disabled={publishPending} onClick={() => void publish(publishTargets.teams[0].teamId)} type="button">Опубликовать</button></div> : <div><h3>Опубликовать в</h3>{publishTargets.teams.map((team) => <button disabled={publishPending} key={team.teamId} onClick={() => void publish(team.teamId)} type="button">{team.name}</button>)}</div> : publishPending ? <p role="status" /> : null}
       {publishError != null ? <p role="alert">{publishError}</p> : null}
     </div> : null}
     {deleteError != null ? <p role="alert">{deleteError}</p> : null}
-    {onDelete != null ? <button disabled={deletePending} onClick={() => void deleteSkill()} type="button">Delete skill</button> : null}
+    {onDelete != null ? <button disabled={deletePending} onClick={() => void deleteSkill()} type="button">Удалить навык</button> : null}
   </article>;
 }
 
 function pluginItemStatus(item: PluginBrowserItem): string {
-  if (item.kind === "plugin") return item.installed ? pluginTeamPolicyLabel(item.installMode ?? "user") ?? "Added" : item.publisher ?? "";
-  if (item.kind === "workflow") return item.enabled ? "Enabled" : "Disabled";
+  if (item.kind === "plugin") return item.installed ? pluginTeamPolicyLabel(item.installMode ?? "user") ?? "Добавлено" : item.publisher ?? "";
+  if (item.kind === "workflow") return item.enabled ? "Включено" : "Выключено";
   // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L130049
-  if (item.status === "disabled-by-team-admin-policy") return "Disabled by team admin";
+  if (item.status === "disabled-by-team-admin-policy") return "Отключено администратором команды";
   // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L134674
-  if (item.status === "authentication-required") return "Authentication required";
+  if (item.status === "authentication-required") return "Нужен вход";
   // Immutable LBn status projection: connected/disconnected/error/initializing/needsAuth/disabledByTeamAdminPolicy.
   // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L523
-  if (item.status === "initializing") return "Starting";
-  if (item.status === "disconnected") return "Disconnected";
-  if (item.status === "failed") return "Error";
-  return pluginTeamPolicyLabel(item.policy ?? "user") ?? (item.status === "connected" ? item.accountLabel ?? "Connected" : "Needs attention");
+  if (item.status === "initializing") return "Запуск";
+  if (item.status === "disconnected") return "Нет связи";
+  if (item.status === "failed") return "Ошибка";
+  return pluginTeamPolicyLabel(item.policy ?? "user") ?? (item.status === "connected" ? item.accountLabel ?? "Подключено" : "Нужна помощь");
 }
 
 function emptyPluginsMessage(tab: PluginBrowserTab, query: string, isFilterActive: boolean): string {
-  if (isFilterActive) return "No plugins match the current filters";
+  if (isFilterActive) return "По выбранным фильтрам ничего нет";
   const trimmed = query.trim();
-  if (tab === "marketplace") return trimmed.length > 0 ? `No plugins match "${trimmed}"` : "The marketplace isn't available right now. Check back later.";
-  return trimmed.length > 0 ? `No installed plugins match "${trimmed}"` : "Nothing installed yet. Find plugins in the Marketplace tab.";
+  if (tab === "marketplace") return trimmed.length > 0 ? `По запросу «${trimmed}» ничего нет` : "Каталог сейчас недоступен. Попробуйте позже.";
+  return trimmed.length > 0 ? `Среди установленных нет «${trimmed}»` : "Пока ничего не установлено. Найдите плагины на вкладке «Каталог».";
 }
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L510
@@ -461,19 +461,19 @@ export function PluginFilterMenu({ filter, onChange }: { filter: PluginFilterSta
     options[next]?.focus();
   };
   return <div>
-    <button aria-expanded={open} aria-haspopup="menu" aria-label="Filter plugins" aria-pressed={active} onClick={() => setOpen((value) => !value)} ref={triggerRef} type="button">Filter</button>
-    {open ? <div aria-label="Filter plugins" onKeyDown={onMenuKeyDown} role="menu">
+    <button aria-expanded={open} aria-haspopup="menu" aria-label="Фильтр плагинов" aria-pressed={active} onClick={() => setOpen((value) => !value)} ref={triggerRef} type="button">Фильтр</button>
+    {open ? <div aria-label="Фильтр плагинов" onKeyDown={onMenuKeyDown} role="menu">
       <div role="group">
-        <h3>Type</h3>
+        <h3>Тип</h3>
         {([[
-          "all", "All types"
-        ], ["connectors", "Connectors"], ["skills", "Skills"]] as const).map(([value, label]) => <button aria-checked={filter.type === value} onClick={() => select({ type: value })} role="menuitemradio" key={value} type="button">{filter.type === value ? "✓ " : ""}{label}</button>)}
+          "all", "Все типы"
+        ], ["connectors", "Подключения"], ["skills", "Навыки"]] as const).map(([value, label]) => <button aria-checked={filter.type === value} onClick={() => select({ type: value })} role="menuitemradio" key={value} type="button">{filter.type === value ? "✓ " : ""}{label}</button>)}
       </div>
       <div role="group">
-        <h3>Ownership</h3>
+        <h3>Кто добавил</h3>
         {([[
-          "all", "All"
-        ], ["team", "Team"], ["public", "Public"]] as const).map(([value, label]) => <button aria-checked={filter.ownership === value} onClick={() => select({ ownership: value })} role="menuitemradio" key={value} type="button">{filter.ownership === value ? "✓ " : ""}{label}</button>)}
+          "all", "Любые"
+        ], ["team", "Команда"], ["public", "Общие"]] as const).map(([value, label]) => <button aria-checked={filter.ownership === value} onClick={() => select({ ownership: value })} role="menuitemradio" key={value} type="button">{filter.ownership === value ? "✓ " : ""}{label}</button>)}
       </div>
     </div> : null}
   </div>;
@@ -512,31 +512,31 @@ function PluginDetail({
     return <PluginSetupForm
       fields={fields}
       initialValues={{}}
-      intro={item.installed ? "Saving replaces all of this plugin's setup values and applies them to its connectors. Current values aren't shown; a field left blank is cleared." : `${item.displayName} needs a few values before it can be added`}
+      intro={item.installed ? "Сохранение заменяет все настройки плагина и применяет их к его подключениям. Текущие значения не показаны: пустое поле будет очищено." : `Чтобы добавить «${item.displayName}», заполните несколько полей`}
       isBusy={item.busy === true}
       onSubmit={async (values) => {
         if (item.installed) await onEditSetup?.(item.id, values);
         else await onInstall?.(item.id, values);
         setSetupOpen(false);
       }}
-      submitLabel={item.installed ? "Save Values" : `Add ${item.displayName}`}
+      submitLabel={item.installed ? "Сохранить настройки" : `Добавить «${item.displayName}»`}
     />;
   }
   return (
     <article className="sand-plugins-detail">
       <header>
-        <button aria-label="Back" onClick={onBack} type="button">←</button>
+        <button aria-label="Назад" onClick={onBack} type="button">←</button>
         <div><h2>{item.displayName}</h2><small>{pluginItemStatus(item)}</small></div>
       </header>
       <p>{item.description}</p>
       <div>
-        {item.kind === "plugin" && !item.installed ? <button disabled={item.busy} onClick={() => fields.length > 0 && item.hasTeamConfiguredVariables !== true ? setSetupOpen(true) : onInstall?.(item.id, undefined, item.hasTeamConfiguredVariables)} type="button">Add</button> : null}
-        {item.kind === "server" && item.status === "authentication-required" ? <button disabled={item.busy} onClick={() => onAuthenticate?.(item.id, item.accountSlots?.[0]?.accountKey ?? item.accountLabel)} type="button">Authenticate</button> : null}
-        {item.kind === "workflow" && onToggleWorkflow != null ? <button disabled={item.busy} onClick={() => onToggleWorkflow(item.id, !item.enabled)} type="button">{item.enabled ? "Disable" : "Enable"}</button> : null}
-        {item.kind === "plugin" && item.installed && pluginTeamPolicyActions(item.installMode ?? "user").length > 0 ? <button disabled={item.busy} onClick={() => onRemove?.(item)} type="button">{item.installMode === "team-default" ? "Remove" : "Uninstall"}</button> : null}
-        {item.kind === "server" && item.status !== "disabled-by-team-admin-policy" && pluginTeamPolicyActions(item.policy ?? "user").length > 0 ? <button disabled={item.busy} onClick={() => onRemove?.(item)} type="button">Remove</button> : null}
+        {item.kind === "plugin" && !item.installed ? <button disabled={item.busy} onClick={() => fields.length > 0 && item.hasTeamConfiguredVariables !== true ? setSetupOpen(true) : onInstall?.(item.id, undefined, item.hasTeamConfiguredVariables)} type="button">Добавить</button> : null}
+        {item.kind === "server" && item.status === "authentication-required" ? <button disabled={item.busy} onClick={() => onAuthenticate?.(item.id, item.accountSlots?.[0]?.accountKey ?? item.accountLabel)} type="button">Войти</button> : null}
+        {item.kind === "workflow" && onToggleWorkflow != null ? <button disabled={item.busy} onClick={() => onToggleWorkflow(item.id, !item.enabled)} type="button">{item.enabled ? "Выключить" : "Включить"}</button> : null}
+        {item.kind === "plugin" && item.installed && pluginTeamPolicyActions(item.installMode ?? "user").length > 0 ? <button disabled={item.busy} onClick={() => onRemove?.(item)} type="button">{item.installMode === "team-default" ? "Убрать" : "Удалить"}</button> : null}
+        {item.kind === "server" && item.status !== "disabled-by-team-admin-policy" && pluginTeamPolicyActions(item.policy ?? "user").length > 0 ? <button disabled={item.busy} onClick={() => onRemove?.(item)} type="button">Удалить</button> : null}
       </div>
-      {item.kind === "plugin" && item.installed && fields.length > 0 ? <button disabled={item.busy} onClick={() => setSetupOpen(true)} type="button">Edit Values</button> : null}
+      {item.kind === "plugin" && item.installed && fields.length > 0 ? <button disabled={item.busy} onClick={() => setSetupOpen(true)} type="button">Изменить настройки</button> : null}
       {item.kind === "server" ? <AccountManager item={item} disabled={item.busy === true} onAuthenticate={onAuthenticate} onAddAccount={onAddAccount} onRenameAccount={onRenameAccount} onRemoveAccount={onRemoveAccount} /> : null}
       {item.kind === "server" && onLoadServerTools != null && onToggleServerTool != null ? <PluginServerTools key={item.id} serverId={item.id} onLoad={onLoadServerTools} onToggle={onToggleServerTool} /> : null}
     </article>
@@ -547,7 +547,7 @@ function PluginDetail({
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L953
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L971
 export function pluginToolSummary(enabledCount: number, totalCount: number): string {
-  return `${enabledCount} of ${totalCount} enabled`;
+  return `Включено ${enabledCount} из ${totalCount}`;
 }
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#byteOffset=31735 (status badge keeps enum in data-status and exposes statusDetail as title)
@@ -559,12 +559,12 @@ export function PluginAccountStatus({ account }: { account: McpServerSummary }) 
 
 export function pluginAccountStatusLabel(status: McpServerSummary["status"]): string {
   switch (status) {
-    case "connected": return "Connected";
-    case "needsAuth": return "Authentication required";
-    case "initializing": return "Starting";
-    case "disconnected": return "Disconnected";
-    case "disabledByTeamAdminPolicy": return "Disabled by team admin";
-    case "error": return "Error";
+    case "connected": return "Подключено";
+    case "needsAuth": return "Нужен вход";
+    case "initializing": return "Запуск";
+    case "disconnected": return "Нет связи";
+    case "disabledByTeamAdminPolicy": return "Отключено администратором команды";
+    case "error": return "Ошибка";
   }
 }
 
@@ -587,15 +587,15 @@ export function PluginServerTools({ serverId, onLoad, onToggle }: { serverId: st
 
   const enabledTools = tools.filter((tool) => !tool.isDisabled);
   const summary = pluginToolSummary(enabledTools.length, tools.length);
-  return <section aria-label="Tools">
-    <button aria-controls={detailsId} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} type="button">Tools <span>{summary}</span>⌄</button>
+  return <section aria-label="Инструменты">
+    <button aria-controls={detailsId} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} type="button">Инструменты <span>{summary}</span>⌄</button>
     {expanded ? <div id={detailsId}>
       {snapshot.status === "loading" ? <p role="status" /> : null}
       {snapshot.failure != null ? <p role="alert">{snapshot.failure instanceof Error ? snapshot.failure.message : String(snapshot.failure)}</p> : null}
       {tools.map((tool) => {
         const label = tool.title ?? tool.name;
-        const action = tool.isDisabled ? "Enable" : "Disable";
-        return <button aria-label={`${action} ${label}`} disabled={snapshot.pendingTool != null} key={tool.name} onClick={() => void controller.toggle(tool.name).catch(() => {})} title={tool.description ?? undefined} type="button">{action} {label}</button>;
+        const action = tool.isDisabled ? "Включить" : "Выключить";
+        return <button aria-label={`${action} «${label}»`} disabled={snapshot.pendingTool != null} key={tool.name} onClick={() => void controller.toggle(tool.name).catch(() => {})} title={tool.description ?? undefined} type="button">{action} {label}</button>;
       })}
     </div> : null}
   </section>;
@@ -630,13 +630,13 @@ export function PluginSetupForm({ intro, fields, initialValues, submitLabel, isB
       {fields.map((field) => {
         const invalid = submitted && missing.some((missingField) => missingField.key === field.key);
         return <div key={field.key}>
-          <label htmlFor={`plugin-${field.key}`}>{field.label}{field.isRequired ? null : " (optional)"}</label>
+          <label htmlFor={`plugin-${field.key}`}>{field.label}{field.isRequired ? null : " (необязательно)"}</label>
           <input aria-invalid={invalid || undefined} id={`plugin-${field.key}`} onChange={(event) => { const nextValue = event.currentTarget.value; setValues((current) => ({ ...current, [field.key]: nextValue })); }} placeholder={field.placeholder ?? field.key} type={field.isSecret ? "password" : "text"} value={values[field.key] ?? ""} />
-          {invalid ? <p>{field.label} is required</p> : !invalid && field.hint != null ? <p>{field.hint}</p> : null}
+          {invalid ? <p>Заполните поле «{field.label}»</p> : !invalid && field.hint != null ? <p>{field.hint}</p> : null}
         </div>;
       })}
     </div>
-    {missing.length > 0 && submitted ? <span>Fill in the required {missing.length === 1 ? "field" : "fields"} to continue</span> : null}
+    {missing.length > 0 && submitted ? <span>{missing.length === 1 ? "Заполните обязательное поле, чтобы продолжить" : "Заполните обязательные поля, чтобы продолжить"}</span> : null}
     {error != null ? <p role="alert">{error}</p> : null}
     <button disabled={isBusy || pending} type="submit">{submitLabel}</button>
   </form>;
@@ -686,21 +686,21 @@ function AccountManager({
   };
   if (accounts.length === 0) return null;
   return (
-    <section aria-label="Accounts">
-      <h3>Accounts</h3>
+    <section aria-label="Аккаунты">
+      <h3>Аккаунты</h3>
       {accounts.map((account) => {
         const canRename = canRenamePluginAccount(account, account);
         const active = editing?.accountKey === account.accountKey;
         return <div key={account.serverIdentifier}>
-          {active ? <input aria-label={`Rename ${pluginAccountLabel(account.accountKey)} account`} onChange={(event) => { const nextDraft = event.currentTarget.value; setEditing((current) => current == null ? current : { ...current, draft: nextDraft }); }} onKeyDown={(event) => { if (event.key === "Enter") submitRename(); if (event.key === "Escape") setEditing(null); }} type="text" value={editing?.draft ?? ""} /> : <span>{pluginAccountLabel(account.accountKey)}</span>}
-          {canRename ? <button aria-label={active ? `Save ${pluginAccountLabel(account.accountKey)} account` : `Edit ${pluginAccountLabel(account.accountKey)} account`} disabled={disabled} onClick={() => active ? submitRename() : setEditing({ accountKey: account.accountKey, draft: account.accountKey, confirming: false })} type="button">{active ? "✓" : "Edit"}</button> : null}
+          {active ? <input aria-label={`Переименовать аккаунт «${pluginAccountLabel(account.accountKey)}»`} onChange={(event) => { const nextDraft = event.currentTarget.value; setEditing((current) => current == null ? current : { ...current, draft: nextDraft }); }} onKeyDown={(event) => { if (event.key === "Enter") submitRename(); if (event.key === "Escape") setEditing(null); }} type="text" value={editing?.draft ?? ""} /> : <span>{pluginAccountLabel(account.accountKey)}</span>}
+          {canRename ? <button aria-label={active ? `Сохранить аккаунт «${pluginAccountLabel(account.accountKey)}»` : `Изменить аккаунт «${pluginAccountLabel(account.accountKey)}»`} disabled={disabled} onClick={() => active ? submitRename() : setEditing({ accountKey: account.accountKey, draft: account.accountKey, confirming: false })} type="button">{active ? "✓" : "Изменить"}</button> : null}
           <PluginAccountStatus account={account} />
           {account.status === "error" && account.statusDetail != null ? <span role="alert">{account.statusDetail}</span> : null}
-          {account.status === "needsAuth" ? <button disabled={disabled} onClick={() => onAuthenticate?.(account.id, account.accountKey)} type="button">Authenticate</button> : null}
-          {canRename && account.accountKey !== "default" ? editing?.accountKey === account.accountKey && editing.confirming ? <button disabled={disabled} onClick={() => { setEditing(null); onRemoveAccount?.({ serverId: account.id, accountKey: account.accountKey }); }} type="button">Confirm Remove</button> : <button disabled={disabled} onClick={() => setEditing({ accountKey: account.accountKey, draft: account.accountKey, confirming: true })} type="button">Remove</button> : null}
+          {account.status === "needsAuth" ? <button disabled={disabled} onClick={() => onAuthenticate?.(account.id, account.accountKey)} type="button">Войти</button> : null}
+          {canRename && account.accountKey !== "default" ? editing?.accountKey === account.accountKey && editing.confirming ? <button disabled={disabled} onClick={() => { setEditing(null); onRemoveAccount?.({ serverId: account.id, accountKey: account.accountKey }); }} type="button">Подтвердите удаление</button> : <button disabled={disabled} onClick={() => setEditing({ accountKey: account.accountKey, draft: account.accountKey, confirming: true })} type="button">Удалить</button> : null}
         </div>;
       })}
-      {item.url == null ? null : newLabel == null ? <button disabled={disabled} onClick={() => setNewLabel("")} type="button">Add Another Account</button> : <div><input aria-label="New account label" autoFocus onChange={(event) => setNewLabel(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") submitAdd(); if (event.key === "Escape") setNewLabel(null); }} placeholder="Label this account, e.g. work or personal" type="text" value={newLabel} /><button disabled={disabled} onClick={submitAdd} type="button">Authorize</button><button onClick={() => setNewLabel(null)} type="button">Cancel</button></div>}
+      {item.url == null ? null : newLabel == null ? <button disabled={disabled} onClick={() => setNewLabel("")} type="button">Добавить ещё аккаунт</button> : <div><input aria-label="Название нового аккаунта" autoFocus onChange={(event) => setNewLabel(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") submitAdd(); if (event.key === "Escape") setNewLabel(null); }} placeholder="Например: работа или дом" type="text" value={newLabel} /><button disabled={disabled} onClick={submitAdd} type="button">Войти</button><button onClick={() => setNewLabel(null)} type="button">Отмена</button></div>}
     </section>
   );
 }

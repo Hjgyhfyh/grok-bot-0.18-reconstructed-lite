@@ -38,7 +38,7 @@ export function settingsComputerPhase(state: Pick<SettingsComputerState, "canUpd
 }
 
 export interface SettingsComputerController {
-  updateLabel: "Update" | "Click Again to Confirm" | "Cancel Update" | "Updating…";
+  updateLabel: "Обновить" | "Нажмите ещё раз" | "Отменить обновление" | "Обновляем…";
   updateDisabled: boolean;
   updateConfirming: boolean;
   requestUpdate(): void;
@@ -91,7 +91,7 @@ export function useSettingsComputerController(state: SettingsComputerState, acti
   };
 
   return {
-    updateLabel: state.isUpdateBoxPending ? "Updating…" : phase === "queued" ? "Cancel Update" : updateConfirming ? "Click Again to Confirm" : "Update",
+    updateLabel: state.isUpdateBoxPending ? "Обновляем…" : phase === "queued" ? "Отменить обновление" : updateConfirming ? "Нажмите ещё раз" : "Обновить",
     updateDisabled: state.isRebuildBlocked || state.isUpdateBoxPending || state.isResetBoxPending || phase === "unavailable",
     updateConfirming,
     requestUpdate,

@@ -16,7 +16,7 @@ export function hiddenChatNameId(agentId: string): string {
 }
 
 export function hiddenChatsEmptyLabel(hiddenAgents: readonly HiddenAgentSummary[]): string | null {
-  return hiddenAgents.length === 0 ? "No hidden bots" : null;
+  return hiddenAgents.length === 0 ? "Скрытых помощников нет" : null;
 }
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js bytes 5485420-5487146

@@ -11,7 +11,7 @@ export interface RosterStatusProps {
   onShowHiddenBots?(): void;
 }
 
-const ROSTER_STATUS_COPY = { retry: "Retry", retrying: "Retrying…" };
+const ROSTER_STATUS_COPY = { retry: "Повторить", retrying: "Повторяем…" };
 
 export function RosterStatus({ kind, isRetrying = false, onRetry, onShowHiddenBots }: RosterStatusProps) {
   if (kind === "loading") {
@@ -19,18 +19,18 @@ export function RosterStatus({ kind, isRetrying = false, onRetry, onShowHiddenBo
       <div className="sand-agents-state sand-agents-state--connecting" role="status">
         <div className="sand-agents-state__header">
           <span aria-hidden="true" />
-          <span className="sand-agents-state__label">Connecting to your computer…</span>
+          <span className="sand-agents-state__label">Подключаемся к вашему компьютеру…</span>
         </div>
       </div>
     );
   }
 
-  if (kind === "empty") return <div className="sand-agents-empty">No saved agents yet.</div>;
+  if (kind === "empty") return <div className="sand-agents-empty">Сохранённых помощников пока нет.</div>;
 
   if (kind === "all-hidden") {
     return <div className="sand-agents-empty">
-      <span>All bots are hidden</span>
-      <SandButton onClick={onShowHiddenBots} size="sm" variant="secondary">Show Hidden Bots</SandButton>
+      <span>Все помощники скрыты</span>
+      <SandButton onClick={onShowHiddenBots} size="sm" variant="secondary">Показать скрытых</SandButton>
     </div>;
   }
 
@@ -38,9 +38,9 @@ export function RosterStatus({ kind, isRetrying = false, onRetry, onShowHiddenBo
     <div className="sand-agents-state sand-agents-state--unreachable" role="status">
       <div className="sand-agents-state__header">
         <span aria-hidden="true" />
-        <span className="sand-agents-state__label">Can’t reach your computer</span>
+        <span className="sand-agents-state__label">Не удаётся связаться с компьютером</span>
       </div>
-      <span className="sand-agents-state__body">Your agents are safe — they just can’t be loaded right now.</span>
+      <span className="sand-agents-state__body">Помощники в безопасности — их просто не удаётся загрузить прямо сейчас.</span>
       <div className="sand-agents-state__actions">
         <SandButton disabled={isRetrying} onClick={onRetry} size="sm" variant="secondary">{ROSTER_STATUS_COPY.retry}</SandButton>
         {isRetrying ? <span className="sand-agents-state__retrying">{ROSTER_STATUS_COPY.retrying}</span> : null}

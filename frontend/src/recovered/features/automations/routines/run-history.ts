@@ -10,7 +10,7 @@ export interface RoutineRunPresentation {
   readonly title?: string;
   readonly timestampLabel: string;
   readonly status: RoutineRun["status"];
-  readonly ariaLabel: "Running" | "Succeeded" | "Failed";
+  readonly ariaLabel: "Выполняется" | "Успешно" | "Ошибка";
   readonly iconName: "loading" | "check" | "close";
   readonly statusRole?: "status";
 }
@@ -29,11 +29,20 @@ interface ZonedParts {
   readonly minute: number;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+const MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"] as const;
+const WEEKDAYS = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"] as const;
+
+/** Русские окончания для числа: 1 минута, 2 минуты, 5 минут. */
+function minuteWord(count: number): string {
+  const mod100 = Math.abs(count) % 100, mod10 = mod100 % 10;
+  return mod100 >= 11 && mod100 <= 14 ? "минут"
+    : mod10 === 1 ? "минуту"
+    : mod10 >= 2 && mod10 <= 4 ? "минуты"
+    : "минут";
+}
 
 function zonedParts(timestamp: number, timeZone?: string): ZonedParts {
-  const formatter = new Intl.DateTimeFormat("en-US", {
+  const formatter = new Intl.DateTimeFormat("ru-RU", {
     ...(timeZone == null ? {} : { timeZone }),
     year: "numeric",
     month: "numeric",
@@ -62,28 +71,31 @@ function dateKey(timestamp: number, timeZone?: string): number {
 
 function clock(parts: ZonedParts): string {
   const hour = parts.hour % 12 === 0 ? 12 : parts.hour % 12;
-  return `${hour}:${String(parts.minute).padStart(2, "0")} ${parts.hour < 12 ? "AM" : "PM"}`;
+  return `${hour}:${String(parts.minute).padStart(2, "0")} ${parts.hour < 12 ? "утра" : "вечера"}`;
 }
 
 /** Mirrors the immutable pgn + M2n relative timestamp branch. */
 export function formatRoutineRunTimestamp(startedAt: number, now: number, timeZone?: string): string {
   const difference = startedAt - now;
   let result: string;
-  if (difference > 0 && difference < 60 * 60 * 1000) result = `in ${Math.ceil(difference / (60 * 1000))} min`;
-  else if (difference <= 0 && -difference < 60 * 1000) result = "just now";
-  else if (difference <= 0 && -difference < 60 * 60 * 1000) result = `${Math.floor(-difference / (60 * 1000))} min ago`;
+  if (difference > 0 && difference < 60 * 60 * 1000) result = `через ${Math.ceil(difference / (60 * 1000))} ${minuteWord(Math.ceil(difference / (60 * 1000)))}`;
+  else if (difference <= 0 && -difference < 60 * 1000) result = "только что";
+  else if (difference <= 0 && -difference < 60 * 60 * 1000) {
+    const minutes = Math.floor(-difference / (60 * 1000));
+    result = `${minutes} ${minuteWord(minutes)} назад`;
+  }
   else {
     const current = zonedParts(now, timeZone);
     const started = zonedParts(startedAt, timeZone);
     const dayDifference = Math.round((dateKey(startedAt, timeZone) - dateKey(now, timeZone)) / (24 * 60 * 60 * 1000));
-    if (dayDifference === 0) result = `today at ${clock(started)}`;
-    else if (dayDifference === 1) result = `tomorrow at ${clock(started)}`;
-    else if (dayDifference === -1) result = `yesterday at ${clock(started)}`;
-    else if (dayDifference > 1 && dayDifference < 7) result = `${WEEKDAYS[started.weekday]} at ${clock(started)}`;
-    else if (dayDifference < -1 && dayDifference > -7) result = `last ${WEEKDAYS[started.weekday]} at ${clock(started)}`;
+    if (dayDifference === 0) result = `сегодня в ${clock(started)}`;
+    else if (dayDifference === 1) result = `завтра в ${clock(started)}`;
+    else if (dayDifference === -1) result = `вчера в ${clock(started)}`;
+    else if (dayDifference > 1 && dayDifference < 7) result = `${WEEKDAYS[started.weekday]} в ${clock(started)}`;
+    else if (dayDifference < -1 && dayDifference > -7) result = `${WEEKDAYS[started.weekday]} на прошлой неделе в ${clock(started)}`;
     else {
       const date = `${MONTHS[started.month - 1]} ${started.day}`;
-      result = started.year === current.year ? `${date} at ${clock(started)}` : `${date}, ${started.year} at ${clock(started)}`;
+      result = started.year === current.year ? `${date} в ${clock(started)}` : `${date} ${started.year} г. в ${clock(started)}`;
     }
   }
   return result.charAt(0).toUpperCase() + result.slice(1);
@@ -91,9 +103,9 @@ export function formatRoutineRunTimestamp(startedAt: number, now: number, timeZo
 
 export function presentRoutineRun(run: RoutineRun, now: number, timeZone?: string): RoutineRunPresentation {
   switch (run.status) {
-    case "running": return { id: run.id, ...(run.detail ?? run.event) == null ? {} : { title: run.detail ?? run.event ?? undefined }, timestampLabel: formatRoutineRunTimestamp(run.startedAt, now, timeZone), status: run.status, ariaLabel: "Running", iconName: "loading", statusRole: "status" };
-    case "ok": return { id: run.id, ...(run.detail ?? run.event) == null ? {} : { title: run.detail ?? run.event ?? undefined }, timestampLabel: formatRoutineRunTimestamp(run.startedAt, now, timeZone), status: run.status, ariaLabel: "Succeeded", iconName: "check" };
-    case "error": return { id: run.id, ...(run.detail ?? run.event) == null ? {} : { title: run.detail ?? run.event ?? undefined }, timestampLabel: formatRoutineRunTimestamp(run.startedAt, now, timeZone), status: run.status, ariaLabel: "Failed", iconName: "close" };
+    case "running": return { id: run.id, ...(run.detail ?? run.event) == null ? {} : { title: run.detail ?? run.event ?? undefined }, timestampLabel: formatRoutineRunTimestamp(run.startedAt, now, timeZone), status: run.status, ariaLabel: "Выполняется", iconName: "loading", statusRole: "status" };
+    case "ok": return { id: run.id, ...(run.detail ?? run.event) == null ? {} : { title: run.detail ?? run.event ?? undefined }, timestampLabel: formatRoutineRunTimestamp(run.startedAt, now, timeZone), status: run.status, ariaLabel: "Успешно", iconName: "check" };
+    case "error": return { id: run.id, ...(run.detail ?? run.event) == null ? {} : { title: run.detail ?? run.event ?? undefined }, timestampLabel: formatRoutineRunTimestamp(run.startedAt, now, timeZone), status: run.status, ariaLabel: "Ошибка", iconName: "close" };
   }
 }
 

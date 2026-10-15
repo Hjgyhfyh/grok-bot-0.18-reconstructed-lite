@@ -474,7 +474,7 @@ function mentionSuggestion(providers: PromptEditorProviders["mention"]): Omit<Su
       let renderer: ReturnType<typeof createSuggestionRenderer> | null = null;
       return {
         onStart: (props) => {
-          renderer = createSuggestionRenderer("sand-mention-listbox", "sand-mention-option", "Mention", (value) => props.command(value), providers?.onOpenChange, providers?.onVisibleChange, (query) => query.trim().length > 0 ? `No matches for "${query.trim()}"` : "Nothing to mention yet");
+          renderer = createSuggestionRenderer("sand-mention-listbox", "sand-mention-option", "Упоминание", (value) => props.command(value), providers?.onOpenChange, providers?.onVisibleChange, (query) => query.trim().length > 0 ? `Ничего не найдено по запросу «${query.trim()}»` : "Пока нечего упомянуть");
           renderer.onStart({ editor: props.editor, query: props.query, command: props.command, clientRect: props.clientRect, items: props.items.map((entry) => ({ id: entry.id, label: entry.label, subtitle: entry.subtitle, value: entry })) });
         },
         onUpdate: (props) => renderer?.onUpdate({ editor: props.editor, query: props.query, command: props.command, clientRect: props.clientRect, items: props.items.map((entry) => ({ id: entry.id, label: entry.label, subtitle: entry.subtitle, value: entry })) }),
@@ -502,7 +502,7 @@ function workflowSuggestion(providers: PromptEditorProviders["workflow"]): Omit<
       let renderer: ReturnType<typeof createSuggestionRenderer> | null = null;
       return {
         onStart: (props) => {
-          renderer = createSuggestionRenderer("sand-workflow-listbox", "sand-workflow-option", "Reference a skill", (value) => props.command(value), providers?.onOpenChange, providers?.onVisibleChange, (query) => query.trim().length > 0 ? `No matches for "${query.trim()}"` : "Nothing to reference yet");
+          renderer = createSuggestionRenderer("sand-workflow-listbox", "sand-workflow-option", "Ссылка на навык", (value) => props.command(value), providers?.onOpenChange, providers?.onVisibleChange, (query) => query.trim().length > 0 ? `Ничего не найдено по запросу «${query.trim()}»` : "Пока нечего указать");
           renderer.onStart({ editor: props.editor, query: props.query, command: props.command, clientRect: props.clientRect, items: props.items.map((entry) => ({ id: entry.id, label: entry.label, subtitle: entry.subtitle, value: entry })) });
         },
         onUpdate: (props) => renderer?.onUpdate({ editor: props.editor, query: props.query, command: props.command, clientRect: props.clientRect, items: props.items.map((entry) => ({ id: entry.id, label: entry.label, subtitle: entry.subtitle, value: entry })) }),
@@ -530,7 +530,7 @@ function prSuggestion(providers: PromptEditorProviders["prReference"]): Omit<Sug
       let renderer: ReturnType<typeof createSuggestionRenderer> | null = null;
       return {
         onStart: (props) => {
-          renderer = createSuggestionRenderer("sand-pr-listbox", "sand-pr-option", "Pull request", (value) => props.command(value), providers?.onOpenChange, providers?.onVisibleChange);
+          renderer = createSuggestionRenderer("sand-pr-listbox", "sand-pr-option", "Запрос на слияние", (value) => props.command(value), providers?.onOpenChange, providers?.onVisibleChange);
           renderer.onStart({ editor: props.editor, query: props.query, command: props.command, clientRect: props.clientRect, items: props.items.map((entry) => ({ id: String(entry.prNumber), label: `#${entry.prNumber}`, subtitle: entry.title ?? undefined, value: entry })) });
         },
         onUpdate: (props) => renderer?.onUpdate({ editor: props.editor, query: props.query, command: props.command, clientRect: props.clientRect, items: props.items.map((entry) => ({ id: String(entry.prNumber), label: `#${entry.prNumber}`, subtitle: entry.title ?? undefined, value: entry })) }),
@@ -728,7 +728,7 @@ export function PromptRichTextEditor({ prompt, richText, scopeKey = "", clearGen
       attributes: {
         class: "sand-prompt-field",
         spellcheck: "false",
-        "aria-label": "Prompt",
+        "aria-label": "Поле ввода",
         "aria-multiline": "true",
         role: "textbox"
       },

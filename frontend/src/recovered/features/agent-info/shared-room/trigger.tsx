@@ -18,9 +18,13 @@ export interface SharedRoomHeaderTriggerProps {
 export function SharedRoomHeaderTrigger({ roomId, pendingJoinRequests, isEnabled, disabled = false, onOpen }: SharedRoomHeaderTriggerProps): ReactElement | null {
   if (!isEnabled || roomId == null || roomId.length === 0) return null;
   const pendingCount = pendingJoinRequests.filter((request) => request.roomId === roomId).length;
+  const pendingWord = pendingCount % 100 >= 11 && pendingCount % 100 <= 14 ? "заявок"
+    : pendingCount % 10 === 1 ? "заявка"
+    : pendingCount % 10 >= 2 && pendingCount % 10 <= 4 ? "заявки"
+    : "заявок";
   const label = pendingCount === 0
-    ? "Manage shared room"
-    : `Manage shared room, ${pendingCount} pending join ${pendingCount === 1 ? "request" : "requests"}`;
+    ? "Общая комната"
+    : `Общая комната, заявок на вход: ${pendingCount} ${pendingWord}`;
   return <button aria-label={label} disabled={disabled} onClick={onOpen} title={label} type="button">
     <CursorIcon name="people" />
     {pendingCount > 0 ? <span aria-hidden="true">•</span> : null}

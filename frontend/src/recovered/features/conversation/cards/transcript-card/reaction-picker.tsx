@@ -85,11 +85,11 @@ export function ReactionPicker({ entryId, agentId, myReactions, transport, contr
     void transport.reactToMessage({ entryId, emoji, agentId }).catch(() => undefined);
   };
   return (
-    <div aria-label="Add reaction" className="sand-reaction-picker" role="group">
+    <div aria-label="Поставить значок" className="sand-reaction-picker" role="group">
       {QUICK_REACTION_EMOJIS.map((emoji) => (
         <ReactionCell emoji={emoji} isReacted={myReactions.has(emoji)} key={emoji} onReact={() => react(emoji)} />
       ))}
-      <button aria-label="More emoji" className="sand-reaction-picker__more" onClick={onExpandPicker} type="button">{children ?? "More emoji"}</button>
+      <button aria-label="Ещё значки" className="sand-reaction-picker__more" onClick={onExpandPicker} type="button">{children ?? "Ещё значки"}</button>
     </div>
   );
 }
@@ -191,7 +191,7 @@ export function MessageReactionAction({ entryId, agentId, myReactions, transport
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Add reaction"
+        aria-label="Поставить значок"
         className="sand-message-hover-actions__button"
         onClick={() => setOpen(!open)}
         ref={triggerRef}

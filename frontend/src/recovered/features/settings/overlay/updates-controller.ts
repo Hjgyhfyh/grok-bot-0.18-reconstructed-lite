@@ -95,7 +95,7 @@ export function createSettingsUpdateController(
     operation: () => Promise<Value>,
     apply: (value: Value) => void
   ): Promise<Value> => {
-    if (disposed) return Promise.reject(new Error("Settings update controller disposed"));
+    if (disposed) return Promise.reject(new Error("Контроллер обновлений настроек уже закрыт"));
     const requestGeneration = ++actionGeneration;
     publish({ ...snapshot, failure: null });
     setPending(action, true);

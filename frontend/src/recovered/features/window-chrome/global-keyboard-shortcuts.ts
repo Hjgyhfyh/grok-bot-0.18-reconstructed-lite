@@ -44,21 +44,21 @@ export interface GlobalShortcutHandlers {
 /** The action order is the shipped global registry order for these root actions. */
 export function createRootShellShortcutActions(handlers: GlobalShortcutHandlers): readonly GlobalShortcutAction[] {
   const actions: GlobalShortcutAction[] = [
-    { id: "sand.newAgent", label: "New Bot", hotkey: "mod+n", isEnabledInContentEditable: true, run: handlers.newAgent },
-    { id: "sand.commandPalette", label: "Jump to", hotkey: "mod+k", isEnabledInContentEditable: true, run: handlers.toggleCommandPalette },
-    { id: "sand.openSettings", label: "Open settings", hotkey: "mod+comma", isEnabledInContentEditable: true, run: handlers.openSettings },
-    { id: "sand.openTools", label: "Customize", hotkey: "mod+shift+m", isEnabledInContentEditable: true, run: handlers.openTools },
-    { id: "sand.focusInput", label: "Focus prompt", hotkey: "mod+i, mod+l", run: handlers.focusPrompt },
-    { id: "sand.focusSearch", label: "Search agents", hotkey: "mod+shift+f", isEnabledInContentEditable: true, run: handlers.openSearch },
-    { id: "sand.previousAgent", label: "Previous agent", hotkey: "alt+up", isEnabledInContentEditable: true, run: handlers.previousAgent },
-    { id: "sand.nextAgent", label: "Next agent", hotkey: "alt+down", isEnabledInContentEditable: true, run: handlers.nextAgent },
-    { id: "sand.navigateBack", label: "Back", hotkey: "mod+bracketleft", isEnabledInContentEditable: true, run: handlers.navigateBack },
-    { id: "sand.navigateForward", label: "Forward", hotkey: "mod+bracketright", isEnabledInContentEditable: true, run: handlers.navigateForward },
+    { id: "sand.newAgent", label: "Новый помощник", hotkey: "mod+n", isEnabledInContentEditable: true, run: handlers.newAgent },
+    { id: "sand.commandPalette", label: "Перейти к", hotkey: "mod+k", isEnabledInContentEditable: true, run: handlers.toggleCommandPalette },
+    { id: "sand.openSettings", label: "Открыть настройки", hotkey: "mod+comma", isEnabledInContentEditable: true, run: handlers.openSettings },
+    { id: "sand.openTools", label: "Настроить помощника", hotkey: "mod+shift+m", isEnabledInContentEditable: true, run: handlers.openTools },
+    { id: "sand.focusInput", label: "Перейти к полю ввода", hotkey: "mod+i, mod+l", run: handlers.focusPrompt },
+    { id: "sand.focusSearch", label: "Поиск помощников", hotkey: "mod+shift+f", isEnabledInContentEditable: true, run: handlers.openSearch },
+    { id: "sand.previousAgent", label: "Предыдущий помощник", hotkey: "alt+up", isEnabledInContentEditable: true, run: handlers.previousAgent },
+    { id: "sand.nextAgent", label: "Следующий помощник", hotkey: "alt+down", isEnabledInContentEditable: true, run: handlers.nextAgent },
+    { id: "sand.navigateBack", label: "Назад", hotkey: "mod+bracketleft", isEnabledInContentEditable: true, run: handlers.navigateBack },
+    { id: "sand.navigateForward", label: "Вперёд", hotkey: "mod+bracketright", isEnabledInContentEditable: true, run: handlers.navigateForward },
     ...Array.from({ length: 9 }, (_, offset): GlobalShortcutAction => {
       const index = offset + 1;
       return {
         id: `sand.focusAgent${index}` as GlobalShortcutAction["id"],
-        label: `Focus sidebar agent ${index}`,
+        label: `Перейти к помощнику ${index}`,
         hotkey: `mod+${index}`,
         isEnabledInContentEditable: true,
         run: () => handlers.focusAgent(index)
@@ -66,9 +66,9 @@ export function createRootShellShortcutActions(handlers: GlobalShortcutHandlers)
     })
   ];
   // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#byteOffset=5504264-5504409
-  actions.push({ id: "sand.toggleSidebar", label: "Toggle compact sidebar", hotkey: "mod+b", isEnabledInContentEditable: true, run: handlers.toggleSidebar });
+  actions.push({ id: "sand.toggleSidebar", label: "Свернуть или раскрыть панель", hotkey: "mod+b", isEnabledInContentEditable: true, run: handlers.toggleSidebar });
   if (handlers.findInChat != null) {
-    actions.splice(5, 0, { id: "sand.findInChat", label: "Find in chat", hotkey: "mod+f", isEnabledInContentEditable: true, run: handlers.findInChat });
+    actions.splice(5, 0, { id: "sand.findInChat", label: "Поиск по диалогу", hotkey: "mod+f", isEnabledInContentEditable: true, run: handlers.findInChat });
   }
   return actions;
 }

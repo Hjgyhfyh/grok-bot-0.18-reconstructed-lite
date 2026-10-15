@@ -70,16 +70,16 @@ const deliveryActionButtonClass = "sand-y5h43f sand-19ji09o";
 
 function QueuedSendNotice({ entry, isTransportDown, onCancel }: { entry: TranscriptMessage; isTransportDown: boolean; onCancel?: (entry: TranscriptMessage) => void }) {
   return <div className="sand-queued-send-notice sand-pvyfi4 sand-78zum5 sand-6s0dn4 sand-1a02dak sand-13a6bvl sand-11twubx sand-1om1abp" role="status">
-    <span>{isTransportDown ? "Will send when reconnected" : "Waiting to send…"}</span>
-    {onCancel == null ? null : <button className={deliveryActionButtonClass} onClick={() => onCancel(entry)} type="button">Cancel</button>}
+    <span>{isTransportDown ? "Отправится после подключения" : "Ждём отправки…"}</span>
+    {onCancel == null ? null : <button className={deliveryActionButtonClass} onClick={() => onCancel(entry)} type="button">Отменить</button>}
   </div>;
 }
 
 function FailedSendActions({ entry, onDelete, onResend }: { entry: TranscriptMessage; onDelete?: (entry: TranscriptMessage) => void; onResend?: (entry: TranscriptMessage) => void }) {
-  return <div aria-label="Failed message actions" className="sand-failed-send-actions sand-pvyfi4 sand-78zum5 sand-6s0dn4 sand-1a02dak sand-13a6bvl sand-11twubx sand-1om1abp" role="group">
-    <span className="sand-6rl5ky sand-y5h43f sand-1rhlpx6 sand-19ji09o" role="status">Failed to send</span>
-    {onResend == null ? null : <button className={deliveryActionButtonClass} onClick={() => onResend(entry)} type="button">Resend</button>}
-    {onDelete == null ? null : <button className={deliveryActionButtonClass} onClick={() => onDelete(entry)} type="button">Delete</button>}
+  return <div aria-label="Действия с неотправленным сообщением" className="sand-failed-send-actions sand-pvyfi4 sand-78zum5 sand-6s0dn4 sand-1a02dak sand-13a6bvl sand-11twubx sand-1om1abp" role="group">
+    <span className="sand-6rl5ky sand-y5h43f sand-1rhlpx6 sand-19ji09o" role="status">Не отправлено</span>
+    {onResend == null ? null : <button className={deliveryActionButtonClass} onClick={() => onResend(entry)} type="button">Отправить снова</button>}
+    {onDelete == null ? null : <button className={deliveryActionButtonClass} onClick={() => onDelete(entry)} type="button">Удалить</button>}
   </div>;
 }
 
@@ -90,18 +90,18 @@ function SentWhileOfflineNotice({ composedAtMs }: { composedAtMs: number }) {
   } catch {
     label = new Date(composedAtMs).toISOString();
   }
-  return <div className="sand-sent-while-offline-notice sand-pvyfi4 sand-78zum5 sand-6s0dn4 sand-1a02dak sand-13a6bvl sand-11twubx sand-1om1abp sand-h4j8nf sand-1hc1fzr sand-b3r6kr sand-ltd7ks sand-hj7x8a sand-s9c323 sand-oddwdg sand-8m7ss9 sand-1ympp8d sand-16ges1v sand-1rrsdy6" role="status"><span className="sand-1o0liin sand-y5h43f sand-19ji09o">Sent while offline · {label}</span></div>;
+  return <div className="sand-sent-while-offline-notice sand-pvyfi4 sand-78zum5 sand-6s0dn4 sand-1a02dak sand-13a6bvl sand-11twubx sand-1om1abp sand-h4j8nf sand-1hc1fzr sand-b3r6kr sand-ltd7ks sand-hj7x8a sand-s9c323 sand-oddwdg sand-8m7ss9 sand-1ympp8d sand-16ges1v sand-1rrsdy6" role="status"><span className="sand-1o0liin sand-y5h43f sand-19ji09o">Отправлено без связи · {label}</span></div>;
 }
 
 function messageActionLabel(entry: TranscriptMessage): string {
-  return `Message actions for ${entry.role === "user" ? "your message" : entry.author} (${entry.id})`;
+  return `Действия с сообщением: ${entry.role === "user" ? "ваше сообщение" : entry.author} (${entry.id})`;
 }
 
 function replyActionLabel(entry: TranscriptMessage): string {
-  if (entry.role === "user") return "Reply to your message";
+  if (entry.role === "user") return "Ответить на ваше сообщение";
   const author = entry.author.replace(/\s+/gu, " ").trim();
   const bounded = author.length > 60 ? `${author.slice(0, 59).trimEnd()}…` : author;
-  return `Reply to ${bounded.length > 0 ? bounded : "Agent"} message`;
+  return `Ответить на сообщение: ${bounded.length > 0 ? bounded : "Помощник"}`;
 }
 
 function replyActionIconName(entry: TranscriptMessage): "arrow-u-up-right" | "arrow-u-up-left" {
@@ -209,14 +209,14 @@ function MessageActionAnchor({ entry, isReadOnly, threadRootId, threadSummary, o
       <div aria-label={messageActionLabel(entry)} className="sand-message-hover-actions" role="toolbar">
         {reactionActions}
         {!isReadOnly && isThreadActionVisible && onReply != null ? <button aria-label={replyActionLabel(entry)} className="sand-message-hover-actions__button" onClick={() => onReply(entry)} type="button"><span aria-hidden="true" data-icon-name={replyActionIconName(entry)} /></button> : null}
-        <button aria-expanded={menuOpen} aria-haspopup="menu" aria-label="More message actions" className="sand-message-hover-actions__button" onClick={() => { setReactionMenuOpen(false); setMenuOpen((open) => !open); }} ref={triggerRef} type="button">
+        <button aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Другие действия с сообщением" className="sand-message-hover-actions__button" onClick={() => { setReactionMenuOpen(false); setMenuOpen((open) => !open); }} ref={triggerRef} type="button">
           <span aria-hidden="true" data-icon-name="dots-3-horizontal" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(messageActionIconCodePoint("dots-3-horizontal"))}</span>
         </button>
-        {menuOpen ? <div aria-label="More message actions" role="menu" style={{ position: "absolute", right: 0, bottom: "34px", display: "grid", minWidth: "150px", padding: "4px", background: "#20231f", border: "1px solid #343832", borderRadius: "8px", boxShadow: "0 12px 28px rgba(0, 0, 0, .35)" }}>
-          {!isReadOnly && isThreadActionVisible && onReply != null ? <button className="sand-message-hover-actions__button" onClick={() => { onReply(entry); closeMenu(true); }} role="menuitem" style={{ width: "100%", border: 0, borderRadius: "5px", textAlign: "left" }} type="button"><span aria-hidden="true" data-icon-name={replyActionIconName(entry)} />Reply</button> : null}
-          {!isReadOnly && isThreadActionVisible && onStartThread != null ? <button className="sand-message-hover-actions__button" onClick={() => { onStartThread(entry); closeMenu(true); }} role="menuitem" style={{ width: "100%", border: 0, borderRadius: "5px", textAlign: "left" }} type="button"><span aria-hidden="true" data-icon-name="chat-bubbles" />Start a thread</button> : null}
+        {menuOpen ? <div aria-label="Другие действия с сообщением" role="menu" style={{ position: "absolute", right: 0, bottom: "34px", display: "grid", minWidth: "150px", padding: "4px", background: "#20231f", border: "1px solid #343832", borderRadius: "8px", boxShadow: "0 12px 28px rgba(0, 0, 0, .35)" }}>
+          {!isReadOnly && isThreadActionVisible && onReply != null ? <button className="sand-message-hover-actions__button" onClick={() => { onReply(entry); closeMenu(true); }} role="menuitem" style={{ width: "100%", border: 0, borderRadius: "5px", textAlign: "left" }} type="button"><span aria-hidden="true" data-icon-name={replyActionIconName(entry)} />Ответить</button> : null}
+          {!isReadOnly && isThreadActionVisible && onStartThread != null ? <button className="sand-message-hover-actions__button" onClick={() => { onStartThread(entry); closeMenu(true); }} role="menuitem" style={{ width: "100%", border: 0, borderRadius: "5px", textAlign: "left" }} type="button"><span aria-hidden="true" data-icon-name="chat-bubbles" />Отдельный диалог</button> : null}
           {/* @evidence recovered/frontend/app/assets/index-UbX-y3il.js#byteOffset=6395536 (immutable Copy item is conditional on injected onCopy; UTF-8; SHA256 80464803b50f478598080bdc1b91da3996c6b74168e2351ea26f620f2ec62ba5) */}
-          {onCopy == null ? null : <button className="sand-message-hover-actions__button" onClick={copy} role="menuitem" style={{ width: "100%", border: 0, borderRadius: "5px", textAlign: "left" }} type="button"><span aria-hidden="true" data-icon-name="copy" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(messageActionIconCodePoint("copy"))}</span>Copy</button>}
+          {onCopy == null ? null : <button className="sand-message-hover-actions__button" onClick={copy} role="menuitem" style={{ width: "100%", border: 0, borderRadius: "5px", textAlign: "left" }} type="button"><span aria-hidden="true" data-icon-name="copy" style={{ fontFamily: "cursor-icons" }}>{String.fromCodePoint(messageActionIconCodePoint("copy"))}</span>Копировать</button>}
         </div> : null}
       </div>
     </div>
@@ -441,7 +441,7 @@ function AssistantCodeCopyButton({ code }: { code: string }) {
     const timer = window.setTimeout(() => setCopied(false), 1200);
     return () => window.clearTimeout(timer);
   }, [copied]);
-  const label = copied ? "Copied" : "Copy code";
+  const label = copied ? "Скопировано" : "Копировать код";
   const iconName = copied ? "check" : "copy";
   const iconCodePoint = copied ? 0xeab2 : 0xebcc;
   return <button aria-label={label} className={assistantCodeCopyButtonClass} onClick={() => {
@@ -457,7 +457,7 @@ function AssistantCodeBlock({ code, language }: { code: string; language: string
 
 function SendMessageTextImages({ images }: { images: readonly SendMessageTextImage[] }) {
   if (images.length === 0) return null;
-  return <div aria-label="Agent attachments" className="sand-message-attachments" data-role="assistant" role="group"><div className="sand-message-attachments__strip">{images.map((image, index) => <img alt={image.alt ?? ""} draggable={false} key={`${image.url}:${index}`} src={image.url} />)}</div></div>;
+  return <div aria-label="Вложения помощника" className="sand-message-attachments" data-role="assistant" role="group"><div className="sand-message-attachments__strip">{images.map((image, index) => <img alt={image.alt ?? ""} draggable={false} key={`${image.url}:${index}`} src={image.url} />)}</div></div>;
 }
 
 const readOnlyRichTextExtensions = createPromptEditorExtensions("", undefined);
@@ -585,7 +585,7 @@ export function TranscriptToolCallRow({ entry, expanded, onToggle }: { entry: Tr
       </button>
       {expanded ? (
         <div className="sand-outline-item__detail" id={detailId}>
-          {entry.summary == null || entry.summary.trim().length === 0 ? <span>No additional details.</span> : (
+          {entry.summary == null || entry.summary.trim().length === 0 ? <span>Дополнительных подробностей нет.</span> : (
             <div className="sand-outline-item__detail-section">
               <pre className="sand-outline-item__detail-text">{entry.summary}</pre>
             </div>
@@ -604,7 +604,7 @@ export function TranscriptThinkingRow({ entry, expanded, onToggle }: { entry: Tr
     <div className="sand-outline-item" data-kind="thinking" role="listitem">
       <button aria-controls={expanded ? detailId : undefined} aria-expanded={expanded} className="sand-outline-item__row" onClick={() => onToggle(entry.id)} type="button">
         <span aria-hidden="true" className="sand-outline-item__icon sand-2lah0s sand-kbann2" data-icon-name="thinking-medium">{String.fromCodePoint(outlineIconCodePoint("thinking-medium"))}</span>
-        <span className="sand-outline-item__label">Thinking</span>
+        <span className="sand-outline-item__label">Размышления</span>
         {preview.length > 0 ? <span className="sand-outline-item__preview">{preview}</span> : null}
         <span aria-hidden="true" className="sand-outline-item__chevron" style={{ transform: expanded ? "rotate(45deg)" : "rotate(-45deg)" }} />
       </button>
@@ -696,7 +696,7 @@ export function ConversationTranscript({ entries, hasOlder = false, isLoadingOld
       : (entry) => resolveTranscriptCardInteractions.getThreadSummary(entry.id) != null,
   });
   return (
-    <div aria-label="Conversation transcript" aria-live="off" className="sand-virtual-transcript" ref={transcriptRef} role="log" tabIndex={0}>
+    <div aria-label="Переписка в диалоге" aria-live="off" className="sand-virtual-transcript" ref={transcriptRef} role="log" tabIndex={0}>
       {entries.map((entry, index) => {
         if (entry.kind === "time-separator") return <div className="sand-transcript-time-separator" key={entry.id} role="separator">{entry.label}</div>;
         if (entry.kind === "unread-divider") return <div className="sand-unread-divider" key={entry.id} role="separator"><span className="sand-unread-divider__label">{entry.newMessageCount} new {entry.newMessageCount === 1 ? "message" : "messages"}</span></div>;
@@ -733,7 +733,7 @@ export function ConversationTranscript({ entries, hasOlder = false, isLoadingOld
         const referencedEntry = entry.replyToId == null ? undefined : entries.find((candidate) => candidate.id === entry.replyToId);
         const referencedAuthorName = referencedEntry?.kind === "message"
           ? referencedEntry.author
-          : replyPreview?.kind === "user-text" ? "You" : "Agent";
+          : replyPreview?.kind === "user-text" ? "Вы" : "Помощник";
         const messageUrlCards = urlCards ?? transcriptCards?.leafProviders.urlCards ?? null;
         const messageProjection = projectTranscriptMessageCard(entry);
         const messageAdjacency = entry.adjacency == null
@@ -772,7 +772,7 @@ export function ConversationTranscript({ entries, hasOlder = false, isLoadingOld
             <span hidden id={ids.author}>{entry.author}</span>
             <time dateTime={new Date(entry.timestampMs).toISOString()} hidden id={ids.timestamp}>{new Date(entry.timestampMs).toLocaleString()}</time>
             <MessageActionAnchor entry={entry} isReadOnly={isReadOnly} onCopy={onCopyMessage} onOpenThread={resolveTranscriptCardInteractions?.openThread} onReply={onReply} onStartThread={onStartThread} renderReactionActions={reactionActions} threadRootId={threadRootId} threadSummary={threadSummary}>
-              <div aria-label={entry.role === "assistant" ? "Agent message" : undefined} className="sand-message" data-group-start={messageAdjacency.isGroupStart || undefined} data-role={entry.role} role="group">
+              <div aria-label={entry.role === "assistant" ? "Сообщение помощника" : undefined} className="sand-message" data-group-start={messageAdjacency.isGroupStart || undefined} data-role={entry.role} role="group">
                 {replyPreview != null && onOpenReply != null ? <ReferencedMessagePreviewTrigger
                   authorName={referencedAuthorName}
                   isInScope={isReplyTargetInScope?.(entry.replyToId ?? "") === true}

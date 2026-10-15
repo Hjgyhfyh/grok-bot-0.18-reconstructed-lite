@@ -112,7 +112,7 @@ export function SettingsNoticeView({ notice, onDismiss, scheduler = BROWSER_SCHE
   return <div aria-live="polite" className={`${isError ? ERROR_CLASS : SUCCESS_CLASS} sand-settings-toast`} data-kind={notice.kind}>
     <NoticeIcon name={isError ? "close" : "check"} />
     <span className={TEXT_CLASS}>{notice.text}</span>
-    <SandIconButton aria-label="Dismiss" className={DISMISS_CLASS} icon="close" label="Dismiss" onClick={onDismiss} size="sm" />
+    <SandIconButton aria-label="Закрыть" className={DISMISS_CLASS} icon="close" label="Закрыть" onClick={onDismiss} size="sm" />
   </div>;
 }
 

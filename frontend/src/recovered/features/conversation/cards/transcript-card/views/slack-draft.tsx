@@ -8,7 +8,7 @@ import { projectLeafEntry, visualLineCount, boundedFirstLine, type TranscriptCar
 // @evidence src/app/dist/renderer/assets/view-DyaeCHiE.js#byteOffset=9687 (shipped empty send/discard callbacks)
 
 function SlackSent({ draft, titleId }: { draft: SlackDraft; titleId: string }) {
-  return <section aria-labelledby={titleId} className="sand-slack-composer" role="region"><div><SandIcon name="logo-slack" /><span id={titleId}>Slack message</span><span>Sent</span></div><span>Sent to {draft.target} — “{boundedFirstLine(draft.body)}”</span></section>;
+  return <section aria-labelledby={titleId} className="sand-slack-composer" role="region"><div><SandIcon name="logo-slack" /><span id={titleId}>Сообщение в Slack</span><span>Отправлено</span></div><span>Отправлено в {draft.target} — «{boundedFirstLine(draft.body)}»</span></section>;
 }
 
 export function SlackDraftTranscriptCard(props: TranscriptCardLeafProps) {
@@ -26,13 +26,13 @@ export function SlackDraftTranscriptCard(props: TranscriptCardLeafProps) {
   const submit = (event: FormEvent<HTMLFormElement>) => event.preventDefault();
   if (status === "sent") return <SlackSent draft={draft} titleId={titleId} />;
   return <form aria-labelledby={titleId} className="sand-slack-composer" onSubmit={submit}>
-    <div><h3 id={titleId}><SandIcon name="logo-slack" />Slack message</h3>{status === "sending" ? <span role="status">Sending…</span> : <span role="status">Ready to send</span>}</div>
-    {draft.workspace == null ? null : <div><span>Workspace</span><span>{draft.workspace}</span></div>}
-    <div><span>To</span><span>{draft.target}</span></div>
-    <div><span>Thread</span><span>{draft.thread == null ? "New message" : `Reply in “${draft.thread}”`}</span></div>
-    <div>{collapsed ? <><p>{body}</p><span aria-hidden="true" /></> : <textarea aria-label="Message" autoComplete="off" className="sand-slack-composer__body" disabled={disabled} onChange={(event) => setBody(event.currentTarget.value)} placeholder="Write a message" rows={4} spellCheck value={body} />}</div>
-    {status === "editable" && visualLineCount(body) > 8 ? <button onClick={() => setExpanded((value) => !value)} type="button">{expanded ? "Show less" : "Show more"}<span aria-hidden="true">⌄</span></button> : null}
-    <div><button disabled={!valid} type="submit">Send message</button><button disabled={disabled} onClick={(event) => event.preventDefault()} type="button">Discard</button></div>
+    <div><h3 id={titleId}><SandIcon name="logo-slack" />Сообщение в Slack</h3>{status === "sending" ? <span role="status">Отправляется…</span> : <span role="status">Готово к отправке</span>}</div>
+    {draft.workspace == null ? null : <div><span>Рабочая папка</span><span>{draft.workspace}</span></div>}
+    <div><span>Кому</span><span>{draft.target}</span></div>
+    <div><span>Обсуждение</span><span>{draft.thread == null ? "Новое сообщение" : `Ответ в «${draft.thread}»`}</span></div>
+    <div>{collapsed ? <><p>{body}</p><span aria-hidden="true" /></> : <textarea aria-label="Сообщение" autoComplete="off" className="sand-slack-composer__body" disabled={disabled} onChange={(event) => setBody(event.currentTarget.value)} placeholder="Напишите сообщение" rows={4} spellCheck value={body} />}</div>
+    {status === "editable" && visualLineCount(body) > 8 ? <button onClick={() => setExpanded((value) => !value)} type="button">{expanded ? "Свернуть" : "Показать всё"}<span aria-hidden="true">⌄</span></button> : null}
+    <div><button disabled={!valid} type="submit">Отправить</button><button disabled={disabled} onClick={(event) => event.preventDefault()} type="button">Отменить</button></div>
   </form>;
 }
 

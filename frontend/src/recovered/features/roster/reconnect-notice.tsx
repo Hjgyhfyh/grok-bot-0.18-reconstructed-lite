@@ -9,9 +9,9 @@ export interface RosterReconnectNoticeProps {
 export function RosterReconnectNotice({ isRetrying, onRetry }: RosterReconnectNoticeProps) {
   return (
     <div className="sand-agents-reconnect-notice" role="status">
-      <span className="sand-agents-reconnect-notice__label">Reconnecting to your computer…</span>
+      <span className="sand-agents-reconnect-notice__label">Восстанавливаем связь с компьютером…</span>
       <SandButton disabled={isRetrying} onClick={onRetry} size="sm" variant="secondary">
-        {isRetrying ? "Retrying…" : "Retry"}
+        {isRetrying ? "Повторяем…" : "Повторить"}
       </SandButton>
     </div>
   );

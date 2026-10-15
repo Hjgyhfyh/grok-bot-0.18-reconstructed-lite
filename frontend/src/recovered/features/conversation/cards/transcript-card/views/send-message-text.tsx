@@ -28,7 +28,7 @@ export function SendMessageTextTranscriptCard(props: TranscriptCardLeafProps) {
     return <LinkCardView isGroupStart={props.adjacency?.isGroupStart} provider={providers.urlCards} url={url} whenUnavailable="url-card" />;
   }
 
-  return <div aria-label="Agent message" className="sand-message" data-group-start={props.adjacency?.isGroupStart || undefined} data-role="assistant" role="group">
+  return <div aria-label="Сообщение помощника" className="sand-message" data-group-start={props.adjacency?.isGroupStart || undefined} data-role="assistant" role="group">
     <AssistantMessageContent
       channel={message.channel}
       images={message.images}

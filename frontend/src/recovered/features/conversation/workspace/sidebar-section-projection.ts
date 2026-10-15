@@ -12,8 +12,8 @@ import type { SidebarSection } from "../../../contracts/desktop-bridge";
 // and the final synthetic section record.
 
 export const AGENTS_SECTION_ID = "__agents__";
-export const AGENTS_SECTION_NAME = "Unassigned";
-export const EMPTY_SECTION_BODY_LABEL = "Drag chats here";
+export const AGENTS_SECTION_NAME = "Без раздела";
+export const EMPTY_SECTION_BODY_LABEL = "Перетащите диалоги сюда";
 
 export interface SidebarSectionProjection<Agent extends { id: string }> {
   id: string;

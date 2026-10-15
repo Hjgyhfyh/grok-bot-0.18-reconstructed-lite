@@ -137,7 +137,7 @@ export function accountStateFromCursorStatus(status: CursorAuthStatus, avatarDat
   if (status.kind !== "logged-in") return status;
   return {
     kind: "logged-in",
-    name: status.displayName ?? status.email ?? "Cursor user",
+    name: status.displayName ?? status.email ?? "Пользователь Cursor",
     ...(status.email == null ? {} : { email: status.email }),
     ...(avatarDataUrl == null ? {} : { avatarDataUrl })
   };
@@ -145,7 +145,7 @@ export function accountStateFromCursorStatus(status: CursorAuthStatus, avatarDat
 
 // @evidence recovered/frontend/app/assets/index-UbX-y3il.js#L133175-L133176
 export function cursorAuthErrorMessage(reason: unknown): string {
-  return reason instanceof Error ? reason.message.replace(/^[A-Za-z]*Error:\s*/, "") : "Cursor authentication failed.";
+  return reason instanceof Error ? reason.message.replace(/^[A-Za-z]*Error:\s*/, "") : "Не удалось войти в Cursor.";
 }
 
 export async function loadSettingsDesktopSnapshot(bridge: DesktopBridge, coordinatorClient?: Pick<ProductionCoordinatorClient, "isEgressTunnelAvailable">): Promise<SettingsDesktopSnapshot> {
@@ -328,17 +328,27 @@ function percentLabel(value: number): string {
   return percent > 0 && percent < 1 ? "1%" : `${Math.round(percent)}%`;
 }
 
-function resetLabel(nextResetMs: number | null, nowMs: number, verb: "Ends" | "Resets"): string | null {
+/** Русские окончания для числа дней: 1 день, 2 дня, 5 дней. */
+function dayWord(days: number): string {
+  const mod100 = Math.abs(days) % 100, mod10 = mod100 % 10;
+  return mod100 >= 11 && mod100 <= 14 ? "дней"
+    : mod10 === 1 ? "день"
+    : mod10 >= 2 && mod10 <= 4 ? "дня"
+    : "дней";
+}
+
+function resetLabel(nextResetMs: number | null, nowMs: number, verb: "end" | "reset"): string | null {
   if (nextResetMs == null || !Number.isFinite(nextResetMs)) return null;
   const remaining = nextResetMs - nowMs;
-  if (remaining <= 0) return `${verb} today`;
+  const prefix = verb === "end" ? "Закончится" : "Обновится";
+  if (remaining <= 0) return `${prefix} сегодня`;
   const days = Math.ceil(remaining / DAY_MS);
-  return days === 1 ? `${verb} in 1 day` : `${verb} in ${days} days`;
+  return `${prefix} через ${days} ${dayWord(days)}`;
 }
 
 function currencyLabel(cents: number): string {
   const amount = cents / 100;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("ru-RU", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
@@ -352,11 +362,11 @@ export function usageMetersFromSummary(summary: CursorUsageSummary | null, nowMs
   const meters: UsageMeter[] = [];
   if (summary.sandUsagePercent != null) {
     const reset = summary.isSandTrial
-      ? resetLabel(summary.sandUsageResetTimestampMs, nowMs, "Ends")
-      : resetLabel(summary.sandUsageResetTimestampMs, nowMs, "Resets")
-        ?? (summary.hasNonZeroIncludedLimit ? "Resets in 7 days" : null);
+      ? resetLabel(summary.sandUsageResetTimestampMs, nowMs, "end")
+      : resetLabel(summary.sandUsageResetTimestampMs, nowMs, "reset")
+        ?? (summary.hasNonZeroIncludedLimit ? "Обновится через 7 дней" : null);
     meters.push({
-      title: summary.isSandTrial ? "Trial usage" : "Weekly usage",
+      title: summary.isSandTrial ? "Пробный период" : "Расход за неделю",
       valueLabel: percentLabel(summary.sandUsagePercent),
       percent: clampPercent(summary.sandUsagePercent),
       ...(reset == null ? {} : { resetLabel: reset })
@@ -364,9 +374,9 @@ export function usageMetersFromSummary(summary: CursorUsageSummary | null, nowMs
   }
   if (summary.onDemand != null) {
     const onDemand = summary.onDemand;
-    const reset = resetLabel(onDemand.resetTimestampMs, nowMs, "Resets");
+    const reset = resetLabel(onDemand.resetTimestampMs, nowMs, "reset");
     meters.push({
-      title: "On-demand usage",
+      title: "Расход по запросу",
       valueLabel: onDemand.limitCents == null
         ? currencyLabel(onDemand.usedCents)
         : `${currencyLabel(onDemand.usedCents)} / ${currencyLabel(onDemand.limitCents)}`,

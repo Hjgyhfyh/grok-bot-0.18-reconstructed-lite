@@ -14,8 +14,8 @@ const EMPTY_SNAPSHOT: ListenerIntegrationsSnapshot = { status: "loading" };
 const NOOP_SUBSCRIBE = () => () => {};
 
 const PLATFORM_COPY: Record<ListenerPlatform, { displayName: string; blurb: string }> = {
-  github: { displayName: "GitHub", blurb: "Let automations watch a repo's PRs, comments, issues, and CI." },
-  slack: { displayName: "Slack", blurb: "Wake automations on Slack messages, mentions, and reactions." },
+  github: { displayName: "GitHub", blurb: "Автоматизация следит за запросами, комментариями, задачами и сборками в папке проекта." },
+  slack: { displayName: "Slack", blurb: "Автоматизация просыпается на сообщения, упоминания и значки в Slack." },
 };
 
 function useListenerSnapshot(provider: NonNullable<ReturnType<typeof useTranscriptCardLeafProviders>>["listenerIntegrations"] | null): ListenerIntegrationsSnapshot {
@@ -25,10 +25,10 @@ function useListenerSnapshot(provider: NonNullable<ReturnType<typeof useTranscri
 }
 
 function platformBlurb(platform: ListenerPlatform, reason: string | undefined): string {
-  if (reason != null && reason.length > 0) return `Connect ${PLATFORM_COPY[platform].displayName} ${reason}.`;
+  if (reason != null && reason.length > 0) return `Подключите ${PLATFORM_COPY[platform].displayName}: ${reason}.`;
   return platform === "slack"
-    ? "Link Slack so your agent can wake on messages, mentions, and reactions."
-    : "Link GitHub so your agent can wake on PRs, comments, issues, and CI.";
+    ? "Подключите Slack, чтобы помощник просыпался на сообщения, упоминания и значки."
+    : "Подключите GitHub, чтобы помощник просыпался на запросы, комментарии, задачи и сборки.";
 }
 
 const LISTENER_CARD_CLASS = "sand-listener-connect-card sand-78zum5 sand-1cy8zhl sand-883omv sand-wl9fdd sand-193iq5w sand-z9dl7a sand-sag5q8 sand-f18ygs sand-nuq7ks sand-mkeg23 sand-1y0btm7 sand-qz0629 sand-ixl9f9";
@@ -58,7 +58,7 @@ export function ListenerConnectTranscriptCard(props: TranscriptCardLeafProps) {
   const connected = integration?.isConnected === true;
   const isLoading = (snapshot.status === "loading" || snapshot.status === "failed") && (snapshot.status === "loading" ? snapshot.previous == null : snapshot.previous == null);
   const available = integration != null || !isLoading;
-  const title = connected ? `${copy.displayName} connected` : `Connect ${copy.displayName}`;
+  const title = connected ? `${copy.displayName} подключён` : `Подключить ${copy.displayName}`;
   const connect = () => {
     if (!available || isPending || props.isStale === true || provider == null) return;
     setIsPending(true);
@@ -67,7 +67,7 @@ export function ListenerConnectTranscriptCard(props: TranscriptCardLeafProps) {
   return <article aria-labelledby={titleId} className={`${LISTENER_CARD_CLASS}${connected ? " sand-6s0dn4" : ""}`}>
     <div className="sand-78zum5 sand-6s0dn4 sand-l56j7k sand-1849jeq sand-1gnnpzl sand-2lah0s sand-ur7f20 sand-arj5zm"><span aria-hidden="true" data-platform={message.platform}><PlatformIcon platform={message.platform} /></span></div>
     <div className="sand-78zum5 sand-dt5ytf sand-1ed6fcf sand-1iyjqo2 sand-s83m0k sand-euugli"><h3 id={titleId}>{title}</h3>{connected ? null : <p className="sand-euugli sand-1w2vvpw sand-13faqbe">{platformBlurb(message.platform, message.reason)}</p>}</div>
-    {connected ? <span className="sand-78zum5 sand-6s0dn4 sand-1nejdyq sand-2lah0s sand-134ynso" role="status"><ConnectedIcon /><span>Connected</span></span> : available ? <button className="sand-2lah0s" disabled={isPending || props.isStale === true} onClick={connect} type="button">Connect</button> : <span aria-label="Checking connection status" className="sand-78zum5 sand-6s0dn4 sand-l56j7k sand-xk0z11 sand-1lqa7cf sand-cicffo sand-2lah0s" role="status">Checking connection status</span>}
+    {connected ? <span className="sand-78zum5 sand-6s0dn4 sand-1nejdyq sand-2lah0s sand-134ynso" role="status"><ConnectedIcon /><span>Подключено</span></span> : available ? <button className="sand-2lah0s" disabled={isPending || props.isStale === true} onClick={connect} type="button">Подключить</button> : <span aria-label="Проверяем подключение" className="sand-78zum5 sand-6s0dn4 sand-l56j7k sand-xk0z11 sand-1lqa7cf sand-cicffo sand-2lah0s" role="status">Проверяем подключение</span>}
   </article>;
 }
 

@@ -311,19 +311,19 @@ export async function deletePrivatePluginSkill(source: PluginPrivateSkillSource,
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L1396
 export function pluginPrivateSkillDeletionNotice(name: string): string {
-  return `Deleted ${name}`;
+  return `Навык «${name}» удалён`;
 }
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#byteOffset=94342 (Mac rename success notice)
 // @evidence recovered/frontend/app/assets/view-B5Ug8wEm.js#byteOffset=118257 (Windows rename success notice)
 export function pluginAccountRenameNotice(newAccountKey: string): string {
-  return `Renamed account to "${newAccountKey}"`;
+  return `Аккаунт переименован в «${newAccountKey}»`;
 }
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#byteOffset=94548 (Mac remove success notice)
 // @evidence recovered/frontend/app/assets/view-B5Ug8wEm.js#byteOffset=118534 (Windows remove success notice)
 export function pluginAccountRemovalNotice(accountKey: string): string {
-  return `Removed the ${accountKey} account`;
+  return `Аккаунт «${accountKey}» удалён`;
 }
 
 // @evidence src/app/dist/renderer/assets/index-UbX-y3il.js#L137337
@@ -358,6 +358,16 @@ export interface PluginsDesktopSnapshot {
   serverState: McpServerState;
 }
 
+/** Русские окончания для числа инструментов: 1 инструмент, 2 инструмента, 5 инструментов. */
+function pluginToolCountLabel(count: number): string {
+  const mod100 = Math.abs(count) % 100, mod10 = mod100 % 10;
+  const word = mod100 >= 11 && mod100 <= 14 ? "инструментов"
+    : mod10 === 1 ? "инструмент"
+    : mod10 >= 2 && mod10 <= 4 ? "инструмента"
+    : "инструментов";
+  return `${count} ${word}`;
+}
+
 export function pluginBrowserItemsFromDesktop(
   catalog: readonly McpCatalogEntry[],
   effectivePlugins: readonly EffectivePlugin[],
@@ -383,7 +393,7 @@ export function pluginBrowserItemsFromDesktop(
       kind: "server",
       id: server.id,
       displayName: server.name,
-      description: server.statusDetail ?? `${server.toolCount} tool${server.toolCount === 1 ? "" : "s"}`,
+      description: server.statusDetail ?? pluginToolCountLabel(server.toolCount),
       ...(server.accountKey === "default" ? {} : { accountLabel: server.accountKey }),
       ...includeAccountDetails ? { accountSlots: accounts } : {},
       ...policy !== "user" ? { policy } : {},
@@ -495,7 +505,7 @@ export function createPluginsDesktopController(bridge: DesktopBridge): PluginsDe
     load,
     retry: load,
     async execute<T>(key: string, action: () => Promise<T>): Promise<T> {
-      if (disposed || !opened) throw new Error("Plugins surface is not open");
+      if (disposed || !opened) throw new Error("Окно плагинов не открыто");
       const lifecycle = lifecycleGeneration;
       pending.add(key);
       publishPending(snapshot.status);
@@ -560,14 +570,14 @@ export async function togglePluginServerTool(bridge: DesktopBridge, serverId: st
 export async function removePluginBrowserItem(bridge: DesktopBridge, item: PluginBrowserItem): Promise<PluginBrowserRemovalResult> {
   if (item.kind === "plugin") return await bridge.mcp.uninstallPlugin(item.id);
   if (item.kind === "server") return await bridge.mcp.remove(item.id);
-  throw new Error("Workflow removal is owned by its plugin install, not the MCP server bridge.");
+  throw new Error("Удаление сценария выполняется при установке плагина, а не через сервер MCP.");
 }
 
 // @evidence src/app/dist/renderer/assets/view-B5Ug8wEm.js#L352
 export function pluginBrowserRemovalNotice(name: string, result: Pick<PluginBrowserRemovalResult, "removed" | "reason">): { kind: "success" | "error"; text: string } {
-  if (result.removed) return { kind: "success", text: `Removed ${name}` };
-  if (result.reason === "team-server") return { kind: "error", text: `${name} is provided by your team and can't be removed here` };
-  return { kind: "error", text: `Couldn't remove ${name}. It may be managed elsewhere. Reopen settings and try again.` };
+  if (result.removed) return { kind: "success", text: `Удалено: ${name}` };
+  if (result.reason === "team-server") return { kind: "error", text: `${name} добавила ваша команда, удалить здесь нельзя` };
+  return { kind: "error", text: `Не удалось удалить ${name}. Возможно, им управляют в другом месте. Откройте настройки заново и попробуйте ещё раз.` };
 }
 
 /** Mirrors the shipped Plugins view: begin auth, then hand its returned URL to the desktop opener. */

@@ -89,18 +89,18 @@ function removalRequest(
   removeMember: () => Promise<void>
 ): AppAlertRequest {
   return {
-    title: `Remove ${name} from this conversation?`,
+    title: `Убрать ${name} из этого диалога?`,
     description: "",
-    confirmLabel: "Remove",
-    pendingLabel: "Removing...",
-    cancelLabel: "Cancel",
+    confirmLabel: "Убрать",
+    pendingLabel: "Убираем...",
+    cancelLabel: "Отмена",
     destructive: true,
     perform: async () => {
       try {
         await removeMember();
         return null;
       } catch {
-        return "Removing failed. Check your connection and try again.";
+        return "Не удалось убрать. Проверьте подключение и попробуйте снова.";
       }
     }
   };

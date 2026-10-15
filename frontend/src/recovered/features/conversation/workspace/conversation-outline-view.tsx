@@ -47,10 +47,10 @@ function tabLabel(subagent: ConversationOutlineSubagent): string {
 
 function itemLabel(item: ConversationOutlineItem): string {
   switch (item.kind) {
-    case "user": return "You";
-    case "thinking": return "Thinking";
-    case "assistant-text": return "Agent";
-    case "send-message": return "Message";
+    case "user": return "Вы";
+    case "thinking": return "Размышления";
+    case "assistant-text": return "Помощник";
+    case "send-message": return "Сообщение";
     case "tool-call": return formatToolName(item.name);
   }
 }
@@ -87,7 +87,7 @@ function itemDetail(item: ConversationOutlineItem): { label?: string; text: stri
     : item.kind === "send-message"
       ? item.message.type === "text" ? item.message.content : item.message.url
       : item.text;
-  return text.trim().length === 0 ? [] : [{ label: item.kind === "tool-call" ? "summary" : "text", text }];
+  return text.trim().length === 0 ? [] : [{ label: item.kind === "tool-call" ? "кратко" : "текст", text }];
 }
 
 function tabStatusClass(status: ConversationOutlineSubagentStatus): string {
@@ -110,7 +110,7 @@ function OutlineItemRow({ item, expanded, idPrefix, onToggle }: { item: Conversa
       <span aria-hidden="true" className="sand-outline-item__chevron" style={{ transform: expanded ? "rotate(45deg)" : "rotate(-45deg)" }} />
     </button>
     {expanded ? <div className="sand-outline-item__detail" id={detailId}>
-      {details.length === 0 ? <span>No additional details.</span> : details.map((detail) => <div className="sand-outline-item__detail-section" key={detail.label ?? "text"}>
+      {details.length === 0 ? <span>Дополнительных подробностей нет.</span> : details.map((detail) => <div className="sand-outline-item__detail-section" key={detail.label ?? "text"}>
         {detail.label == null ? null : <span className="sand-outline-item__detail-label">{detail.label}</span>}
         <pre className="sand-outline-item__detail-text">{detail.text}</pre>
       </div>)}
@@ -146,7 +146,7 @@ export function ConversationOutlinePanel({ agentId, agentName, provider, subagen
   const [selectedId, setSelectedId] = useState(agentId);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const listRef = useRef<HTMLDivElement | null>(null);
-  const tabs = useMemo<readonly OutlineTab[]>(() => [{ id: agentId, label: agentName != null && agentName.length > 0 ? agentName : "Conversation" }, ...subagents.map((subagent) => ({ id: subagent.subagentId, label: tabLabel(subagent), status: subagent.status }))], [agentId, agentName, subagents]);
+  const tabs = useMemo<readonly OutlineTab[]>(() => [{ id: agentId, label: agentName != null && agentName.length > 0 ? agentName : "Диалог" }, ...subagents.map((subagent) => ({ id: subagent.subagentId, label: tabLabel(subagent), status: subagent.status }))], [agentId, agentName, subagents]);
   const validSelectedId = tabs.some((tab) => tab.id === selectedId) ? selectedId : agentId;
   const selectedSubagent = subagents.find((subagent) => subagent.subagentId === validSelectedId);
   const snapshotHandle = useMemo(() => provider.snapshotsFor(validSelectedId), [provider, validSelectedId]);
@@ -176,7 +176,7 @@ export function ConversationOutlinePanel({ agentId, agentName, provider, subagen
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [snapshot.items.length, validSelectedId]);
 
-  const title = `Full conversation: ${agentName != null && agentName.length > 0 ? agentName : "Conversation"}`;
+  const title = `Весь диалог: ${agentName != null && agentName.length > 0 ? agentName : "Диалог"}`;
   const panelTitleId = "sand-outline-panel-title";
   const panelId = "sand-outline-panel-tabs";
   const listIdPrefix = "sand-outline";
@@ -184,14 +184,14 @@ export function ConversationOutlinePanel({ agentId, agentName, provider, subagen
     <header className="sand-outline-panel__header" onPointerDown={onHeaderPointerDown}>
       <div className="sand-outline-panel__title">
         <SandIcon name="list-bullets" size="sm" />
-        <div className="sand-outline-panel__title-text"><span id={panelTitleId}>Full conversation</span><span>{agentName != null && agentName.length > 0 ? agentName : "Conversation"}</span></div>
+        <div className="sand-outline-panel__title-text"><span id={panelTitleId}>Весь диалог</span><span>{agentName != null && agentName.length > 0 ? agentName : "Диалог"}</span></div>
       </div>
-      <SandIconButton aria-label="Close full conversation" icon="close" onClick={onClose} shape="circle" size="sm" type="button" variant="ghost" />
+      <SandIconButton aria-label="Закрыть весь диалог" icon="close" onClick={onClose} shape="circle" size="sm" type="button" variant="ghost" />
     </header>
     <OutlineTabs panelId={panelId} selectedId={validSelectedId} tabs={tabs} onSelect={(id) => { setSelectedId(id); setExpanded(new Set()); }} />
     <div aria-labelledby={panelTitleId} aria-busy={snapshot.status === "loading" || undefined} className="sand-outline-panel__list" id={panelId} ref={listRef} role={tabs.length > 1 ? "tabpanel" : undefined}>
       <div aria-labelledby={panelTitleId} role="list">
-        {snapshot.items.length === 0 ? <div className="sand-outline-empty">No conversation activity yet.</div> : snapshot.items.map((item) => <OutlineItemRow expanded={expanded.has(item.id)} idPrefix={listIdPrefix} item={item} key={item.id} onToggle={(id) => setExpanded((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; })} />)}
+        {snapshot.items.length === 0 ? <div className="sand-outline-empty">В диалоге пока ничего не было.</div> : snapshot.items.map((item) => <OutlineItemRow expanded={expanded.has(item.id)} idPrefix={listIdPrefix} item={item} key={item.id} onToggle={(id) => setExpanded((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; })} />)}
       </div>
     </div>
   </aside>;

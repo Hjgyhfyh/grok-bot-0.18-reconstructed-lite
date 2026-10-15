@@ -151,37 +151,37 @@ export interface TriggerSentence {
 }
 
 export const GITHUB_EVENT_LABELS: Readonly<Record<GithubEvent, string>> = {
-  "pr-opened": "a PR opens",
-  "pr-pushed": "a PR is updated",
-  "pr-merged": "a PR merges",
-  "review-requested": "a review is requested",
-  "review-approved": "a review approves a PR",
-  "review-changes-requested": "a review requests changes",
-  "review-commented": "a review comments on a PR",
-  "pr-comment": "a PR comment lands",
-  "inline-review-comment": "an inline review comment lands",
-  "review-thread-resolved": "a review thread is resolved",
-  "review-thread-unresolved": "a review thread is reopened",
-  "issue-assigned": "an issue is assigned",
-  "ci-passed": "CI passes",
-  "ci-failed": "CI fails"
+  "pr-opened": "открыт запрос на слияние",
+  "pr-pushed": "обновлён запрос на слияние",
+  "pr-merged": "запрос на слияние слит",
+  "review-requested": "запрошена проверка",
+  "review-approved": "проверка одобрила запрос",
+  "review-changes-requested": "проверка просит правок",
+  "review-commented": "проверка оставила комментарий",
+  "pr-comment": "появился комментарий к запросу",
+  "inline-review-comment": "появился комментарий в проверке",
+  "review-thread-resolved": "обсуждение проверки закрыто",
+  "review-thread-unresolved": "обсуждение проверки открыто снова",
+  "issue-assigned": "назначена задача",
+  "ci-passed": "проверки CI пройдены",
+  "ci-failed": "проверки CI упали"
 };
 
 const SENTRY_EVENT_LABELS: Readonly<Record<SentryEvent, string>> = {
-  issueCreated: "created",
-  issueResolved: "resolved",
-  issueAssigned: "assigned",
-  issueArchived: "archived",
-  issueUnresolved: "unresolved",
-  issueAny: "any event"
+  issueCreated: "создана",
+  issueResolved: "решена",
+  issueAssigned: "назначена",
+  issueArchived: "архивирована",
+  issueUnresolved: "не решена",
+  issueAny: "любое событие"
 };
 
 const PAGERDUTY_EVENT_LABELS: Readonly<Record<PagerDutyEvent, string>> = {
-  incidentTriggered: "triggered",
-  incidentAcknowledged: "acknowledged",
-  incidentResolved: "resolved",
-  incidentEscalated: "escalated",
-  incidentAny: "any event"
+  incidentTriggered: "открыт",
+  incidentAcknowledged: "принят",
+  incidentResolved: "решён",
+  incidentEscalated: "передан выше",
+  incidentAny: "любое событие"
 };
 
 function isSentryEvent(value: unknown): value is SentryEvent {
@@ -199,8 +199,8 @@ const INVALID_BRANCH = /[\s~^:?*[\\]|^[-/]|\/$|\.\.|@\{/;
 
 function list(values: readonly string[]): string {
   if (values.length <= 1) return values[0] ?? "";
-  if (values.length === 2) return `${values[0]} or ${values[1]}`;
-  return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
+  if (values.length === 2) return `${values[0]} или ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")} или ${values.at(-1)}`;
 }
 
 function tokens(value: string): string[] {
@@ -227,6 +227,17 @@ function allowlist(value: string): string[] {
   return result;
 }
 
+const WEEKDAY_NAMES = ["воскресенье", "понедельник", "вторник", "среду", "четверг", "пятницу", "субботу"] as const;
+
+/** Русские окончания для числа: 1 минута, 2 минуты, 5 минут. */
+function minuteWord(count: number): string {
+  const mod100 = Math.abs(count) % 100, mod10 = mod100 % 10;
+  return mod100 >= 11 && mod100 <= 14 ? "минут"
+    : mod10 === 1 ? "минуту"
+    : mod10 >= 2 && mod10 <= 4 ? "минуты"
+    : "минут";
+}
+
 function sentenceForSchedule(schedule: string): TriggerSentence {
   const normalized = schedule.trim();
   if (normalized.length === 0) return { lead: "Cron", rest: FLAKE };
@@ -235,58 +246,53 @@ function sentenceForSchedule(schedule: string): TriggerSentence {
     const separator = normalized.indexOf(" ");
     return separator < 0 ? { lead: "Cron", rest: normalized } : { lead: normalized.slice(0, separator), rest: normalized.slice(separator + 1) };
   }
-  const time = (hour: number, minute: number): string => `${hour % 12 === 0 ? 12 : hour % 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
-  const ordinal = (day: number): string => {
-    let suffix = "th";
-    if (day % 100 < 11 || day % 100 > 13) suffix = day % 10 === 1 ? "st" : day % 10 === 2 ? "nd" : day % 10 === 3 ? "rd" : "th";
-    return `${day}${suffix}`;
-  };
+  const time = (hour: number, minute: number): string => `${hour % 12 === 0 ? 12 : hour % 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "утра" : "вечера"}`;
   switch (parsed.mode) {
-    case "hourly": return { lead: "Every", rest: parsed.minute === 0 ? "hour" : `hour at :${String(parsed.minute).padStart(2, "0")}` };
-    case "daily": return { lead: "Every", rest: `day at ${time(parsed.time.hour, parsed.time.minute)}` };
-    case "weekdays": return { lead: "On", rest: `weekdays at ${time(parsed.time.hour, parsed.time.minute)}` };
-    case "weekly": return { lead: "Every", rest: `${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][parsed.dayOfWeek] ?? String(parsed.dayOfWeek)} at ${time(parsed.time.hour, parsed.time.minute)}` };
-    case "monthly": return { lead: "Monthly", rest: `on the ${ordinal(parsed.dayOfMonth)} at ${time(parsed.time.hour, parsed.time.minute)}` };
-    case "interval": return { lead: "Every", rest: `${parsed.amount} ${parsed.unit.replace(/s$/, "")}${parsed.amount === 1 ? "" : "s"}` };
+    case "hourly": return { lead: "Каждый", rest: parsed.minute === 0 ? "час" : `час в ${String(parsed.minute).padStart(2, "0")} минут` };
+    case "daily": return { lead: "Каждый", rest: `день в ${time(parsed.time.hour, parsed.time.minute)}` };
+    case "weekdays": return { lead: "По", rest: `будням в ${time(parsed.time.hour, parsed.time.minute)}` };
+    case "weekly": return { lead: "Каждый", rest: `${WEEKDAY_NAMES[parsed.dayOfWeek] ?? String(parsed.dayOfWeek)} в ${time(parsed.time.hour, parsed.time.minute)}` };
+    case "monthly": return { lead: "Каждый месяц", rest: `${parsed.dayOfMonth}-го в ${time(parsed.time.hour, parsed.time.minute)}` };
+    case "interval": return { lead: "Каждые", rest: `${parsed.amount} ${parsed.unit === "hours" ? (parsed.amount === 1 ? "час" : minuteWord(parsed.amount) === "минут" ? "часов" : "часа") : minuteWord(parsed.amount)}` };
     case "advanced": return { lead: "Cron", rest: normalized };
   }
 }
 
 function slackSentence(trigger: SlackListener): TriggerSentence {
   const channel = trigger.channel.trim();
-  const location = channel.length === 0 ? `in ${FLAKE}` : channel === "*" ? "anywhere on Slack" : `in ${channel}`;
+  const location = channel.length === 0 ? `в ${FLAKE}` : channel === "*" ? "везде в Slack" : `в ${channel}`;
   switch (trigger.match.kind) {
-    case "message": return { lead: "New", rest: `messages ${location}` };
-    case "keyword": return { lead: "New", rest: `messages containing ${trigger.match.keyword?.trim() ? `"${trigger.match.keyword.trim()}"` : FLAKE} ${location}` };
-    case "mention": return { lead: "When", rest: `@mentioned ${location}` };
+    case "message": return { lead: "Новые", rest: `сообщения ${location}` };
+    case "keyword": return { lead: "Новые", rest: `сообщения со словом ${trigger.match.keyword?.trim() ? `«${trigger.match.keyword.trim()}»` : FLAKE} ${location}` };
+    case "mention": return { lead: "Когда", rest: `упомянут ${location}` };
     case "reaction": {
       const names = (trigger.match.emoji ?? []).map((item) => `:${item}:`);
-      return { lead: "Reaction", rest: `${names.length > 0 ? `${list(names)} added` : "added"}${trigger.match.bySelf ? " by me" : ""} ${location}` };
+      return { lead: "Реакция", rest: `${names.length > 0 ? `${list(names)} добавлена` : "добавлена"}${trigger.match.bySelf ? " мной" : ""} ${location}` };
     }
   }
 }
 
 function githubSentence(trigger: GithubListener): TriggerSentence {
   const branch = trigger.ciBranch?.trim() ?? "";
-  const events = trigger.events.map((event) => event === "ci-passed" || event === "ci-failed" ? `${GITHUB_EVENT_LABELS[event]}${branch.length > 0 ? ` on ${branch}` : ""}` : GITHUB_EVENT_LABELS[event]);
-  return { lead: "When", rest: `${events.length > 0 ? list(events) : FLAKE} in ${trigger.repo.trim().length > 0 ? trigger.repo.trim() : FLAKE}` };
+  const events = trigger.events.map((event) => event === "ci-passed" || event === "ci-failed" ? `${GITHUB_EVENT_LABELS[event]}${branch.length > 0 ? ` в ветке ${branch}` : ""}` : GITHUB_EVENT_LABELS[event]);
+  return { lead: "Когда", rest: `${events.length > 0 ? list(events) : FLAKE} в ${trigger.repo.trim().length > 0 ? trigger.repo.trim() : FLAKE}` };
 }
 
 function teamsSentence(trigger: TeamsListener): TriggerSentence {
   const team = list(tokens(trigger.teamIds.join(" ")));
   const channels = list(tokens(trigger.channelIds.join(" ")));
   const contains = trigger.messageContains.trim();
-  const tenant = trigger.tenantId.trim().length > 0 ? "" : ` (tenant ${FLAKE})`;
-  return { lead: "New", rest: `messages${contains ? ` containing "${contains}"` : ""} in ${team || FLAKE}${channels ? ` (in ${channels})` : ""}${tenant}` };
+  const tenant = trigger.tenantId.trim().length > 0 ? "" : ` (организация ${FLAKE})`;
+  return { lead: "Новые", rest: `сообщения${contains ? ` со словом «${contains}»` : ""} в ${team || FLAKE}${channels ? ` (в ${channels})` : ""}${tenant}` };
 }
 
 function linearSentence(trigger: LinearListener): TriggerSentence {
   const teams = list(trigger.teamIds);
-  const suffix = teams ? ` for ${teams}` : "";
+  const suffix = teams ? ` для ${teams}` : "";
   switch (trigger.event.case) {
-    case "issueCreated": return { lead: "Issue", rest: `created in ${list(trigger.projectIds) || "all projects"}${suffix}` };
-    case "statusChanged": return { lead: "Issue", rest: `status → ${list(trigger.event.statusIds) || "any status"} in ${list(trigger.projectIds) || "all projects"}${suffix}` };
-    case "endOfCycle": return { lead: "At", rest: `end of cycle for ${teams || "all teams"}` };
+    case "issueCreated": return { lead: "Задача", rest: `создана в ${list(trigger.projectIds) || "всех проектах"}${suffix}` };
+    case "statusChanged": return { lead: "Задача", rest: `статус → ${list(trigger.event.statusIds) || "любой статус"} в ${list(trigger.projectIds) || "всех проектах"}${suffix}` };
+    case "endOfCycle": return { lead: "В конце цикла", rest: `для ${teams || "всех команд"}` };
   }
 }
 
@@ -427,8 +433,8 @@ export function describeRoutineListener(listener: RoutineListener): TriggerSente
     case "github": return githubSentence(listener);
     case "microsoftTeams": return teamsSentence(listener);
     case "linear": return linearSentence(listener);
-    case "sentry": return { lead: "Issue", rest: `${SENTRY_EVENT_LABELS[listener.event.case]} in ${list(listener.projectIds) || "all projects"}` };
-    case "pagerduty": return { lead: "Incident", rest: `${PAGERDUTY_EVENT_LABELS[listener.event.case]} on ${list(listener.serviceIds) || "all services"}` };
+    case "sentry": return { lead: "Задача", rest: `${SENTRY_EVENT_LABELS[listener.event.case]} в ${list(listener.projectIds) || "всех проектах"}` };
+    case "pagerduty": return { lead: "Инцидент", rest: `${PAGERDUTY_EVENT_LABELS[listener.event.case]} для ${list(listener.serviceIds) || "всех служб"}` };
   }
 }
 

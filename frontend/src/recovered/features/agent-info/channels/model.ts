@@ -131,10 +131,10 @@ export function agentInfoChannelRowStatus(
 
 export function agentInfoChannelStatusLabel(status: AgentInfoChannelRowStatus): string | null {
   switch (status.kind) {
-    case "coming-soon": return "Soon";
-    case "connected": return "Connected";
-    case "error": return "Needs attention";
-    case "connecting": return "Connecting";
+    case "coming-soon": return "Скоро";
+    case "connected": return "Подключено";
+    case "error": return "Нужна помощь";
+    case "connecting": return "Подключение";
     case "available": return null;
   }
 }
@@ -144,8 +144,8 @@ export function agentInfoChannelStatusDetail(
   manifest: Pick<AgentInfoChannelManifest, "blurb">,
   connection?: Pick<AgentInfoChannelConnection, "label" | "detail">
 ): string {
-  if (status.kind === "connected" && connection != null) return `Connected as ${connection.label}`;
-  if (status.kind === "error") return connection?.detail ?? "The platform rejected this connection.";
+  if (status.kind === "connected" && connection != null) return `Подключено как ${connection.label}`;
+  if (status.kind === "error") return connection?.detail ?? "Мессенджер отклонил это подключение.";
   return manifest.blurb;
 }
 
@@ -217,7 +217,7 @@ export function createAgentInfoChannelsController(
     publish({ ...snapshot, agentId: currentAgentId, status: "loading", error: null, pending: [...pending] });
     try {
       const view = projectAgentInfoChannelsView(await source.getAgentChannels({ id: currentAgentId }));
-      if (view == null) throw new Error("Malformed Agent-info Channels reply");
+      if (view == null) throw new Error("Ответ со списком подключений неверный");
       if (!setView(view, generation, request)) return null;
       return view;
     } catch (error) {
@@ -241,7 +241,7 @@ export function createAgentInfoChannelsController(
           ? await source.disconnectChannel({ id: currentAgentId, platform })
           : await source.refreshChannel({ id: currentAgentId, platform });
       const view = projectAgentInfoChannelsView(raw);
-      if (view == null) throw new Error("Malformed Agent-info Channels reply");
+      if (view == null) throw new Error("Ответ со списком подключений неверный");
       return setView(view, generation, request);
     } catch (error) {
       if (current(generation, request)) publish({ ...snapshot, status: "failed", error, pending: [...pending] });
