@@ -5,7 +5,6 @@ import type { SandModelExperimentState } from "../../../shared/node/experiments/
 import { SandSettingsStore } from "../../../shared/node/settings/sand-settings-store.js";
 import { createCursorSandInference } from "./cursor-session.js";
 import type { SandInferenceProvider } from "../../../shared/inference-router.js";
-import type { PromptExecutor } from "./sand-labeling.js";
 import { createProviderPromptSession } from "./provider-session.js";
 import { getSandRootDir } from "../../host-paths.js";
 export interface HostInferenceOptions {
@@ -28,42 +27,20 @@ export function createHostInference(options: HostInferenceOptions) {
     getConfiguredDefaultModel: () => experiments.getConfiguredDefaultModel(),
     getConfiguredAutomationsModel: () => experiments.getConfiguredAutomationsModel()
   });
-  const wrapExecutor = (executor: PromptExecutor, provider: SandInferenceProvider): PromptExecutor => ({
-    appendMessages(messages) { executor.appendMessages(messages); return this; },
-    getState: () => executor.getState(),
-    getMessages: () => executor.getMessages(),
-    clearMessages: () => executor.clearMessages(),
-    stream(...args: readonly unknown[]) {
-      const result = executor.stream(...args) as Record<string, any>;
-      const extendedUsage = result?.extendedUsage as PromiseLike<Record<string, unknown>> | undefined;
-      if (extendedUsage != null && typeof extendedUsage.then === "function") {
-        void Promise.resolve(extendedUsage).then((usage: Record<string, unknown>) => {
-          options.settings.recordInferenceUsage(provider, {
-            ...(typeof usage.inputTokens === "number" ? { inputTokens: usage.inputTokens } : {}),
-            ...(typeof usage.outputTokens === "number" ? { outputTokens: usage.outputTokens } : {}),
-            ...(typeof usage.cacheReadTokens === "number" ? { cacheReadTokens: usage.cacheReadTokens } : {}),
-            ...(typeof usage.cacheWriteTokens === "number" ? { cacheWriteTokens: usage.cacheWriteTokens } : {}),
-          });
-        }).catch(() => {});
-      }
-      return result;
-    },
-  });
-  const routedSession = (session: ReturnType<typeof cursor.createSession>, provider: SandInferenceProvider) => ({
-    getModelId: () => session.getModelId(),
-    getExecutor: (state?: unknown) => wrapExecutor(session.getExecutor(state) as unknown as PromptExecutor, provider),
-  });
+  // DeepSeek is the only provider, so both sessions come from the same factory. The usage
+  // ledger is written by that factory's own executor, so nothing here records a second time.
+  void routerSettings;
   return {
     ...cursor,
     createSession(onRequestId: (requestId: string) => void, sessionOptions?: Parameters<typeof cursor.createSession>[1]) {
-      const provider = routerSettings.getInferenceProvider();
-      if (provider === "cursor") return routedSession(cursor.createSession(onRequestId, sessionOptions), provider);
-      return createProviderPromptSession(provider) as ReturnType<typeof cursor.createSession>;
+      void onRequestId;
+      void sessionOptions;
+      return createProviderPromptSession() as ReturnType<typeof cursor.createSession>;
     },
     createSummarizationSession(onRequestId: (requestId: string) => void, sessionOptions?: Parameters<NonNullable<typeof cursor.createSummarizationSession>>[1]) {
-      const provider = routerSettings.getInferenceProvider();
-      if (provider === "cursor") return routedSession(cursor.createSession(onRequestId, { ...(sessionOptions ?? {}), isSummarizationSession: true }), provider) as ReturnType<NonNullable<typeof cursor.createSummarizationSession>>;
-      return createProviderPromptSession(provider) as ReturnType<NonNullable<typeof cursor.createSummarizationSession>>;
+      void onRequestId;
+      void sessionOptions;
+      return createProviderPromptSession() as ReturnType<NonNullable<typeof cursor.createSummarizationSession>>;
     },
   };
 }
